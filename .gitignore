@@ -1,0 +1,17 @@
+node_modules
+dist
+.tools
+.env
+.env.local
+npm-debug.log*
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+*.zip
+hostinger-backup/
+hostinger-deploy/
+.claude/
+projectra-database.sql
+projectra-analysis-*.zip
+

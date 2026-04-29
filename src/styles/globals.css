@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --color-primary:  #EAB308;
+    --color-dark:     #1E1E20;
+    --color-surface:  #27272A;
+    --color-muted:    #313136;
+    --color-teal:     #008C89;
+    --color-danger:   #E24B4A;
+    --color-warning:  #F5A524;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #3F3F46 transparent;
+  }
+
+  body {
+    @apply min-h-screen bg-background bg-hero-grid text-foreground antialiased;
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    background-color: #1E1E20;
+  }
+
+  html::-webkit-scrollbar { width: 6px; }
+  html::-webkit-scrollbar-track { background: transparent; }
+  html::-webkit-scrollbar-thumb { background: #3F3F46; border-radius: 9999px; }
+  html::-webkit-scrollbar-thumb:hover { background: #52525B; }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: rgba(30, 30, 32, 0.90);
+    @apply border border-white/[0.07] backdrop-blur-xl;
+  }
+
+  .glass-card {
+    background: rgba(39, 39, 42, 0.88);
+    @apply border border-white/[0.06] backdrop-blur-md shadow-card;
+  }
+
+  .dashboard-shell {
+    @apply mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 pb-10 pt-4 sm:px-6 lg:px-8;
+  }
+
+  .chip-scroll {
+    scrollbar-width: none;
+  }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+  .card-grid {
+    @apply grid gap-4;
+  }
+  .card-grid > * {
+    min-width: 0;
+    width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .card-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+    }
+    .card-grid > * { height: 100%; }
+  }
+
+  /* Priority accent stripes */
+  .accent-critical { @apply border-l-[3px] border-l-danger; }
+  .accent-high     { @apply border-l-[3px] border-l-warning; }
+  .accent-medium   { @apply border-l-[3px] border-l-secondary/60; }
+  .accent-low      { @apply border-l-[3px] border-l-[#3F3F46]; }
+}
