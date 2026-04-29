@@ -34,6 +34,7 @@ export default function App(): JSX.Element {
     }
   });
   const [showLogin, setShowLogin] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<UserItem[]>(usersSeed);
   const [projects, setProjects] = useState<ProjectItem[]>(projectsSeed);
@@ -1193,6 +1194,10 @@ export default function App(): JSX.Element {
     setToastMessage("Proyecto eliminado");
   };
 
+  if (showSplash) {
+    return <SplashScreen onDone={() => setShowSplash(false)} />;
+  }
+
   if (isLoggedOut) {
     return (
       <LoginView
@@ -1417,6 +1422,32 @@ function getProjectSequence(project: ProjectItem): string {
   return sequence.padStart(4, "0");
 }
 
+function SplashScreen({ onDone }: { onDone: () => void }): JSX.Element {
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setFading(true), 1600);
+    const doneTimer = setTimeout(onDone, 2100);
+    return () => { clearTimeout(fadeTimer); clearTimeout(doneTimer); };
+  }, [onDone]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black transition-opacity duration-500"
+      style={{ opacity: fading ? 0 : 1 }}
+    >
+      <div className="flex w-full justify-center px-8 select-none">
+        <img
+          src="/amper-logo.jpeg"
+          alt="AMPER"
+          className="w-[min(78vw,920px)] max-w-full object-contain"
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 function LoginView({
   signedInAccounts,
   onLogin,
@@ -1453,10 +1484,12 @@ function LoginView({
       <div className="w-full max-w-5xl overflow-hidden rounded-[32px] border border-[#3F3F46] bg-[#27272A] shadow-panel">
         <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
           <div className="bg-[#1E1E20] p-8">
-            <div className="inline-flex flex-col rounded-2xl border border-accent/20 bg-[#27272A] px-5 py-4 shadow-glow-gold">
-              <span className="text-[10px] font-black tracking-[0.32em] text-accent">ENERMAN</span>
-              <span className="text-xl font-bold leading-tight text-white">Projectra</span>
-            </div>
+            <img
+              src="/amper-logo.jpeg"
+              alt="AMPER"
+              className="h-20 w-44 rounded-2xl border border-accent/30 bg-black object-contain p-2 shadow-glow-gold"
+              draggable={false}
+            />
             <h1 className="mt-8 text-3xl font-bold tracking-tight text-white">Iniciar sesion</h1>
             <p className="mt-3 text-sm leading-6 text-[#A1A1AA]">
               Accede con correo y contrasena. Puedes mantener varias cuentas abiertas en este navegador y cambiar entre ellas desde el menu superior.

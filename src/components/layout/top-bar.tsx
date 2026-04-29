@@ -82,10 +82,12 @@ export function TopBar({
       <div className="flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-4">
-          <div className="flex flex-col rounded-2xl border border-accent/20 bg-[#1E1E20] px-4 py-2.5 shadow-glow-gold">
-            <span className="text-[9px] font-black tracking-[0.32em] text-accent">ENERMAN</span>
-            <span className="text-[15px] font-bold leading-tight tracking-tight text-white">Projectra</span>
-          </div>
+          <img
+            src="/amper-logo.jpeg"
+            alt="AMPER"
+            className="h-16 w-36 rounded-xl border border-accent/50 bg-black object-contain p-1.5 shadow-glow-gold"
+            draggable={false}
+          />
           <div className="hidden lg:block">
             <p className="text-xs font-medium leading-relaxed text-[#888888]">
               Gestión centralizada de proyectos, pagos y solicitudes eléctricas
@@ -199,7 +201,7 @@ export function TopBar({
             <Input
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Buscar en Projectra"
+              placeholder="Buscar en AMPER"
               className="pl-11"
             />
           </div>
