@@ -20,7 +20,7 @@ const config: Config = {
           foreground: "#FFFFFF",
         },
         accent: {
-          DEFAULT: "#EAB308",
+          DEFAULT: "#F5A623",
           foreground: "#111111",
         },
         success: "#2DBE7A",
@@ -32,7 +32,7 @@ const config: Config = {
         },
         card: "#27272A",
         enerman: {
-          gold:    "#EAB308",
+          gold:    "#F5A623",
           dark:    "#1E1E20",
           "dark-2":"#27272A",
           "dark-3":"#313136",
@@ -47,7 +47,7 @@ const config: Config = {
         card:        "0 1px 3px rgba(0, 0, 0, 0.40), 0 8px 24px -8px rgba(0, 0, 0, 0.50)",
         "card-hover":"0 4px 16px rgba(0, 0, 0, 0.50), 0 20px 44px -8px rgba(0, 0, 0, 0.70)",
         "glow-sm":   "0 0 0 3px rgba(0, 140, 137, 0.30)",
-        "glow-gold": "0 0 16px rgba(234, 179, 8, 0.40), 0 0 0 3px rgba(234, 179, 8, 0.20)",
+        "glow-gold": "0 0 16px rgba(245, 166, 35, 0.40), 0 0 0 3px rgba(245, 166, 35, 0.20)",
         "glow-danger":"0 0 0 3px rgba(226, 75, 74, 0.30)",
       },
       borderRadius: {

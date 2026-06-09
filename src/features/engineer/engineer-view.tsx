@@ -1,108 +1,89 @@
-import { ArrowUpRight, Bell, FolderPlus, Plus } from "lucide-react";
+import { ArrowUpRight, Pencil, Plus } from "lucide-react";
+import { useState } from "react";
 import { SectionTitle } from "@/components/layout/section-title";
 import { Tabs } from "@/components/ui/tabs";
 import { ProjectCard } from "@/components/cards/project-card";
-import { RequestCard } from "@/components/cards/request-card";
-import { Card } from "@/components/ui/card";
 import { ProjectCalendar } from "@/components/common/project-calendar";
-import { NotificationItem, ProjectItem, RequestItem } from "@/types";
+import { StatusBadge } from "@/components/common/status-badge";
+import { CorrectionRequestDialog } from "@/components/dialogs/correction-request-dialog";
+import { ProjectItem, RequestItem } from "@/types";
 
-type EngineerTab = "projects" | "requests" | "notifications" | "calendar";
-type EngineerProjectFilter = "all" | "en-programacion" | "en-concurso" | "in-progress" | "unpaid";
-type EngineerRequestFilter = "all" | "under-review" | "approved" | "rejected";
+export type EngineerTab = "all" | "active" | "completed" | "requests" | "correction" | "calendar";
+
+const CLOSED_STATUSES = ["completed", "cancelled", "no-autorizado", "cierre-por-sistema"];
+
+const REQUEST_STATUS_LABELS: Record<string, string> = {
+  "under-review": "En revisión por admin",
+  "needs-correction": "Requiere corrección",
+  "rejected": "No autorizada",
+  "approved": "Aprobada — proyecto creado",
+};
 
 interface EngineerViewProps {
   tab: EngineerTab;
   onTabChange: (tab: EngineerTab) => void;
   activeUserName: string;
-  projectFilter: EngineerProjectFilter;
-  onProjectFilterChange: (filter: EngineerProjectFilter) => void;
-  requestFilter: EngineerRequestFilter;
-  onRequestFilterChange: (filter: EngineerRequestFilter) => void;
   projects: ProjectItem[];
-  calendarProjects: ProjectItem[];
   requests: RequestItem[];
-  notifications: NotificationItem[];
   onOpenProject: (projectId: string) => void;
-  onOpenRequest: (requestId: string) => void;
-  onOpenNewProject: () => void;
   onOpenNewRequest: () => void;
-  onMarkRead: (notificationId: string) => void;
+  onDeleteImportantDate?: (projectId: string, dateId: string) => void;
+  onResubmitRequest: (
+    requestId: string,
+    fields: Pick<RequestItem, "baseName" | "client" | "department" | "lugar" | "type" | "description" | "structuredName">,
+  ) => Promise<void>;
 }
 
 export function EngineerView({
   tab,
   onTabChange,
   activeUserName,
-  projectFilter,
-  onProjectFilterChange,
-  requestFilter,
-  onRequestFilterChange,
   projects,
-  calendarProjects,
   requests,
-  notifications,
   onOpenProject,
-  onOpenRequest,
-  onOpenNewProject,
   onOpenNewRequest,
-  onMarkRead,
+  onDeleteImportantDate,
+  onResubmitRequest,
 }: EngineerViewProps): JSX.Element {
-  const projectFilterOptions = [
-    { key: "all" as const, label: "Todos", count: projects.length },
-    {
-      key: "en-programacion" as const,
-      label: "En programación",
-      count: projects.filter((project) => project.status === "en-programacion").length,
-    },
-    {
-      key: "en-concurso" as const,
-      label: "En concurso",
-      count: projects.filter((project) => project.status === "en-concurso").length,
-    },
-    {
-      key: "in-progress" as const,
-      label: "En proceso",
-      count: projects.filter((project) => project.status === "in-progress").length,
-    },
-    {
-      key: "unpaid" as const,
-      label: "No pagados",
-      count: projects.filter((project) => project.paymentStatus === "unpaid").length,
-    },
+  const [correctionDialogReq, setCorrectionDialogReq] = useState<RequestItem | null>(null);
+
+  const byNewest = (a: ProjectItem, b: ProjectItem) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+  const sortedProjects = [...projects].sort(byNewest);
+  const activeProjects = sortedProjects.filter((p) => !CLOSED_STATUSES.includes(p.status));
+  const completedProjects = sortedProjects.filter((p) => CLOSED_STATUSES.includes(p.status));
+
+  const sortedRequests = [...requests]
+    .filter((r) => r.status !== "needs-correction")
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const correctionRequests = [...requests]
+    .filter((r) => r.status === "needs-correction")
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const calendarEventCount = projects.reduce(
+    (n, p) =>
+      n +
+      (p.endDate ? 1 : 0) +
+      (p.commitmentDate ? 1 : 0) +
+      (p.startDate ? 1 : 0) +
+      (p.fechaSolicitud ? 1 : 0) +
+      (p.importantDates?.length ?? 0),
+    0,
+  );
+
+  const tabOptions = [
+    { key: "all" as const, label: "Mis proyectos", count: sortedProjects.length },
+    { key: "active" as const, label: "Proyecto activo", count: activeProjects.length },
+    { key: "completed" as const, label: "Proyecto terminado", count: completedProjects.length },
+    { key: "requests" as const, label: "Solicitudes", count: sortedRequests.length },
+    { key: "correction" as const, label: "En corrección", count: correctionRequests.length },
+    { key: "calendar" as const, label: "Calendario", count: calendarEventCount },
   ];
 
-  const filteredProjects =
-    projectFilter === "all"
-      ? projects
-      : projects.filter((project) => {
-          if (projectFilter === "en-programacion") return project.status === "en-programacion";
-          if (projectFilter === "en-concurso") return project.status === "en-concurso";
-          if (projectFilter === "in-progress") return project.status === "in-progress";
-          return project.paymentStatus === "unpaid";
-        });
-
-  const filteredRequests =
-    requestFilter === "all" ? requests : requests.filter((request) => request.status === requestFilter);
-
-  const requestFilterOptions = [
-    { key: "all" as const, label: "Todas", count: requests.length },
-    {
-      key: "under-review" as const,
-      label: "En revisión",
-      count: requests.filter((request) => request.status === "under-review").length,
-    },
-    {
-      key: "approved" as const,
-      label: "Aprobadas",
-      count: requests.filter((request) => request.status === "approved").length,
-    },
-    {
-      key: "rejected" as const,
-      label: "Rechazadas",
-      count: requests.filter((request) => request.status === "rejected").length,
-    },
-  ];
+  const displayed =
+    tab === "all" ? sortedProjects : tab === "active" ? activeProjects : completedProjects;
 
   return (
     <section className="space-y-6">
@@ -111,112 +92,161 @@ export function EngineerView({
         title="Centro de operación del ingeniero"
       />
 
-      <Tabs
-        value={tab}
-        onValueChange={onTabChange}
-        options={[
-          { key: "projects", label: "Mis proyectos", count: projects.length },
-          { key: "requests", label: "Solicitudes", count: requests.length },
-          { key: "notifications", label: "Notificaciones", count: notifications.length },
-          {
-            key: "calendar",
-            label: "Calendario",
-            count: calendarProjects.reduce(
-              (total, project) => total + (project.commitmentDate ? 1 : 0) + (project.importantDates?.length ?? 0),
-              0,
-            ),
-          },
-        ]}
-      />
+      <Tabs value={tab} onValueChange={onTabChange} options={tabOptions} />
 
-      {tab === "projects" ? (
-        <div className="space-y-5">
-          <Tabs value={projectFilter} onValueChange={onProjectFilterChange} options={projectFilterOptions} />
-          <div className="space-y-3">
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "requests" ? (
-        <div className="space-y-5">
-          <Tabs value={requestFilter} onValueChange={onRequestFilterChange} options={requestFilterOptions} />
-          <div className="card-grid">
-            {filteredRequests.map((request) => (
-              <RequestCard key={request.id} request={request} onOpen={onOpenRequest} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "notifications" ? (
-        <div className="card-grid">
-          {notifications.map((notification) => (
-            <button
-              key={notification.id}
-              type="button"
-              onClick={() => {
-                onMarkRead(notification.id);
-                if (notification.relatedProjectId) {
-                  onOpenProject(notification.relatedProjectId);
-                  return;
-                }
-                if (notification.relatedRequestId) {
-                  onOpenRequest(notification.relatedRequestId);
-                }
-              }}
-              className="h-full w-full text-left"
-            >
-              <Card className="flex h-full flex-col gap-3 transition hover:-translate-y-0.5 hover:border-accent/20 hover:shadow-soft">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-[#3F3F46] p-3 text-accent">
-                    <Bell className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{notification.title}</h3>
-                    <p className="text-sm text-[#888888]">{notification.description}</p>
-                    <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent">
-                      Abrir detalle
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    notification.isRead ? "bg-[#3F3F46] text-[#888888]" : "bg-secondary/15 text-secondary"
-                  }`}
-                >
-                  {notification.isRead ? "Leída" : "Nueva"}
-                </span>
-              </div>
-              </Card>
-            </button>
+      {/* ── Proyectos ── */}
+      {tab !== "requests" && tab !== "correction" && tab !== "calendar" ? (
+        <div className="space-y-3">
+          {displayed.map((project) => (
+            <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
           ))}
+          {displayed.length === 0 && (
+            <p className="py-10 text-center text-sm text-[#888888]">Sin proyectos</p>
+          )}
         </div>
       ) : null}
 
+      {/* ── Calendario ── */}
       {tab === "calendar" ? (
-        <ProjectCalendar projects={calendarProjects} onOpenProject={onOpenProject} showSideList />
+        <ProjectCalendar
+          projects={projects}
+          onOpenProject={onOpenProject}
+          onDeleteImportantDate={onDeleteImportantDate}
+        />
       ) : null}
 
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-2">
-        <button
-          type="button"
-          onClick={onOpenNewProject}
-          className="flex items-center gap-3 rounded-full bg-accent px-5 py-4 text-sm font-bold text-[#111111] shadow-glow-gold transition hover:bg-accent/90"
-        >
-          <FolderPlus className="h-5 w-5" />
-          Nuevo proyecto
-        </button>
+      {/* ── Solicitudes normales ── */}
+      {tab === "requests" ? (
+        <div className="space-y-3">
+          {sortedRequests.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+              <p className="text-sm font-semibold text-[#888888]">No has enviado solicitudes</p>
+              <button
+                type="button"
+                onClick={onOpenNewRequest}
+                className="mt-4 text-xs font-bold text-accent hover:underline"
+              >
+                + Crear primera solicitud
+              </button>
+            </div>
+          ) : (
+            sortedRequests.map((req) => (
+              <div
+                key={req.id}
+                className="rounded-[20px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-2"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge kind="request" value={req.status} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
+                    {req.client} · {req.department}
+                  </span>
+                  <span className="ml-auto text-xs text-[#888888]">
+                    {new Date(req.createdAt).toLocaleDateString("es-MX", {
+                      day: "2-digit", month: "short", year: "numeric",
+                    })}
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
+                <p className="text-xs text-[#888888]">{req.structuredName}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-[#A1A1AA]">
+                    {REQUEST_STATUS_LABELS[req.status] ?? req.status}
+                  </p>
+                  {req.status === "approved" && req.linkedProjectId ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenProject(req.linkedProjectId!)}
+                      className="flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-3 py-1 text-xs font-bold text-accent transition hover:bg-accent/20"
+                    >
+                      Ver proyecto
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                {req.rejectionReason ? (
+                  <div className="rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                    <span className="font-bold text-danger">Motivo: </span>
+                    {req.rejectionReason}
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
+
+      {/* ── Solicitudes en corrección ── */}
+      {tab === "correction" ? (
+        <div className="space-y-3">
+          {correctionRequests.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+              <p className="text-sm font-semibold text-[#888888]">Sin solicitudes en corrección</p>
+            </div>
+          ) : (
+            correctionRequests.map((req) => (
+              <div
+                key={req.id}
+                className="cursor-pointer rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2 transition hover:border-[#0EA5E9]/50 hover:bg-[#0d2535]"
+                onClick={() => setCorrectionDialogReq(req)}
+              >
+                {/* Header */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge kind="request" value={req.status} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
+                    {req.client} · {req.department}
+                  </span>
+                  <span className="ml-auto text-xs text-[#888888]">
+                    {new Date(req.createdAt).toLocaleDateString("es-MX", {
+                      day: "2-digit", month: "short", year: "numeric",
+                    })}
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
+                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+
+                {/* Motivo de corrección */}
+                {req.correctionReason ? (
+                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                    <span className="font-bold text-[#0EA5E9]">Corrección requerida: </span>
+                    {req.correctionReason}
+                  </div>
+                ) : null}
+
+                {/* CTA */}
+                <div className="flex items-center justify-end pt-1">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-[#0EA5E9]">
+                    <Pencil className="h-3.5 w-3.5" />
+                    Abrir y corregir
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
+
+      {/* Diálogo de corrección */}
+      {correctionDialogReq ? (
+        <CorrectionRequestDialog
+          open={correctionDialogReq !== null}
+          onOpenChange={(open) => { if (!open) setCorrectionDialogReq(null); }}
+          request={correctionDialogReq}
+          existingProjects={projects}
+          onResubmit={async (fields) => {
+            await onResubmitRequest(correctionDialogReq.id, fields);
+            setCorrectionDialogReq(null);
+          }}
+        />
+      ) : null}
+
+      {/* FAB */}
+      <div className="fixed bottom-6 right-6 z-30">
         <button
           type="button"
           onClick={onOpenNewRequest}
-          className="flex items-center gap-3 rounded-full border border-[#3F3F46] bg-[#27272A] px-4 py-3 text-sm font-bold text-foreground shadow-panel transition hover:border-accent/35 hover:text-accent"
+          className="flex h-14 items-center gap-2.5 rounded-full bg-accent px-5 text-sm font-bold text-[#111111] shadow-glow-gold transition hover:bg-accent/90"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
           Nueva solicitud
         </button>
       </div>

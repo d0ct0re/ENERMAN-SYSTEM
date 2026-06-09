@@ -47,28 +47,38 @@ export type TipoPago =
 export type PriorityLevel = "low" | "medium" | "high" | "critical";
 
 export type ProjectType =
-  | "EMRG" | "BOMB" | "CANC" | "COMP" | "COMPR" | "ESTU"
-  | "GUAR" | "ILUM" | "INGE" | "INSP" | "INST" | "MNTC"
-  | "MNTP" | "MEDI" | "OBRA" | "REMO" | "RENT" | "TERM";
+  | "INST" | "MTTO" | "MEDI" | "SUMI" | "ADE" | "BOMB" | "NEUM" | "INGE" | "RENT"
+  // Tipos legacy — solo para proyectos existentes, no aparecen en formularios de creación
+  | "EMRG" | "CANC" | "COMP" | "COMPR" | "ESTU"
+  | "GUAR" | "ILUM" | "INSP" | "MNTC"
+  | "MNTP" | "OBRA" | "REMO" | "TERM";
+
+// Tipos disponibles en formularios de creación (los 9 activos)
+export const ACTIVE_PROJECT_TYPES: ProjectType[] = ["INST", "MTTO", "SUMI", "ADE", "MEDI", "BOMB", "NEUM", "INGE", "RENT"];
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
+  INST: "Instalación",
+  MTTO: "Mantenimiento",
+  MEDI: "Medición",
+  SUMI: "Suministro",
+  ADE:  "Adecuación",
+  BOMB: "Bomba",
+  NEUM: "Neumática",
+  INGE: "Ingeniería",
+  RENT: "Renta",
+  // Legacy
   EMRG: "Atención de emergencia",
-  BOMB: "Bombas",
   CANC: "Cancelado",
   COMP: "Comparativa",
   COMPR: "Compresor",
   ESTU: "Estudios especiales",
   GUAR: "Guardias",
   ILUM: "Iluminación",
-  INGE: "Ingeniería",
   INSP: "Inspección termográfica",
-  INST: "Instalación",
   MNTC: "Mantenimiento correctivo",
   MNTP: "Mantenimiento preventivo",
-  MEDI: "Medición",
   OBRA: "Obra civil",
   REMO: "Remodelación",
-  RENT: "Renta",
   TERM: "Termografía",
 };
 
@@ -173,12 +183,17 @@ export interface ProjectHistoryItem {
   author: string;
 }
 
+export type FileCategory = "fotos" | "estimacion" | "cotizacion" | "reporte" | "otros";
+export type FileStatus = "no" | "en-revision" | "si" | "rechazado";
+
 export interface ProjectFileItem {
   id: string;
   name: string;
   sizeLabel: string;
+  sizeBytes?: number;
   uploadedAt: string;
   url?: string;
+  category?: FileCategory;
 }
 
 export interface ProjectImportantDateItem {
@@ -187,6 +202,29 @@ export interface ProjectImportantDateItem {
   date: string;
   description?: string;
   createdBy: string;
+  createdAt: string;
+}
+
+export interface UbicacionProyecto {
+  calle?: string;
+  planta?: string;
+  edificio?: string;
+  piso?: string;
+  puerta?: string;
+  descripcion?: string;
+}
+
+export interface PagoProyecto {
+  id: string;
+  numeroPago: number;
+  estado?: "pendiente" | "realizado";
+  promesaPago?: string;
+  tipoPagoAbono?: "PPD" | "PUE" | "Contado";
+  factura?: string;
+  mdp?: "PPD" | "PUE";
+  complementoPago?: string;
+  fechaPago?: string;
+  subtotalAbono: number;
   createdAt: string;
 }
 
@@ -199,6 +237,7 @@ export interface ProjectItem {
   type: ProjectType;
   status: ProjectStatus;
   paymentStatus: PaymentStatus;
+  deletedAt?: string;
   paymentLabel: string;
   priority: PriorityLevel;
   summary: string;
@@ -227,6 +266,39 @@ export interface ProjectItem {
   cotizacionSubcontratado?: string;
   subtotalSubcontratado?: number;
   invoices?: InvoiceItem[];
+  // F1 — Apertura
+  lugar?: string;
+  ubicacion?: UbicacionProyecto;
+  // F2 — Ejecución
+  fechaSolicitud?: string;
+  fotos?: boolean;
+  fotosStatus?: FileStatus;
+  estimacionFileStatus?: FileStatus;
+  cotizacionFileStatus?: FileStatus;
+  reporteFileStatus?: FileStatus;
+  otrosFileStatus?: FileStatus;
+  reporte?: boolean;
+  autorizador?: string;
+  comentariosCampo?: string;
+  // F3 — Financiero
+  iva?: number;
+  costoMateriales?: number;
+  costoServicios?: number;
+  costoPersonal?: number;
+  costoSvoContratado?: number;
+  costoComision?: number;
+  costoOtros?: number;
+  oapc?: number;
+  egpc?: number;
+  luna?: number;
+  pagoPadillas?: boolean;
+  estatusPagoTrabajo?: "Pendiente" | "Pagado";
+  estatusPagoAlberto?: "Pendiente" | "Pagado";
+  estatusPagoLuna?: "Pendiente" | "Pagado";
+  comentariosDireccion?: string;
+  // F4 — Pagos
+  pagosProyecto?: PagoProyecto[];
+  estatusPagoFinal?: "Pendiente" | "Pagado";
 }
 
 export interface RequestItem {
@@ -236,6 +308,7 @@ export interface RequestItem {
   baseName: string;
   client: string;
   department: string;
+  lugar?: string;
   type: ProjectType;
   description: string;
   status: RequestStatus;

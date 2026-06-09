@@ -1,44 +1,77 @@
-import { Bell, ChevronDown, LogIn, LogOut, Menu, Search, UsersRound, X } from "lucide-react";
+import { Bell, ChevronDown, LogIn, LogOut, Menu, Search, Trash2, UsersRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { AmperLogo } from "@/components/ui/amper-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { UserItem } from "@/types";
+import { NotificationItem, UserItem } from "@/types";
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "Justo ahora";
+  if (m < 60) return `Hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Hace ${h}h`;
+  const d = Math.floor(h / 24);
+  return `Hace ${d}d`;
+}
 
 interface TopBarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   unreadCount: number;
+  notifications: NotificationItem[];
+  onMarkAllRead: () => void;
+  onMarkRead?: (id: string) => void;
+  onDeleteNotification: (id: string) => void;
+  onNavigateTo: (projectId?: string, requestId?: string) => void;
   activeUser: UserItem;
   accounts: UserItem[];
   onAccountChange: (userId: string) => void;
   onAddAccount: () => void;
   onLogout: () => void;
-  onNotificationsClick: () => void;
 }
 
 export function TopBar({
   searchQuery,
   onSearchChange,
   unreadCount,
+  notifications,
+  onMarkAllRead,
+  onMarkRead,
+  onDeleteNotification,
+  onNavigateTo,
   activeUser,
   accounts,
   onAccountChange,
   onAddAccount,
   onLogout,
-  onNotificationsClick,
 }: TopBarProps): JSX.Element {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [isHiddenOnMobile, setIsHiddenOnMobile] = useState(false);
   const lastScrollYRef = useRef(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   const handleAccountChange = (userId: string): void => {
     onAccountChange(userId);
     setAccountMenuOpen(false);
     setMobileMenuOpen(false);
   };
+
+  // Cerrar dropdowns al hacer clic fuera
+  useEffect(() => {
+    const handleClick = (e: MouseEvent): void => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     const handleScroll = (): void => {
@@ -47,30 +80,84 @@ export function TopBar({
         lastScrollYRef.current = window.scrollY;
         return;
       }
-
       const currentScrollY = window.scrollY;
       const scrollDelta = currentScrollY - lastScrollYRef.current;
-
-      if (currentScrollY < 80) {
-        setIsHiddenOnMobile(false);
-      } else if (scrollDelta > 8) {
-        setIsHiddenOnMobile(true);
-      } else if (scrollDelta < -6) {
-        setIsHiddenOnMobile(false);
-      }
-
+      if (currentScrollY < 80) setIsHiddenOnMobile(false);
+      else if (scrollDelta > 8) setIsHiddenOnMobile(true);
+      else if (scrollDelta < -6) setIsHiddenOnMobile(false);
       lastScrollYRef.current = currentScrollY;
     };
-
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleScroll);
     handleScroll();
-
     return () => {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
   }, [accountMenuOpen, mobileMenuOpen]);
+
+  const NotifDropdown = (): JSX.Element => (
+    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-96 rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel">
+      <div className="flex items-center justify-between border-b border-[#3F3F46] px-4 py-3">
+        <p className="text-sm font-bold text-foreground">Notificaciones</p>
+        {unreadCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => { onMarkAllRead(); setNotifOpen(false); }}
+            className="text-xs font-semibold text-accent hover:underline"
+          >
+            Marcar todas como leídas
+          </button>
+        ) : null}
+      </div>
+
+      <div className="max-h-[420px] overflow-y-auto">
+        {notifications.length === 0 ? (
+          <p className="py-10 text-center text-sm text-[#555555]">Sin notificaciones</p>
+        ) : (
+          notifications.slice(0, 30).map((n) => (
+            <div
+              key={n.id}
+              className={cn(
+                "group flex w-full gap-3 px-4 py-3 transition hover:bg-[#27272A]",
+                !n.isRead && "bg-accent/[0.04]",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigateTo(n.relatedProjectId, n.relatedRequestId);
+                  onMarkRead?.(n.id);
+                  setNotifOpen(false);
+                }}
+                className="flex min-w-0 flex-1 gap-3 text-left"
+              >
+                <span className={cn(
+                  "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                  n.isRead ? "bg-[#3F3F46]" : "bg-accent",
+                )} />
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block text-sm leading-snug", !n.isRead ? "font-semibold text-foreground" : "font-medium text-[#A1A1AA]")}>
+                    {n.title}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[#71717A]">{n.description}</span>
+                  <span className="mt-1 block text-[11px] text-[#52525B]">{timeAgo(n.createdAt)}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDeleteNotification(n.id)}
+                className="ml-1 shrink-0 self-start rounded-full p-1 text-[#52525B] opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                aria-label="Eliminar notificación"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <header
@@ -82,12 +169,7 @@ export function TopBar({
       <div className="flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-4">
-          <img
-            src="/amper-logo.jpeg"
-            alt="AMPER"
-            className="h-16 w-36 rounded-xl border border-accent/50 bg-black object-contain p-1.5 shadow-glow-gold"
-            draggable={false}
-          />
+          <AmperLogo onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
           <div className="hidden lg:block">
             <p className="text-xs font-medium leading-relaxed text-[#888888]">
               Gestión centralizada de proyectos, pagos y solicitudes eléctricas
@@ -107,24 +189,29 @@ export function TopBar({
             />
           </div>
 
-          <button
-            type="button"
-            onClick={onNotificationsClick}
-            className="relative cursor-pointer rounded-full border border-[#3F3F46] bg-[#27272A] p-3 text-[#888888] shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
-            aria-label="Notificaciones"
-          >
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
-                {unreadCount}
-              </span>
-            ) : null}
-          </button>
-
-          <div className="relative">
+          {/* Campana con dropdown */}
+          <div className="relative" ref={notifRef}>
             <button
               type="button"
-              onClick={() => setAccountMenuOpen((current) => !current)}
+              onClick={() => { setNotifOpen((p) => !p); setAccountMenuOpen(false); }}
+              className="relative cursor-pointer rounded-full border border-[#3F3F46] bg-[#27272A] p-3 text-[#888888] shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
+              aria-label="Notificaciones"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </button>
+            {notifOpen ? <NotifDropdown /> : null}
+          </div>
+
+          {/* Menú de cuenta */}
+          <div className="relative" ref={accountRef}>
+            <button
+              type="button"
+              onClick={() => { setAccountMenuOpen((p) => !p); setNotifOpen(false); }}
               className="flex cursor-pointer items-center gap-3 rounded-full border border-[#3F3F46] bg-[#27272A] px-3 py-2 shadow-soft transition hover:border-accent/20 hover:bg-[#313136]"
             >
               <Avatar initials={activeUser.avatar} className="h-10 w-10 text-xs" />
@@ -164,10 +251,7 @@ export function TopBar({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setAccountMenuOpen(false);
-                    onAddAccount();
-                  }}
+                  onClick={() => { setAccountMenuOpen(false); onAddAccount(); }}
                   className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
                 >
                   <LogIn className="h-4 w-4" />
@@ -175,10 +259,7 @@ export function TopBar({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setAccountMenuOpen(false);
-                    onLogout();
-                  }}
+                  onClick={() => { setAccountMenuOpen(false); onLogout(); }}
                   className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-danger transition hover:bg-danger/10"
                 >
                   <LogOut className="h-4 w-4" />
@@ -189,11 +270,12 @@ export function TopBar({
           </div>
         </div>
 
-        <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileMenuOpen((current) => !current)}>
+        <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileMenuOpen((p) => !p)}>
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
       </div>
 
+      {/* Mobile menu */}
       {mobileMenuOpen ? (
         <div className="mt-4 space-y-4 border-t border-[#3F3F46] pt-4 lg:hidden">
           <div className="relative">
@@ -217,26 +299,11 @@ export function TopBar({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onAddAccount();
-                }}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
-              >
-                <LogIn className="h-4 w-4" />
-                Agregar cuenta
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onNotificationsClick();
-                  setMobileMenuOpen(false);
-                }}
+                onClick={() => { setNotifOpen((p) => !p); setMobileMenuOpen(false); }}
                 className="flex cursor-pointer items-center gap-2 rounded-full bg-[#313136] px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent/10 hover:text-accent"
-                aria-label="Ir a notificaciones"
               >
                 <Bell className="h-4 w-4" />
-                {unreadCount}
+                {unreadCount > 0 ? unreadCount : ""}
               </button>
             </div>
             <div className="space-y-1 border-t border-[#3F3F46] pt-3">
@@ -259,10 +326,15 @@ export function TopBar({
               ))}
               <button
                 type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onLogout();
-                }}
+                onClick={() => { setMobileMenuOpen(false); onAddAccount(); }}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
+              >
+                <LogIn className="h-4 w-4" />
+                Agregar cuenta
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMobileMenuOpen(false); onLogout(); }}
                 className="flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-danger transition hover:bg-danger/10"
               >
                 <LogOut className="h-4 w-4" />

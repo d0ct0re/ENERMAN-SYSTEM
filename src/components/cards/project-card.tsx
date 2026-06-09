@@ -1,9 +1,9 @@
-import { ArrowUpRight, CalendarClock, DollarSign } from "lucide-react";
+import { ArrowUpRight, CalendarClock, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PriorityBadge } from "@/components/common/priority-badge";
 import { StatusBadge } from "@/components/common/status-badge";
-import { ProjectItem, PriorityLevel } from "@/types";
+import { ProjectItem, PriorityLevel, PROJECT_TYPE_LABELS } from "@/types";
 import { daysSince, formatDate, formatOptionalDate, isNewItem } from "@/lib/utils";
 
 const priorityAccent: Record<PriorityLevel, string> = {
@@ -17,40 +17,74 @@ interface ProjectCardProps {
   project: ProjectItem;
   onOpen: (projectId: string) => void;
   showNewBadge?: boolean;
+  assignedEngineerName?: string;
 }
 
-export function ProjectCard({ project, onOpen, showNewBadge = false }: ProjectCardProps): JSX.Element {
+export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEngineerName }: ProjectCardProps): JSX.Element {
   const isInactive = daysSince(project.updatedAt) >= 14;
   const showNew = showNewBadge && isNewItem(project.createdAt);
-  const spent = project.expenses.reduce((total, expense) => total + expense.monto, 0);
-  const remaining = project.totalContratado - spent;
-  const costRatio = project.totalContratado > 0 ? spent / project.totalContratado : 0;
-  const mxn = (value: number) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(value);
+  const consecutivo = project.structuredName.split("-")[0];
+
+  // F1-F4 phase completion indicators
+  const phases = [
+    { label: "F1", done: true },
+    { label: "F2", done: !!(project.startDate || project.endDate || project.fotos || project.reporte) },
+    { label: "F3", done: !!(project.totalSinIva && project.totalSinIva > 0) },
+    { label: "F4", done: !!(project.pagosProyecto?.length) },
+  ];
 
   return (
     <Card
-      className={`group flex h-full cursor-pointer flex-col gap-4 border-white/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-[#2B2B2F] hover:shadow-card-hover sm:p-5 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.75fr)_auto] lg:items-center ${priorityAccent[project.priority]}`}
+      className={`group flex h-full cursor-pointer flex-col gap-4 border-white/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-[#2B2B2F] hover:shadow-card-hover sm:p-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${priorityAccent[project.priority]}`}
       onClick={() => onOpen(project.id)}
     >
       <div className="flex items-start justify-between gap-3 lg:min-w-0">
         <div className="min-w-0 space-y-2">
-          <p className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-accent">
-            {project.client} · {project.department}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-[10px] font-black text-[#888888]">#{consecutivo}</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
+              {project.client} · {project.department}
+            </span>
+            <span className="rounded-md bg-[#3F3F46]/80 px-1.5 py-0.5 text-[10px] font-bold text-[#A1A1AA]">
+              {project.type} · {PROJECT_TYPE_LABELS[project.type]}
+            </span>
+          </div>
           <div>
             <h3 className="line-clamp-2 text-[17px] font-bold leading-snug text-foreground lg:truncate">{project.baseName}</h3>
             <p className="mt-0.5 text-xs text-[#888888]">{project.structuredName}</p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <PriorityBadge priority={project.priority} />
+            {assignedEngineerName ? (
+              <div className="flex items-center gap-1.5 text-xs text-[#888888]">
+                <User className="h-3 w-3 shrink-0" />
+                {assignedEngineerName}
+              </div>
+            ) : null}
+          </div>
+          {/* F1-F4 progress */}
+          <div className="flex items-center gap-1.5">
+            {phases.map((ph) => (
+              <span
+                key={ph.label}
+                className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                  ph.done
+                    ? "bg-accent/15 text-accent"
+                    : "bg-[#3F3F46]/60 text-[#52525B]"
+                }`}
+              >
+                {ph.label}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2 lg:hidden">
+        <div className="flex shrink-0 flex-col items-end gap-2">
           {showNew ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-900/40 px-3 py-1 text-xs font-bold text-blue-400 ring-1 ring-blue-500/30">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
               Nuevo
             </span>
           ) : null}
-          <PriorityBadge priority={project.priority} />
         </div>
       </div>
 
@@ -67,13 +101,6 @@ export function ProjectCard({ project, onOpen, showNewBadge = false }: ProjectCa
             Sin actividad
           </span>
         ) : null}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[#1F1F22]/70 p-3 text-sm lg:grid-cols-4 lg:bg-transparent lg:p-0">
-        <Metric label="Contratado" value={mxn(project.totalContratado)} />
-        <Metric label="Gastado" value={mxn(spent)} />
-        <Metric label="Disponible" value={mxn(remaining)} tone={remaining < 0 ? "danger" : "default"} />
-        <Metric label="Costo" value={`${Math.round(costRatio * 100)}%`} tone={costRatio >= 0.85 ? "warning" : "default"} />
       </div>
 
       <div className="mt-auto flex flex-col gap-4 border-t border-white/[0.07] pt-4 sm:flex-row sm:items-end sm:justify-between lg:mt-0 lg:border-t-0 lg:pt-0">
@@ -102,24 +129,3 @@ export function ProjectCard({ project, onOpen, showNewBadge = false }: ProjectCa
   );
 }
 
-function Metric({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "warning" | "danger";
-}): JSX.Element {
-  const valueClass = tone === "danger" ? "text-danger" : tone === "warning" ? "text-[#F5A524]" : "text-foreground";
-
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
-        {label === "Contratado" ? <DollarSign className="h-3 w-3" /> : null}
-        {label}
-      </div>
-      <p className={`mt-1 truncate text-sm font-bold tabular-nums ${valueClass}`}>{value}</p>
-    </div>
-  );
-}

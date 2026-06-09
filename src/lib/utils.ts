@@ -63,6 +63,7 @@ export function buildStructuredName(input: {
   sequence: string;
   client: string;
   department: string;
+  lugar?: string;
   type: string;
   baseName: string;
 }): string {
@@ -77,14 +78,16 @@ export function buildStructuredName(input: {
     sanitize(input.sequence),
     sanitize(input.client),
     sanitize(input.department),
+    input.lugar ? sanitize(input.lugar) : "",
     sanitize(input.type),
     sanitize(input.baseName),
-  ].join("-");
+  ].filter(Boolean).join("-");
 }
 
 export function buildRequestName(input: {
   client: string;
   department: string;
+  lugar?: string;
   type: string;
   baseName: string;
 }): string {
@@ -95,5 +98,13 @@ export function buildRequestName(input: {
       .replace(/\s+/g, " ")
       .replace(/[^\w\s/-]/g, "");
 
-  return [sanitize(input.client), sanitize(input.department), sanitize(input.type), sanitize(input.baseName)].join("-");
+  const parts = [
+    sanitize(input.client),
+    sanitize(input.department),
+    input.lugar ? sanitize(input.lugar) : "",
+    sanitize(input.type),
+    sanitize(input.baseName),
+  ].filter(Boolean);
+
+  return parts.join("-");
 }

@@ -1,11 +1,15 @@
 import { FolderPlus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ClientInput } from "@/components/ui/client-input";
+import { DepartmentInput } from "@/components/ui/department-input";
+import { LugarInput } from "@/components/ui/lugar-input";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { buildStructuredName } from "@/lib/utils";
-import { PROJECT_TYPE_LABELS, ProjectType } from "@/types";
+import { ProjectType } from "@/types";
+import { TypeSelector } from "@/components/ui/type-selector";
 
 interface NewProjectDialogProps {
   open: boolean;
@@ -15,27 +19,24 @@ interface NewProjectDialogProps {
     baseName: string;
     client: string;
     department: string;
+    lugar?: string;
     type: ProjectType;
     description: string;
     totalContratado: number;
   }) => void;
-  clientOptions: string[];
-  departmentOptions: string[];
 }
 
-const TYPE_ENTRIES = Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][];
 
 export function NewProjectDialog({
   open,
   onOpenChange,
   nextSequence,
   onSubmit,
-  clientOptions,
-  departmentOptions,
 }: NewProjectDialogProps): JSX.Element {
   const [baseName, setBaseName] = useState("");
   const [client, setClient] = useState("");
   const [department, setDepartment] = useState("");
+  const [lugar, setLugar] = useState("");
   const [type, setType] = useState<ProjectType>("INST");
   const [description, setDescription] = useState("");
   const [totalContratado, setTotalContratado] = useState("");
@@ -46,16 +47,18 @@ export function NewProjectDialog({
         sequence: nextSequence,
         client,
         department,
+        lugar: lugar || undefined,
         type,
         baseName,
       }),
-    [baseName, client, department, nextSequence, type],
+    [baseName, client, department, lugar, nextSequence, type],
   );
 
   const reset = (): void => {
     setBaseName("");
     setClient("");
     setDepartment("");
+    setLugar("");
     setType("INST");
     setDescription("");
     setTotalContratado("");
@@ -66,6 +69,7 @@ export function NewProjectDialog({
       baseName: baseName.trim(),
       client: client.trim(),
       department: department.trim(),
+      lugar: lugar.trim() || undefined,
       type,
       description: description.trim(),
       totalContratado: Number(totalContratado) || 0,
@@ -90,47 +94,15 @@ export function NewProjectDialog({
       className="max-w-3xl"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Cliente" list="project-client-options" />
-        <datalist id="project-client-options">
-          {clientOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-
-        <Input
-          value={department}
-          onChange={(event) => setDepartment(event.target.value)}
-          placeholder="Departamento"
-          list="project-department-options"
-        />
-        <datalist id="project-department-options">
-          {departmentOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-
-        <div className="sm:col-span-2">
-          <label className="block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Tipo de trabajo</span>
-            <select
-              value={type}
-              onChange={(event) => setType(event.target.value as ProjectType)}
-              className="h-12 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
-            >
-              {TYPE_ENTRIES.map(([code, label]) => (
-                <option key={code} value={code}>
-                  {code} - {label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <ClientInput value={client} onChange={setClient} />
+        <DepartmentInput value={department} onChange={setDepartment} />
+        <LugarInput value={lugar} onChange={setLugar} className="sm:col-span-2" />
+        <TypeSelector value={type} onChange={setType} />
         <Input
           type="number"
           value={totalContratado}
           onChange={(event) => setTotalContratado(event.target.value)}
           placeholder="Monto total inicial"
-          className="sm:col-span-2"
         />
       </div>
 

@@ -1,23 +1,25 @@
-import { AlertTriangle, BadgeDollarSign, Eye, FolderOpenDot, MoreVertical, Plus, Save, ShieldAlert, Trash2, UserPlus, UsersRound } from "lucide-react";
-import { useMemo, useState } from "react";
-import { isNewItem } from "@/lib/utils";
+import { AlertTriangle, BadgeDollarSign, Check, ChevronDown, DatabaseBackup, Eye, FolderOpenDot, MoreVertical, Plus, RotateCcw, Save, ShieldAlert, Trash2, UploadCloud, UserPlus, UsersRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { cn, formatDate, isNewItem, parseLocalDate } from "@/lib/utils";
+import { downloadBackup, restoreBackup } from "@/lib/api";
+import { FIXED_CLIENTS } from "@/components/ui/client-input";
 import { SectionTitle } from "@/components/layout/section-title";
 import { Tabs } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { AdminReviewCard } from "@/components/cards/admin-review-card";
 import { ProjectCard } from "@/components/cards/project-card";
-import { RequestCard } from "@/components/cards/request-card";
-import { ProjectCalendar } from "@/components/common/project-calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PriorityBadge } from "@/components/common/priority-badge";
 import { StatusBadge } from "@/components/common/status-badge";
-import { ActivityLogItem, PROJECT_TYPE_LABELS, TIPO_PAGO_LABELS, ProjectItem, ProjectStatus, ProjectType, RequestItem, RequestStatus, RoleKey, TipoPago, UserItem } from "@/types";
+import { ProjectCalendar } from "@/components/common/project-calendar";
+import { ActivityLogItem, InvoiceItem, InvoiceStatus, PROJECT_TYPE_LABELS, TIPO_PAGO_LABELS, ProjectItem, ProjectStatus, ProjectType, RequestItem, RequestStatus, RoleKey, TipoPago, UserItem } from "@/types";
 
 type AdminTab =
   | "review"
   | "active"
+  | "allprojects"
   | "completed"
   | "cancelled"
   | "unpaid"
@@ -27,7 +29,8 @@ type AdminTab =
   | "users"
   | "projects"
   | "requests"
-  | "activity";
+  | "activity"
+  | "cobros";
 
 interface AdminViewProps {
   tab: AdminTab;
@@ -37,7 +40,7 @@ interface AdminViewProps {
   activeProjects: ProjectItem[];
   completedProjects: ProjectItem[];
   cancelledProjects: ProjectItem[];
-  unpaidProjects: ProjectItem[];
+  paidProjects: ProjectItem[];
   rejectedRequests: RequestItem[];
   correctionRequests: RequestItem[];
   projects: ProjectItem[];
@@ -45,11 +48,14 @@ interface AdminViewProps {
   users: UserItem[];
   activityLogs: ActivityLogItem[];
   canManageUsers: boolean;
+  sequenceInfo?: { current: number; next: number; display: string } | null;
+  onSetSequenceCounter?: (value: number) => Promise<void>;
   onCreateProject: (payload: {
     sequence: string;
     baseName: string;
     client: string;
     department: string;
+    lugar?: string;
     type: ProjectType;
     description: string;
     status: ProjectStatus;
@@ -60,6 +66,8 @@ interface AdminViewProps {
     assignedEngineerId?: string;
   }) => void;
   onDeleteProject: (projectId: string) => void;
+  onRestoreProject?: (projectId: string) => void;
+  onPermanentDeleteProject?: (projectId: string) => void;
   onCreateRequest: (payload: {
     baseName: string;
     client: string;
@@ -75,6 +83,11 @@ interface AdminViewProps {
   onDeleteUser: (userId: string) => void;
   onOpenRequest: (requestId: string) => void;
   onOpenProject: (projectId: string) => void;
+  onApproveRequest?: (requestId: string) => void;
+  onApproveWithSequence?: (requestId: string, sequence: string) => void;
+  onRejectRequest?: (requestId: string, reason: string) => void;
+  onCorrectionRequest?: (requestId: string, reason: string) => void;
+  onReactivateRequest?: (requestId: string) => void;
 }
 
 export function AdminView(props: AdminViewProps): JSX.Element {
@@ -93,8 +106,12 @@ function SystemAdminView({
   requests,
   users,
   activityLogs,
+  sequenceInfo,
+  onSetSequenceCounter,
   onCreateProject,
   onDeleteProject,
+  onRestoreProject,
+  onPermanentDeleteProject,
   onCreateRequest,
   onDeleteRequest,
   onCreateUser,
@@ -102,24 +119,112 @@ function SystemAdminView({
   onDeleteUser,
   onOpenProject,
   onOpenRequest,
+  onApproveRequest,
+  onRejectRequest,
 }: AdminViewProps): JSX.Element {
   const systemTab = tab === "requests" || tab === "users" || tab === "projects" || tab === "activity" ? tab : "projects";
-  const financial = useMemo(() => {
-    const totalContratado = projects.reduce((total, project) => total + project.totalContratado, 0);
-    const totalGastos = projects.reduce((total, project) => total + getProjectFinancials(project).spent, 0);
-    const totalPagado = projects.reduce((total, project) => total + getProjectFinancials(project).paid, 0);
+  const TRASH_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupMsg, setBackupMsg] = useState<string | null>(null);
+  const [restoreFile, setRestoreFile] = useState<{ name: string; data: unknown; meta: { timestamp?: string; projects?: number; users?: number; requests?: number } } | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  // Estado para el panel de gestión de consecutivos
+  const [seqInput, setSeqInput] = useState("");
+  const [seqSaving, setSeqSaving] = useState(false);
+  const [seqMsg, setSeqMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [restoreMsg, setRestoreMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
-    return {
-      totalContratado,
-      totalGastos,
-      utilidad: totalContratado - totalGastos,
-      totalPagado,
+  const handleBackup = async (): Promise<void> => {
+    setBackingUp(true);
+    setBackupMsg(null);
+    try {
+      await downloadBackup();
+      setBackupMsg("Backup descargado");
+    } catch {
+      setBackupMsg("Error al generar backup");
+    } finally {
+      setBackingUp(false);
+      setTimeout(() => setBackupMsg(null), 3000);
+    }
+  };
+
+  const handleRestoreFile = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result)) as Record<string, unknown>;
+        if (!data.users || !Array.isArray(data.users)) {
+          setRestoreMsg({ text: "Archivo inválido — no es un backup de AMPER", ok: false });
+          return;
+        }
+        setRestoreFile({
+          name: file.name,
+          data,
+          meta: {
+            timestamp: data.timestamp as string | undefined,
+            users: (data.users as unknown[]).length,
+            projects: Array.isArray(data.projects) ? (data.projects as unknown[]).length : 0,
+            requests: Array.isArray(data.requests) ? (data.requests as unknown[]).length : 0,
+          },
+        });
+        setRestoreMsg(null);
+      } catch {
+        setRestoreMsg({ text: "Error al leer el archivo — ¿es un JSON válido?", ok: false });
+      }
     };
-  }, [projects]);
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleRestore = async (): Promise<void> => {
+    if (!restoreFile) return;
+    setRestoring(true);
+    setRestoreMsg(null);
+    try {
+      const result = await restoreBackup(restoreFile.data);
+      setRestoreMsg({
+        text: `Restaurado: ${result.restored.projects} proyectos, ${result.restored.users} usuarios, ${result.restored.requests} solicitudes`,
+        ok: true,
+      });
+      setRestoreFile(null);
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      setRestoreMsg({ text: err instanceof Error ? err.message : "Error al restaurar", ok: false });
+    } finally {
+      setRestoring(false);
+    }
+  };
+  const activeProjects = useMemo(() => projects.filter((p) => !p.deletedAt), [projects]);
+  const trashedProjects = useMemo(
+    () => projects.filter((p) => p.deletedAt).sort((a, b) => (b.deletedAt ?? "").localeCompare(a.deletedAt ?? "")),
+    [projects],
+  );
+
 
   return (
     <section className="space-y-6">
-      <SectionTitle eyebrow={`Gestor del sistema: ${activeUserName}`} title="Gestion general del sistema" />
+      <div className="flex items-start justify-between gap-4">
+        <SectionTitle eyebrow={`Gestor del sistema: ${activeUserName}`} title="Gestion general del sistema" />
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => { void handleBackup(); }}
+            disabled={backingUp}
+            className="inline-flex items-center gap-2 rounded-2xl border border-[#3F3F46] bg-[#27272A] px-4 py-2.5 text-sm font-bold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+          >
+            <DatabaseBackup className="h-4 w-4" />
+            {backingUp ? "Generando…" : "Backup"}
+          </button>
+          {backupMsg ? (
+            <span className={`text-xs font-semibold ${backupMsg.startsWith("Error") ? "text-danger" : "text-[#4ADE80]"}`}>
+              {backupMsg}
+            </span>
+          ) : null}
+        </div>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard title="Proyectos" value={projects.length} tone="accent" />
@@ -127,18 +232,156 @@ function SystemAdminView({
         <SummaryCard title="Usuarios" value={users.length} tone="secondary" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-4">
-        <SummaryCard title="Contratado" value={formatCurrency(financial.totalContratado)} tone="accent" />
-        <SummaryCard title="Gastos" value={formatCurrency(financial.totalGastos)} tone="warning" />
-        <SummaryCard title="Utilidad estimada" value={formatCurrency(financial.utilidad)} tone={financial.utilidad < 0 ? "danger" : "secondary"} />
-        <SummaryCard title="Pagado" value={formatCurrency(financial.totalPagado)} tone="secondary" />
+      {/* ── Panel Backup / Restauración ── */}
+      <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+          Seguridad de datos — Backup y Restauración
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {/* Botón Backup */}
+          <button
+            type="button"
+            onClick={() => { void handleBackup(); }}
+            disabled={backingUp}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+          >
+            <DatabaseBackup className="h-4 w-4" />
+            {backingUp ? "Generando…" : "Descargar backup"}
+          </button>
+          {/* Botón Exportar CSV */}
+          <button
+            type="button"
+            onClick={() => exportProjectsCSV(activeProjects, users)}
+            title={`Exportar ${activeProjects.length} proyecto(s) a CSV`}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground"
+          >
+            <Save className="h-4 w-4" />
+            Exportar CSV
+          </button>
+          {/* Botón Restaurar */}
+          <button
+            type="button"
+            onClick={() => restoreInputRef.current?.click()}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-[#F5A524]/40 hover:bg-[#313136] hover:text-[#F5A524]"
+          >
+            <UploadCloud className="h-4 w-4" />
+            Restaurar desde backup
+          </button>
+          <input ref={restoreInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleRestoreFile} />
+        </div>
+
+        {/* Mensajes de backup */}
+        {backupMsg ? (
+          <p className="mt-2 text-xs font-semibold text-[#4ADE80]">{backupMsg}</p>
+        ) : null}
+
+        {/* Panel de confirmación de restauración */}
+        {restoreFile ? (
+          <div className="mt-3 rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/5 p-3">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#F5A524]">Confirmar restauración</p>
+            <p className="text-sm font-semibold text-foreground">{restoreFile.name}</p>
+            {restoreFile.meta.timestamp ? (
+              <p className="text-xs text-[#888888]">Fecha del backup: {new Date(restoreFile.meta.timestamp).toLocaleString("es-MX")}</p>
+            ) : null}
+            <div className="mt-1.5 flex gap-3 text-xs text-[#A1A1AA]">
+              <span>{restoreFile.meta.projects} proyectos</span>
+              <span>{restoreFile.meta.users} usuarios</span>
+              <span>{restoreFile.meta.requests} solicitudes</span>
+            </div>
+            <p className="mt-2 text-xs font-medium text-[#F5A524]/80">
+              Esto sobreescribirá todos los datos actuales. El sistema se guarda antes de restaurar.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => { void handleRestore(); }}
+                disabled={restoring}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#F5A524]/20 px-4 py-2 text-sm font-bold text-[#F5A524] ring-1 ring-[#F5A524]/30 transition hover:bg-[#F5A524]/30 disabled:opacity-50"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                {restoring ? "Restaurando…" : "Sí, restaurar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setRestoreFile(null); setRestoreMsg(null); }}
+                className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-semibold text-[#888888] transition hover:text-foreground"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Mensajes de restauración */}
+        {restoreMsg ? (
+          <p className={`mt-2 text-xs font-semibold ${restoreMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+            {restoreMsg.text}
+          </p>
+        ) : null}
+      </div>
+
+      {/* ── Panel Gestión de Consecutivos ── */}
+      <div className="rounded-2xl border border-accent/20 bg-[#1E1E20] p-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+          Folio de proyectos — control del consecutivo
+        </p>
+        <div className="mb-3 flex items-center gap-3">
+          <div className="rounded-xl border border-accent/30 bg-accent/5 px-4 py-2 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-accent/60">Siguiente folio</p>
+            <p className="text-2xl font-black tabular-nums text-accent">
+              {sequenceInfo ? sequenceInfo.display : "—"}
+            </p>
+          </div>
+          <div className="text-xs text-[#555555] leading-relaxed">
+            <p>El servidor asigna este número de forma atómica.</p>
+            <p>Nunca se repite, aunque dos admins aprueben al mismo tiempo.</p>
+          </div>
+        </div>
+        <p className="mb-2 text-xs font-semibold text-[#888888]">Ajustar el siguiente folio manualmente:</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            placeholder={sequenceInfo ? String(sequenceInfo.next) : "4000"}
+            value={seqInput}
+            onChange={(e) => setSeqInput(e.target.value.replace(/\D/g, ""))}
+            className="w-32 rounded-xl border border-[#3F3F46] bg-[#27272A] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-accent/50 focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={seqSaving || !seqInput || Number(seqInput) < 1}
+            onClick={async () => {
+              const val = Number(seqInput);
+              if (!val || val < 1 || !onSetSequenceCounter) return;
+              setSeqSaving(true);
+              setSeqMsg(null);
+              try {
+                await onSetSequenceCounter(val - 1);
+                setSeqMsg({ text: `✓ Consecutivo fijado — el siguiente proyecto será #${String(val).padStart(4, "0")}`, ok: true });
+                setSeqInput("");
+              } catch {
+                setSeqMsg({ text: "Error al guardar. Intenta de nuevo.", ok: false });
+              } finally {
+                setSeqSaving(false);
+              }
+            }}
+            className="rounded-xl bg-accent/15 px-4 py-2 text-sm font-bold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25 disabled:opacity-40"
+          >
+            {seqSaving ? "Guardando…" : "Aplicar"}
+          </button>
+        </div>
+        {seqMsg ? (
+          <p className={`mt-2 text-xs font-semibold ${seqMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+            {seqMsg.text}
+          </p>
+        ) : null}
       </div>
 
       <Tabs
         value={systemTab}
         onValueChange={onTabChange}
         options={[
-          { key: "projects", label: "Proyectos", count: projects.length },
+          { key: "projects", label: "Proyectos", count: activeProjects.length },
           { key: "requests", label: "Solicitudes", count: requests.length },
           { key: "users", label: "Usuarios", count: users.length },
           { key: "activity", label: "Actividad", count: activityLogs.length },
@@ -147,10 +390,14 @@ function SystemAdminView({
 
       {systemTab === "projects" ? (
         <ProjectsManager
-          projects={projects}
+          projects={activeProjects}
+          trashedProjects={trashedProjects}
+          trashTtlMs={TRASH_TTL_MS}
           users={users}
           onCreateProject={onCreateProject}
           onDeleteProject={onDeleteProject}
+          onRestoreProject={onRestoreProject}
+          onPermanentDeleteProject={onPermanentDeleteProject}
           onOpenProject={onOpenProject}
         />
       ) : null}
@@ -162,6 +409,8 @@ function SystemAdminView({
           onCreateRequest={onCreateRequest}
           onDeleteRequest={onDeleteRequest}
           onOpenRequest={onOpenRequest}
+          onApproveRequest={onApproveRequest}
+          onRejectRequest={onRejectRequest}
         />
       ) : null}
 
@@ -200,15 +449,23 @@ function SummaryCard({ title, value, tone }: { title: string; value: number | st
 
 function ProjectsManager({
   projects,
+  trashedProjects,
+  trashTtlMs,
   users,
   onCreateProject,
   onDeleteProject,
+  onRestoreProject,
+  onPermanentDeleteProject,
   onOpenProject,
 }: {
   projects: ProjectItem[];
+  trashedProjects: ProjectItem[];
+  trashTtlMs: number;
   users: UserItem[];
   onCreateProject: AdminViewProps["onCreateProject"];
   onDeleteProject: AdminViewProps["onDeleteProject"];
+  onRestoreProject?: (id: string) => void;
+  onPermanentDeleteProject?: (id: string) => void;
   onOpenProject: AdminViewProps["onOpenProject"];
 }): JSX.Element {
   const [direction, setDirection] = useState<"asc" | "desc">("desc");
@@ -219,6 +476,7 @@ function ProjectsManager({
     baseName: "",
     client: "",
     department: "",
+    lugar: "",
     type: "INST" as ProjectType,
     description: "",
     status: "en-programacion" as ProjectStatus,
@@ -250,11 +508,12 @@ function ProjectsManager({
       baseName: draft.baseName.trim(),
       client: draft.client.trim(),
       department: draft.department.trim(),
+      lugar: draft.lugar.trim() || undefined,
       description: draft.description.trim(),
       totalContratado: Number(draft.totalContratado) || 0,
       assignedEngineerId: draft.assignedEngineerId || undefined,
     });
-    setDraft((current) => ({ ...current, sequence: "", baseName: "", description: "", totalContratado: "", assignedEngineerId: "" }));
+    setDraft((current) => ({ ...current, sequence: "", baseName: "", description: "", lugar: "", totalContratado: "", assignedEngineerId: "" }));
   };
 
   return (
@@ -264,11 +523,14 @@ function ProjectsManager({
           <Plus className="h-4 w-4" />
           Alta manual de proyecto
         </div>
-        <div className="grid gap-3 lg:grid-cols-[0.45fr_1fr_0.7fr_0.7fr_0.6fr]">
+        <div className="grid gap-3 lg:grid-cols-[0.45fr_1fr_0.7fr_0.7fr]">
           <Input value={draft.sequence} onChange={(event) => setDraft((c) => ({ ...c, sequence: event.target.value.replace(/\D/g, "") }))} placeholder="Consecutivo" />
           <Input value={draft.baseName} onChange={(event) => setDraft((c) => ({ ...c, baseName: event.target.value }))} placeholder="Nombre del proyecto" />
           <Input value={draft.client} onChange={(event) => setDraft((c) => ({ ...c, client: event.target.value }))} placeholder="Cliente" />
           <Input value={draft.department} onChange={(event) => setDraft((c) => ({ ...c, department: event.target.value }))} placeholder="Departamento" />
+        </div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_0.6fr]">
+          <Input value={draft.lugar} onChange={(event) => setDraft((c) => ({ ...c, lugar: event.target.value }))} placeholder="Lugar (ej. AULAS 2, Planta Norte...)" />
           <Input value={draft.totalContratado} onChange={(event) => setDraft((c) => ({ ...c, totalContratado: event.target.value }))} type="number" placeholder="Monto" />
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
@@ -323,7 +585,8 @@ function ProjectsManager({
         </div>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-[#888888]">{sortedProjects.length} proyectos activos</span>
         <Button variant="outline" onClick={() => setDirection((current) => (current === "asc" ? "desc" : "asc"))}>
           Orden {direction === "asc" ? "ascendente" : "descendente"}
         </Button>
@@ -331,79 +594,102 @@ function ProjectsManager({
 
       <div className="space-y-3">
         {sortedProjects.map((project) => {
-          const finance = getProjectFinancials(project);
           const assignedEngineer = users.find(
             (user) => user.role === "engineer" && (user.id === project.createdBy || project.participants.includes(user.id)),
           );
-
           return (
-          <Card key={project.id} className="border-[#3F3F46] bg-[#27272A]">
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.9fr)_auto] xl:items-center">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-accent px-3 py-1 text-xs font-black text-[#111111]">#{getProjectSequence(project)}</span>
-                  <StatusBadge kind="project" value={project.status} />
-                  <StatusBadge kind="payment" value={project.paymentStatus} />
-                  <PriorityBadge priority={project.priority} />
-                  {!assignedEngineer ? <span className="rounded-full bg-[#F5A524]/15 px-3 py-1 text-xs font-bold text-[#F5A524] ring-1 ring-[#F5A524]/25">Sin ingeniero</span> : null}
-                </div>
-                <p className="mt-2 truncate text-lg font-semibold text-foreground">{project.baseName}</p>
-                <p className="mt-1 text-sm text-[#888888]">{project.client} · {project.department} · {project.structuredName}</p>
-                <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2">
-                  <span>Ingeniero: {assignedEngineer?.name ?? "Pendiente asignar"}</span>
-                  <span>Creado: {formatCompactDate(project.createdAt)}</span>
-                  <span>Compromiso: {project.commitmentDate ? formatCompactDate(project.commitmentDate) : "Pendiente"}</span>
-                  <span>Actualizado: {formatCompactDate(project.updatedAt)}</span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-4">
-                  <Metric label="Contratado" value={formatCurrency(project.totalContratado)} />
-                  <Metric label="Gastos" value={formatCurrency(finance.spent)} />
-                  <Metric label="Disponible" value={formatCurrency(finance.remaining)} />
-                  <Metric label="Utilidad" value={`${finance.margin.toFixed(1)}%`} />
-                </div>
-                <div>
-                  <div className="mb-1 flex justify-between text-xs text-[#A1A1AA]">
-                    <span>Ejecucion de costos</span>
-                    <span>{Math.round(finance.ratio * 100)}%</span>
+            <Card key={project.id} className="border-[#3F3F46] bg-[#27272A]">
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-accent px-3 py-1 text-xs font-black text-[#111111]">#{getProjectSequence(project)}</span>
+                    <StatusBadge kind="project" value={project.status} />
+                    <StatusBadge kind="payment" value={project.paymentStatus} />
+                    <PriorityBadge priority={project.priority} />
+                    {!assignedEngineer ? <span className="rounded-full bg-[#F5A524]/15 px-3 py-1 text-xs font-bold text-[#F5A524] ring-1 ring-[#F5A524]/25">Sin ingeniero</span> : null}
                   </div>
-                  <div className="h-2 rounded bg-[#3F3F46]">
-                    <div className={`h-full rounded ${finance.barClass}`} style={{ width: `${Math.min(finance.ratio * 100, 100)}%` }} />
+                  <p className="mt-2 truncate text-lg font-semibold text-foreground">{project.baseName}</p>
+                  <p className="mt-1 text-sm text-[#888888]">{project.client} · {project.department} · {project.structuredName}</p>
+                  <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2">
+                    <span>Ingeniero: {assignedEngineer?.name ?? "Pendiente asignar"}</span>
+                    <span>Creado: {formatCompactDate(project.createdAt)}</span>
+                    <span>Compromiso: {project.commitmentDate ? formatCompactDate(project.commitmentDate) : "Pendiente"}</span>
+                    <span>Actualizado: {formatCompactDate(project.updatedAt)}</span>
                   </div>
-                  <p className={`mt-1 text-xs font-semibold ${finance.textClass}`}>{finance.label}</p>
                 </div>
-                <div className="grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-3">
-                  <span>Facturado: {formatCurrency(finance.billed)}</span>
-                  <span>Pagado: {formatCurrency(finance.paid)}</span>
-                  <span>OC: {project.oc ?? "N/A"}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => onOpenProject(project.id)}><Eye className="h-4 w-4" />Abrir</Button>
-                <div className="relative">
-                  <Button variant="outline" onClick={() => setOpenMenuId(openMenuId === project.id ? null : project.id)} aria-label="Más acciones">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                  {openMenuId === project.id ? (
-                    <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
-                        onClick={() => { onDeleteProject(project.id); setOpenMenuId(null); }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Eliminar
-                      </button>
-                    </div>
-                  ) : null}
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => onOpenProject(project.id)}><Eye className="h-4 w-4" />Abrir</Button>
+                  <div className="relative">
+                    <Button variant="outline" onClick={() => setOpenMenuId(openMenuId === project.id ? null : project.id)} aria-label="Más acciones">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                    {openMenuId === project.id ? (
+                      <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
+                          onClick={() => { onDeleteProject(project.id); setOpenMenuId(null); }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Mover a papelera
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
           );
         })}
       </div>
+
+      {/* ── Papelera ── */}
+      {trashedProjects.length > 0 ? (
+        <div className="space-y-3 rounded-[28px] border border-dashed border-danger/30 p-4">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4 text-danger" />
+            <p className="text-sm font-bold text-danger">Papelera — {trashedProjects.length} proyecto{trashedProjects.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-[#555555]">Se eliminan automáticamente después de 4 horas</p>
+          </div>
+          {trashedProjects.map((project) => {
+            const deletedMs = project.deletedAt ? Date.now() - new Date(project.deletedAt).getTime() : 0;
+            const remainingMs = Math.max(0, trashTtlMs - deletedMs);
+            const remainingHrs = Math.floor(remainingMs / 3600000);
+            const remainingMins = Math.floor((remainingMs % 3600000) / 60000);
+            const timeLabel = remainingMs === 0 ? "Expira pronto" : remainingHrs > 0 ? `${remainingHrs}h ${remainingMins}m restantes` : `${remainingMins}m restantes`;
+            return (
+              <Card key={project.id} className="border-danger/20 bg-danger/5 opacity-80">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-[#3F3F46] px-2 py-0.5 text-xs font-black text-[#888888]">#{getProjectSequence(project)}</span>
+                      <p className="truncate text-sm font-semibold text-[#A1A1AA]">{project.baseName}</p>
+                    </div>
+                    <p className="mt-0.5 text-xs text-[#555555]">{project.client} · {project.department}</p>
+                    <p className="mt-1 text-xs text-[#555555]">⏱ {timeLabel}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onRestoreProject?.(project.id)}
+                      className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#A1A1AA] transition hover:border-accent/40 hover:text-accent"
+                    >
+                      Restaurar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onPermanentDeleteProject?.(project.id)}
+                      className="rounded-xl bg-danger/15 px-3 py-1.5 text-xs font-bold text-danger transition hover:bg-danger/30"
+                    >
+                      Eliminar definitivo
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -414,14 +700,20 @@ function RequestsManager({
   onCreateRequest,
   onDeleteRequest,
   onOpenRequest,
+  onApproveRequest,
+  onRejectRequest,
 }: {
   requests: RequestItem[];
   users: UserItem[];
   onCreateRequest: AdminViewProps["onCreateRequest"];
   onDeleteRequest: AdminViewProps["onDeleteRequest"];
   onOpenRequest: AdminViewProps["onOpenRequest"];
+  onApproveRequest?: AdminViewProps["onApproveRequest"];
+  onRejectRequest?: AdminViewProps["onRejectRequest"];
 }): JSX.Element {
   const [openMenuReqId, setOpenMenuReqId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [draft, setDraft] = useState({
     baseName: "",
     client: "",
@@ -500,7 +792,50 @@ function RequestsManager({
                   <span className="truncate">Descripción: {request.description}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {request.status === "under-review" && onApproveRequest ? (
+                  <button
+                    type="button"
+                    onClick={() => onApproveRequest(request.id)}
+                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/20 transition hover:bg-[#166534]/40"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Aprobar
+                  </button>
+                ) : null}
+                {request.status === "under-review" && onRejectRequest && rejectingId !== request.id ? (
+                  <button
+                    type="button"
+                    onClick={() => { setRejectingId(request.id); setRejectReason(""); }}
+                    className="flex items-center gap-1.5 rounded-xl bg-danger/10 px-3 py-1.5 text-sm font-bold text-danger ring-1 ring-danger/20 transition hover:bg-danger/20"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Rechazar
+                  </button>
+                ) : null}
+                {rejectingId === request.id ? (
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Motivo..."
+                      className="h-9 rounded-xl border border-[#3F3F46] bg-[#1F1F22] px-3 text-sm text-foreground outline-none focus:border-danger/50"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      disabled={!rejectReason.trim()}
+                      onClick={() => { onRejectRequest?.(request.id, rejectReason.trim()); setRejectingId(null); setRejectReason(""); }}
+                      className="rounded-xl bg-danger/15 px-3 py-1.5 text-sm font-bold text-danger transition hover:bg-danger/25 disabled:opacity-40"
+                    >Confirmar</button>
+                    <button
+                      type="button"
+                      onClick={() => setRejectingId(null)}
+                      className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:text-white"
+                    >Cancelar</button>
+                  </div>
+                ) : null}
                 <Button variant="outline" onClick={() => onOpenRequest(request.id)}><Eye className="h-4 w-4" />Abrir</Button>
                 <div className="relative">
                   <Button variant="outline" onClick={() => setOpenMenuReqId(openMenuReqId === request.id ? null : request.id)} aria-label="Más acciones">
@@ -536,28 +871,39 @@ function LegacyAdminView({
   activeProjects,
   completedProjects,
   cancelledProjects,
-  unpaidProjects,
+  paidProjects,
   rejectedRequests,
   correctionRequests,
   projects,
+  requests,
   users,
-  canManageUsers,
-  onCreateProject,
-  onDeleteProject,
-  onCreateUser,
-  onUpdateUser,
-  onDeleteUser,
   onOpenRequest,
   onOpenProject,
+  onApproveRequest,
+  onApproveWithSequence,
+  onRejectRequest,
+  onCorrectionRequest,
+  onReactivateRequest,
 }: AdminViewProps): JSX.Element {
+  const CLOSED_STATUSES_ADMIN = ["completed", "cancelled", "no-autorizado", "cierre-por-sistema"];
+  const allNonDeletedProjects = [...activeProjects, ...completedProjects, ...cancelledProjects];
+  const terminatedProjects = allNonDeletedProjects.filter((p) => CLOSED_STATUSES_ADMIN.includes(p.status));
+  const onlyActiveProjects = allNonDeletedProjects.filter((p) => !CLOSED_STATUSES_ADMIN.includes(p.status));
+
+  const adminProjectTab: AdminTab = tab === "active" || tab === "completed" || tab === "review" || tab === "cobros" || tab === "correction" || tab === "calendar" ? tab : "allprojects";
+
+  const cobrosProjects = allNonDeletedProjects.filter((p) => (p.invoices?.length ?? 0) > 0);
+  const activeInvoiceCount = cobrosProjects.reduce(
+    (sum, p) => sum + (p.invoices ?? []).filter((inv) => inv.status !== "pagada" && inv.status !== "cancelada").length,
+    0,
+  );
+
   const summaryCards = [
     { title: "Por revisar", value: reviewRequests.length, icon: ShieldAlert, bg: "bg-[#27272A]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
-    { title: "Proyectos activos", value: activeProjects.length, icon: FolderOpenDot, bg: "bg-[#27272A]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
-    { title: "No pagados", value: unpaidProjects.length, icon: BadgeDollarSign, bg: "bg-[#27272A]", border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger" },
+    { title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot, bg: "bg-[#27272A]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
+    { title: "Pagados", value: paidProjects.length, icon: BadgeDollarSign, bg: "bg-[#27272A]", border: "border-[#4ADE80]/20", iconBg: "bg-[#4ADE80]/15 text-[#4ADE80]", labelColor: "text-[#4ADE80]", accent: "bg-[#4ADE80]" },
     { title: "Rechazadas", value: rejectedRequests.length, icon: AlertTriangle, bg: "bg-[#27272A]", border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
   ];
-  const calendarProjects = [...activeProjects, ...completedProjects, ...cancelledProjects];
-  const calendarCount = calendarProjects.reduce((total, project) => total + (project.commitmentDate ? 1 : 0) + (project.importantDates?.length ?? 0), 0);
 
   return (
     <section className="space-y-6">
@@ -577,32 +923,672 @@ function LegacyAdminView({
         ))}
       </div>
       <Tabs
-        value={tab}
+        value={adminProjectTab}
         onValueChange={onTabChange}
         options={[
-          { key: "review", label: "Solicitudes por revisar", count: reviewRequests.length },
-          { key: "active", label: "Proyectos activos", count: activeProjects.length },
-          { key: "completed", label: "Terminados", count: completedProjects.length },
-          { key: "cancelled", label: "Cancelados", count: cancelledProjects.length },
-          { key: "unpaid", label: "No pagados", count: unpaidProjects.length },
-          { key: "rejected", label: "Rechazadas", count: rejectedRequests.length },
-          { key: "correction", label: "En correccion", count: correctionRequests.length },
-          { key: "calendar", label: "Calendario", count: calendarCount },
-          { key: "users", label: "Usuarios", count: users.length },
-          { key: "projects", label: "Nuevo proyecto" },
+          { key: "allprojects", label: "Todos los proyectos", count: allNonDeletedProjects.length },
+          { key: "active", label: "Activos", count: onlyActiveProjects.length },
+          { key: "completed", label: "Terminados", count: terminatedProjects.length },
+          { key: "cobros", label: "Cobros", count: activeInvoiceCount },
+          { key: "review", label: "Solicitudes", count: reviewRequests.length },
+          { key: "correction", label: "En corrección", count: correctionRequests?.length ?? 0 },
+          { key: "calendar", label: "Calendario", count: allNonDeletedProjects.reduce((n, p) => n + (p.endDate ? 1 : 0) + (p.commitmentDate ? 1 : 0) + (p.startDate ? 1 : 0) + (p.fechaSolicitud ? 1 : 0) + (p.importantDates?.length ?? 0), 0) },
         ]}
       />
-      {tab === "review" ? <div className="card-grid">{reviewRequests.map((request) => <AdminReviewCard key={request.id} request={request} onOpen={onOpenRequest} />)}</div> : null}
-      {tab === "active" ? <div className="space-y-3">{activeProjects.map((project) => <ProjectCard key={project.id} project={project} onOpen={onOpenProject} showNewBadge={isNewItem(project.createdAt)} />)}</div> : null}
-      {tab === "completed" ? <div className="space-y-3">{completedProjects.map((project) => <ProjectCard key={project.id} project={project} onOpen={onOpenProject} showNewBadge={isNewItem(project.createdAt)} />)}</div> : null}
-      {tab === "cancelled" ? <div className="space-y-3">{cancelledProjects.map((project) => <ProjectCard key={project.id} project={project} onOpen={onOpenProject} showNewBadge={isNewItem(project.createdAt)} />)}</div> : null}
-      {tab === "unpaid" ? <div className="space-y-3">{unpaidProjects.map((project) => <ProjectCard key={project.id} project={project} onOpen={onOpenProject} showNewBadge={isNewItem(project.createdAt)} />)}</div> : null}
-      {tab === "rejected" ? <div className="card-grid">{rejectedRequests.map((request) => <RequestCard key={request.id} request={request} onOpen={onOpenRequest} />)}</div> : null}
-      {tab === "correction" ? <div className="card-grid">{correctionRequests.map((request) => <RequestCard key={request.id} request={request} onOpen={onOpenRequest} />)}</div> : null}
-      {tab === "calendar" ? <ProjectCalendar projects={calendarProjects} onOpenProject={onOpenProject} showSideList /> : null}
-      {tab === "users" ? <UsersAdminPanel users={users} canManageUsers={canManageUsers} onCreateUser={onCreateUser} onUpdateUser={onUpdateUser} onDeleteUser={onDeleteUser} /> : null}
-      {tab === "projects" ? <ProjectsManager projects={projects} users={users} onCreateProject={onCreateProject} onDeleteProject={onDeleteProject} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "allprojects" ? <ProjectsFilterTab projects={allNonDeletedProjects} users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "active" ? <ProjectsFilterTab projects={onlyActiveProjects} users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "completed" ? <ProjectsFilterTab projects={terminatedProjects} users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "cobros" ? <CobrosTab projects={allNonDeletedProjects} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "review" ? (
+        <ReviewTab
+          reviewRequests={reviewRequests}
+          users={users}
+          projects={projects ?? []}
+          requests={requests ?? []}
+          onOpenRequest={onOpenRequest ?? (() => {})}
+          onApproveRequest={onApproveRequest}
+          onApproveWithSequence={onApproveWithSequence}
+          onRejectRequest={onRejectRequest}
+          onCorrectionRequest={onCorrectionRequest}
+        />
+      ) : null}
+      {adminProjectTab === "calendar" ? (
+        <ProjectCalendar
+          projects={allNonDeletedProjects}
+          onOpenProject={onOpenProject ?? (() => {})}
+          users={users}
+        />
+      ) : null}
+      {adminProjectTab === "correction" ? (
+        <div className="space-y-3">
+          {(correctionRequests ?? []).length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+              <p className="text-sm font-semibold text-[#888888]">Sin solicitudes en corrección</p>
+            </div>
+          ) : (
+            (correctionRequests ?? []).map((req) => (
+              <div key={req.id} className="rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge kind="request" value={req.status} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
+                    {req.client} · {req.department}
+                  </span>
+                  <span className="ml-auto text-xs text-[#888888]">
+                    {formatDate(req.createdAt)}
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
+                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                {req.correctionReason ? (
+                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                    <span className="font-bold text-[#0EA5E9]">Corrección solicitada: </span>
+                    {req.correctionReason}
+                  </div>
+                ) : null}
+                <p className="text-xs text-[#888888]">
+                  <span className="font-semibold text-[#A1A1AA]">Solicitado por:</span>{" "}
+                  {users.find((u) => u.id === req.createdBy)?.name ?? "—"}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+// ── ReviewTab ─────────────────────────────────────────────────────────────────
+function ReviewTab({
+  reviewRequests, users, projects, requests, onOpenRequest,
+  onApproveRequest, onApproveWithSequence, onRejectRequest, onCorrectionRequest,
+}: {
+  reviewRequests: RequestItem[];
+  users: UserItem[];
+  projects: ProjectItem[];
+  requests: RequestItem[];
+  onOpenRequest: (id: string) => void;
+  onApproveRequest?: (id: string) => void;
+  onApproveWithSequence?: (id: string, seq: string) => void;
+  onRejectRequest?: (id: string, reason: string) => void;
+  onCorrectionRequest?: (id: string, reason: string) => void;
+}): JSX.Element {
+  const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+  const nextSeq = useMemo(() => {
+    const nums = [
+      ...requests.map((r) => (r.sequence ? parseInt(r.sequence, 10) : NaN)),
+      ...projects.map((p) => parseInt(p.structuredName.split("-")[0], 10)),
+    ].filter(Number.isFinite);
+    return String(Math.max(3999, ...nums) + 1).padStart(4, "0");
+  }, [requests, projects]);
+
+  if (reviewRequests.length === 0) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+        <p className="text-sm font-semibold text-[#888888]">No hay solicitudes por revisar</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card-grid">
+      {reviewRequests.map((req) => (
+        <AdminReviewCard
+          key={req.id}
+          request={req}
+          onOpen={onOpenRequest}
+          onApprove={onApproveRequest}
+          onApproveWithSequence={onApproveWithSequence}
+          onReject={onRejectRequest}
+          onCorrection={onCorrectionRequest}
+          requesterName={usersById[req.createdBy]?.name}
+          suggestedSequence={nextSeq}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── ProjectsFilterTab ──────────────────────────────────────────────────────────
+
+const STATUS_DISPLAY: Record<string, string> = {
+  "en-programacion": "En programación",
+  "in-progress": "En proceso",
+  "en-concurso": "En concurso",
+  "pendiente-aprobacion": "Pend. aprobación",
+  "pendiente-autorizar": "Pend. autorizar",
+  "reasignado": "Reasignado",
+  "comparativa": "Comparativa",
+  "cierre-por-sistema": "Cierre por sistema",
+  "no-autorizado": "No autorizado",
+  "completed": "Terminado",
+  "cancelled": "Cancelado",
+};
+
+const PRIORITY_DISPLAY: Record<string, string> = {
+  low: "Bajo",
+  medium: "Medio",
+  high: "Alto",
+  critical: "Crítica",
+};
+
+const PAYMENT_DISPLAY: Record<string, string> = {
+  unpaid: "No pagado",
+  partial: "Pago parcial",
+  paid: "Pagado",
+};
+
+const FOTOS_DISPLAY: Record<string, string> = {
+  no: "No",
+  "en-revision": "En revisión",
+  si: "Si",
+  rechazado: "Rechazado",
+};
+
+function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
+  const priorityMap: Record<string, string> = { low: "Bajo", medium: "Medio", high: "Alto", critical: "Crítica" };
+  const fmt = (d?: string) => (d ? new Date(d).toLocaleDateString("es-MX") : "");
+  const num = (n?: number) => (n != null ? String(n) : "");
+  const bool = (b?: boolean) => (b != null ? (b ? "Sí" : "No") : "");
+  const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+  const headers = [
+    // F1 — Apertura
+    "Folio", "Nombre", "Cliente", "Departamento", "Tipo", "Urgencia",
+    "Ingeniero asignado", "Negociador", "Usuario contacto", "Descripción",
+    // F2 — Ejecución
+    "Estado", "Estimación", "Cotización", "Estado pago",
+    "Lugar",
+    "Fecha solicitud", "Fecha inicio", "Fecha fin", "Fecha compromiso",
+    "Fotos", "Reporte", "Autorizador", "Comentarios campo",
+    // F3 — Financiero
+    "Total sin IVA", "IVA", "Materiales", "Servicios", "Personal",
+    "Svo contratado", "Comisión", "Otros gastos", "OAPC", "EGPC", "LUNA",
+    "Pago Padillas", "Estatus trab.", "Estatus Alberto", "Estatus LUNA",
+    "Comentarios dirección",
+    // F4 — Pagos
+    "Estatus final pagos", "Nº pagos", "Total abonado",
+    // Meta
+    "Fecha creación", "Total contratado",
+  ];
+
+  const rows = projects.map((p) => {
+    const engineer = users.find(
+      (u) => u.role === "engineer" && (u.id === p.createdBy || p.participants.includes(u.id)),
+    );
+    const totalAbonado = (p.pagosProyecto ?? []).reduce((t, pg) => t + (pg.subtotalAbono ?? 0), 0);
+    return [
+      q(p.structuredName?.split("-")[0] ?? ""),
+      q(p.baseName), q(p.client), q(p.department), q(p.type),
+      q(priorityMap[p.priority] ?? p.priority),
+      q(engineer?.name ?? ""), q(p.negociador), q(p.usuarioContacto), q(p.description),
+      q(p.status), q(p.estimacion), q(p.cotizacion), q(p.paymentStatus),
+      q(p.lugar),
+      q(fmt(p.fechaSolicitud)), q(fmt(p.startDate)), q(fmt(p.endDate)), q(fmt(p.commitmentDate)),
+      q(p.fotosStatus ?? (p.fotos ? "si" : "no")),
+      q(p.reporteFileStatus ?? (p.reporte ? "si" : "no")),
+      q(p.autorizador), q(p.comentariosCampo),
+      q(num(p.totalSinIva)), q(num(p.iva)),
+      q(num(p.costoMateriales)), q(num(p.costoServicios)), q(num(p.costoPersonal)),
+      q(num(p.costoSvoContratado)), q(num(p.costoComision)), q(num(p.costoOtros)),
+      q(num(p.oapc)), q(num(p.egpc)), q(num(p.luna)),
+      q(bool(p.pagoPadillas)),
+      q(p.estatusPagoTrabajo), q(p.estatusPagoAlberto), q(p.estatusPagoLuna),
+      q(p.comentariosDireccion),
+      q(p.estatusPagoFinal),
+      q((p.pagosProyecto ?? []).length), q(totalAbonado),
+      q(fmt(p.createdAt)), q(num(p.totalContratado)),
+    ].join(",");
+  });
+
+  const csv = "﻿" + [headers.map((h) => `"${h}"`).join(","), ...rows].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `amper-proyectos-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function ProjectsFilterTab({
+  projects, users, onOpenProject,
+}: {
+  projects: ProjectItem[];
+  users: UserItem[];
+  onOpenProject: (id: string) => void;
+}): JSX.Element {
+  const [query, setQuery] = useState("");
+  const [clientF, setClientF] = useState("Todos");
+  const [deptF, setDeptF] = useState("Todos");
+  const [typeF, setTypeF] = useState("Todos");
+  const [urgencyF, setUrgencyF] = useState("Todos");
+  const [engineerF, setEngineerF] = useState("Todos");
+  const [statusF, setStatusF] = useState("Todos");
+  const [estimF, setEstimF] = useState("Todos");
+  const [cotizF, setCotizF] = useState("Todos");
+  const [payF, setPayF] = useState("Todos");
+  const [fotosF, setFotosF] = useState("Todos");
+  const [yearF, setYearF] = useState("Todos");
+  const [sortF, setSortF] = useState("Reciente ↓");
+
+  const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+  const engineerUsers = useMemo(() => users.filter((u) => u.role === "engineer" && u.isActive !== false), [users]);
+
+  const clients = useMemo(() => {
+    const all = Array.from(new Set([...FIXED_CLIENTS, ...projects.map((p) => p.client)])).sort();
+    return ["Todos", ...all];
+  }, [projects]);
+  const departments = useMemo(() => ["Todos", ...Array.from(new Set(projects.map((p) => p.department))).sort()], [projects]);
+  const types = useMemo(() => ["Todos", ...Array.from(new Set(projects.map((p) => p.type)))], [projects]);
+  const engineers = useMemo(() => ["Todos", ...engineerUsers.map((u) => u.name)], [engineerUsers]);
+  const years = useMemo(() => {
+    const ys = Array.from(new Set(projects.map((p) => new Date(p.createdAt).getFullYear().toString()))).sort((a, b) => b.localeCompare(a));
+    return ["Todos", ...ys];
+  }, [projects]);
+
+  const statusOptions = ["Todos", ...Object.values(STATUS_DISPLAY)];
+  const urgencyOptions = ["Todos", ...Object.values(PRIORITY_DISPLAY)];
+  const estimOptions = ["Todos", "Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A", "Sin información"];
+  const cotizOptions = ["Todos", "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información"];
+  const payOptions = ["Todos", ...Object.values(PAYMENT_DISPLAY)];
+  const fotosOptions = ["Todos", ...Object.values(FOTOS_DISPLAY)];
+  const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑", "Compromiso ↑"];
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const result = projects.filter((p) => {
+      if (yearF !== "Todos" && new Date(p.createdAt).getFullYear().toString() !== yearF) return false;
+      if (clientF !== "Todos" && p.client !== clientF) return false;
+      if (deptF !== "Todos" && p.department !== deptF) return false;
+      if (typeF !== "Todos" && p.type !== typeF) return false;
+      if (urgencyF !== "Todos") {
+        const key = Object.keys(PRIORITY_DISPLAY).find((k) => PRIORITY_DISPLAY[k] === urgencyF);
+        if (p.priority !== key) return false;
+      }
+      if (statusF !== "Todos") {
+        const key = Object.keys(STATUS_DISPLAY).find((k) => STATUS_DISPLAY[k] === statusF);
+        if (p.status !== key) return false;
+      }
+      if (engineerF !== "Todos") {
+        const assigned = users.find((u) => u.role === "engineer" && (u.id === p.createdBy || p.participants.includes(u.id)));
+        if (!assigned || assigned.name !== engineerF) return false;
+      }
+      if (estimF !== "Todos" && p.estimacion !== estimF) return false;
+      if (cotizF !== "Todos" && p.cotizacion !== cotizF) return false;
+      if (payF !== "Todos") {
+        const key = Object.keys(PAYMENT_DISPLAY).find((k) => PAYMENT_DISPLAY[k] === payF);
+        if (p.paymentStatus !== key) return false;
+      }
+      if (fotosF !== "Todos") {
+        const key = Object.keys(FOTOS_DISPLAY).find((k) => FOTOS_DISPLAY[k] === fotosF);
+        const actual = p.fotosStatus ?? (p.fotos ? "si" : "no");
+        if (actual !== key) return false;
+      }
+      if (q && ![p.baseName, p.client, p.structuredName, p.department, p.oc ?? "", p.description].some((f) => f.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    result.sort((a, b) => {
+      switch (sortF) {
+        case "Antiguo ↑": return a.createdAt.localeCompare(b.createdAt);
+        case "Monto ↓": return (b.totalContratado ?? 0) - (a.totalContratado ?? 0);
+        case "Monto ↑": return (a.totalContratado ?? 0) - (b.totalContratado ?? 0);
+        case "Compromiso ↑": return (a.commitmentDate ?? "9999").localeCompare(b.commitmentDate ?? "9999");
+        default: return b.createdAt.localeCompare(a.createdAt);
+      }
+    });
+    return result;
+  }, [projects, query, yearF, clientF, deptF, typeF, urgencyF, statusF, engineerF, estimF, cotizF, payF, fotosF, sortF, users]);
+
+  const hasFilters = !!(query || yearF !== "Todos" || clientF !== "Todos" || deptF !== "Todos" || typeF !== "Todos" || urgencyF !== "Todos" || engineerF !== "Todos" || statusF !== "Todos" || estimF !== "Todos" || cotizF !== "Todos" || payF !== "Todos" || fotosF !== "Todos");
+
+  const clearFilters = (): void => {
+    setQuery(""); setYearF("Todos"); setClientF("Todos"); setDeptF("Todos"); setTypeF("Todos");
+    setUrgencyF("Todos"); setEngineerF("Todos"); setStatusF("Todos");
+    setEstimF("Todos"); setCotizF("Todos"); setPayF("Todos"); setFotosF("Todos");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-3">
+        {/* Búsqueda + CSV */}
+        <div className="flex gap-2">
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, cliente, folio, depto., OC, descripción…" className="h-10 flex-1" />
+          <button
+            type="button"
+            onClick={() => exportProjectsCSV(filtered, users)}
+            title={`Exportar ${filtered.length} proyecto(s) a CSV`}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-2 text-xs font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#3F3F46] hover:text-foreground shrink-0"
+          >
+            <Save className="h-4 w-4" />
+            CSV
+          </button>
+        </div>
+        {/* Pills de año */}
+        <div className="flex flex-wrap gap-1.5">
+          {years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              onClick={() => setYearF(y)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-bold transition",
+                yearF === y
+                  ? "bg-accent text-[#111111]"
+                  : "bg-[#3F3F46] text-[#A1A1AA] hover:bg-[#52525B] hover:text-foreground",
+              )}
+            >{y}</button>
+          ))}
+        </div>
+        {/* Filtros + ordenamiento */}
+        <div className="flex flex-wrap gap-2">
+          <CompactSelect label="Cliente" options={clients} value={clientF} onChange={setClientF} />
+          <CompactSelect label="Depto." options={departments} value={deptF} onChange={setDeptF} />
+          <CompactSelect label="Tipo" options={types} value={typeF} onChange={setTypeF} />
+          <CompactSelect label="Urgencia" options={urgencyOptions} value={urgencyF} onChange={setUrgencyF} />
+          <CompactSelect label="Ingeniero" options={engineers} value={engineerF} onChange={setEngineerF} />
+          <CompactSelect label="Estado" options={statusOptions} value={statusF} onChange={setStatusF} />
+          <CompactSelect label="Estimación" options={estimOptions} value={estimF} onChange={setEstimF} />
+          <CompactSelect label="Cotización" options={cotizOptions} value={cotizF} onChange={setCotizF} />
+          <CompactSelect label="Pago" options={payOptions} value={payF} onChange={setPayF} />
+          <CompactSelect label="Fotos" options={fotosOptions} value={fotosF} onChange={setFotosF} />
+          <CompactSelect label="Ordenar" options={sortOptions} value={sortF} onChange={setSortF} />
+        </div>
+        {/* Contador siempre visible */}
+        <p className="text-xs text-[#888888]">
+          Mostrando {filtered.length} de {projects.length} proyecto{projects.length !== 1 ? "s" : ""}
+          {hasFilters && (
+            <button type="button" onClick={clearFilters} className="ml-3 text-accent hover:underline">Limpiar filtros</button>
+          )}
+        </p>
+      </div>
+
+      {filtered.length > 0 ? (
+        <div className="space-y-3">
+          {filtered.map((project) => (
+            <ProjectCard key={project.id} project={project} onOpen={onOpenProject}
+              showNewBadge={isNewItem(project.createdAt)}
+              assignedEngineerName={usersById[project.createdBy]?.name} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-14 text-center">
+          <p className="text-sm font-semibold text-[#888888]">Ningún proyecto coincide con los filtros</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompactSelect({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isActive = value !== options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors ${
+          isActive
+            ? "border-accent/40 bg-accent/10"
+            : "border-[#3F3F46] bg-[#313136] hover:border-white/20"
+        }`}
+      >
+        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-[#888888]"}`}>{label}</span>
+        <span className={`max-w-[120px] truncate text-xs font-semibold ${isActive ? "text-accent" : "text-foreground"}`}>{value}</span>
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-[#888888]"}`} />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                opt === value
+                  ? "bg-accent/15 text-accent"
+                  : "text-[#A1A1AA] hover:bg-[#313136] hover:text-foreground"
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ── UnpaidTab ──────────────────────────────────────────────────────────────────
+function UnpaidTab({
+  projects, onOpenProject,
+}: {
+  projects: ProjectItem[];
+  onOpenProject: (id: string) => void;
+}): JSX.Element {
+  const mxn = (v: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v);
+
+  const sorted = useMemo(
+    () =>
+      [...projects].sort((a, b) => {
+        const abal = (a.totalSinIva ?? a.totalContratado) - (a.pagosProyecto ?? []).reduce((s, p) => s + p.subtotalAbono, 0);
+        const bbal = (b.totalSinIva ?? b.totalContratado) - (b.pagosProyecto ?? []).reduce((s, p) => s + p.subtotalAbono, 0);
+        return bbal - abal;
+      }),
+    [projects],
+  );
+
+  if (sorted.length === 0) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+        <p className="text-sm font-semibold text-[#888888]">Sin proyectos no pagados</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sorted.map((project) => {
+        const abonoTotal = (project.pagosProyecto ?? []).reduce((s, p) => s + p.subtotalAbono, 0);
+        const base = project.totalSinIva ?? project.totalContratado;
+        const porCobrar = base - abonoTotal;
+        const isOverdue = project.commitmentDate && parseLocalDate(project.commitmentDate) < new Date();
+        return (
+          <Card
+            key={project.id}
+            className="cursor-pointer border-[#3F3F46] bg-[#27272A] transition-all hover:border-white/15 hover:shadow-card-hover"
+            onClick={() => onOpenProject(project.id)}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{project.client} · {project.department}</p>
+                <h3 className="mt-1 truncate text-base font-bold text-foreground">{project.baseName}</h3>
+                <p className="text-xs text-[#888888]">{project.structuredName}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">Contratado</p>
+                  <p className="text-sm font-bold text-foreground tabular-nums">{mxn(base)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">Abonado</p>
+                  <p className="text-sm font-bold text-foreground tabular-nums">{mxn(abonoTotal)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-danger">Por cobrar</p>
+                  <p className={`text-base font-black tabular-nums ${isOverdue ? "text-danger" : "text-[#F5A524]"}`}>{mxn(porCobrar)}</p>
+                  {isOverdue ? <p className="text-[10px] font-bold text-danger">Vencido</p> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onOpenProject(project.id); }}
+                  className="shrink-0 rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#888888] transition hover:border-accent/40 hover:text-accent"
+                >
+                  Ver F4 →
+                </button>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── RejectedTab ────────────────────────────────────────────────────────────────
+function RejectedTab({
+  requests, users, onOpenRequest, onReactivateRequest,
+}: {
+  requests: RequestItem[];
+  users: UserItem[];
+  onOpenRequest: (id: string) => void;
+  onReactivateRequest?: (id: string) => void;
+}): JSX.Element {
+  const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+
+  if (requests.length === 0) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+        <p className="text-sm font-semibold text-[#888888]">Sin solicitudes rechazadas</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {requests.map((req) => (
+        <Card key={req.id} className="border-[#3F3F46] bg-[#27272A]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
+              <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
+              <p className="text-xs text-[#888888]">
+                Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}
+              </p>
+              {req.rejectionReason ? (
+                <div className="mt-2 rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                  <span className="font-bold text-danger">Motivo: </span>{req.rejectionReason}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              {onReactivateRequest ? (
+                <button
+                  type="button"
+                  onClick={() => onReactivateRequest(req.id)}
+                  className="rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/10 px-3 py-1.5 text-sm font-bold text-[#F5A524] transition hover:bg-[#F5A524]/20"
+                >
+                  Reactivar
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onOpenRequest(req.id)}
+                className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:border-white/20 hover:text-white"
+              >
+                Ver detalle
+              </button>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// ── CancelledTab ──────────────────────────────────────────────────────────────
+function CancelledTab({
+  projects, rejectedRequests, users, onOpenProject, onOpenRequest, onReactivateRequest,
+}: {
+  projects: ProjectItem[];
+  rejectedRequests: RequestItem[];
+  users: UserItem[];
+  onOpenProject: (id: string) => void;
+  onOpenRequest: (id: string) => void;
+  onReactivateRequest?: (id: string) => void;
+}): JSX.Element {
+  const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
+
+  return (
+    <div className="space-y-6">
+      {/* Proyectos cancelados */}
+      {projects.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#888888]">Proyectos cancelados · {projects.length}</p>
+          {projects.map((project) => (
+            <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
+          ))}
+        </div>
+      ) : null}
+
+      {/* Solicitudes rechazadas */}
+      {rejectedRequests.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#888888]">Solicitudes no autorizadas · {rejectedRequests.length}</p>
+          {rejectedRequests.map((req) => (
+            <Card key={req.id} className="border-[#3F3F46] bg-[#27272A]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3F3F46] px-3 py-1 text-[10px] font-bold text-[#71717A]">
+                      Cancelado
+                    </span>
+                    <span className="text-xs text-[#888888]">{new Date(req.createdAt).toLocaleDateString("es-MX")}</span>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
+                  <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
+                  <p className="text-xs text-[#888888]">Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}</p>
+                  {req.rejectionReason ? (
+                    <div className="mt-2 rounded-xl border border-[#3F3F46] bg-[#1E1E20] px-3 py-2 text-xs text-[#A1A1AA]">
+                      <span className="font-bold text-[#888888]">Motivo: </span>{req.rejectionReason}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {onReactivateRequest ? (
+                    <button
+                      type="button"
+                      onClick={() => onReactivateRequest(req.id)}
+                      className="rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/10 px-3 py-1.5 text-sm font-bold text-[#F5A524] transition hover:bg-[#F5A524]/20"
+                    >
+                      Reactivar
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onOpenRequest(req.id)}
+                    className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:border-white/20 hover:text-white"
+                  >
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
+      {projects.length === 0 && rejectedRequests.length === 0 ? (
+        <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+          <p className="text-sm font-semibold text-[#888888]">Sin proyectos o solicitudes canceladas</p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -745,14 +1731,6 @@ function formatActivityDetails(details?: Record<string, unknown> | null): string
   return JSON.stringify(details);
 }
 
-function Metric({ label, value }: { label: string; value: string }): JSX.Element {
-  return (
-    <div className="rounded border border-[#3F3F46] bg-[#1F1F22] px-3 py-2">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">{label}</p>
-      <p className="mt-1 truncate text-sm font-bold tabular-nums text-foreground">{value}</p>
-    </div>
-  );
-}
 
 function getProjectFinancials(project: ProjectItem): {
   spent: number;
@@ -788,10 +1766,200 @@ function formatCurrency(value: number): string {
 }
 
 function formatCompactDate(value: string): string {
-  return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(parseLocalDate(value));
 }
 
 function getProjectSequence(project: ProjectItem): string {
   const [sequence] = project.structuredName.split("-");
   return sequence.padStart(4, "0");
+}
+
+// ── CobrosTab ──────────────────────────────────────────────────────────────────
+
+const INVOICE_STATUS_LABELS_MAP: Record<InvoiceStatus, string> = {
+  "solicitada": "Solicitada",
+  "recibida": "Recibida",
+  "en-portal": "En portal",
+  "enviada": "Enviada",
+  "pagada": "Pagada",
+  "cancelada": "Cancelada",
+};
+
+const INVOICE_STATUS_COLOR_MAP: Record<InvoiceStatus, string> = {
+  "solicitada": "bg-[#F5A524]/15 text-[#F5A524]",
+  "recibida": "bg-secondary/15 text-secondary",
+  "en-portal": "bg-[#F5A524]/20 text-[#F5A524]",
+  "enviada": "bg-accent/15 text-accent",
+  "pagada": "bg-[#4ADE80]/15 text-[#4ADE80]",
+  "cancelada": "bg-[#3F3F46] text-[#71717A]",
+};
+
+function getInvoiceDaysSince(invoice: InvoiceItem): number {
+  const ref = invoice.fechaSolicitud || invoice.createdAt;
+  return Math.floor((Date.now() - new Date(ref).getTime()) / 86_400_000);
+}
+
+function CobrosTab({
+  projects,
+  onOpenProject,
+}: {
+  projects: ProjectItem[];
+  onOpenProject: (id: string) => void;
+}): JSX.Element {
+  const mxn = (v: number) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v);
+
+  const withInvoices = useMemo(
+    () => projects.filter((p) => (p.invoices?.length ?? 0) > 0),
+    [projects],
+  );
+
+  const totalFacturado = withInvoices.reduce(
+    (sum, p) =>
+      sum + (p.invoices ?? []).filter((inv) => inv.status !== "cancelada").reduce((s, inv) => s + inv.subtotal, 0),
+    0,
+  );
+  const totalPagado = withInvoices.reduce(
+    (sum, p) =>
+      sum + (p.invoices ?? []).filter((inv) => inv.status === "pagada").reduce((s, inv) => s + inv.subtotal, 0),
+    0,
+  );
+  const totalPendiente = totalFacturado - totalPagado;
+  const activeInvoicesCount = withInvoices.reduce(
+    (sum, p) =>
+      sum + (p.invoices ?? []).filter((inv) => inv.status !== "pagada" && inv.status !== "cancelada").length,
+    0,
+  );
+
+  const sorted = useMemo(() => {
+    const maxStuck = (p: ProjectItem): number =>
+      Math.max(
+        0,
+        ...(p.invoices ?? [])
+          .filter((i) => i.status !== "pagada" && i.status !== "cancelada")
+          .map(getInvoiceDaysSince),
+      );
+    return [...withInvoices].sort((a, b) => maxStuck(b) - maxStuck(a));
+  }, [withInvoices]);
+
+  if (withInvoices.length === 0) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+        <p className="text-sm font-semibold text-[#888888]">Sin facturas registradas</p>
+        <p className="mt-2 text-xs text-[#555555]">Las facturas se agregan desde la pestaña F4 de cada proyecto</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* KPI strip */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard title="Total facturado" value={mxn(totalFacturado)} tone="accent" />
+        <SummaryCard title="Total cobrado" value={mxn(totalPagado)} tone="secondary" />
+        <SummaryCard title="Por cobrar" value={mxn(totalPendiente)} tone={totalPendiente > 0 ? "warning" : "secondary"} />
+        <SummaryCard title="Fact. pendientes" value={activeInvoicesCount} tone={activeInvoicesCount > 0 ? "danger" : "secondary"} />
+      </div>
+
+      {/* Project / invoice list */}
+      <div className="space-y-3">
+        {sorted.map((project) => {
+          const invs = project.invoices ?? [];
+          const activeInvs = invs.filter((inv) => inv.status !== "pagada" && inv.status !== "cancelada");
+          const maxStuckDays = activeInvs.length > 0 ? Math.max(...activeInvs.map(getInvoiceDaysSince)) : 0;
+
+          const cardBorder =
+            maxStuckDays > 14 ? "border-danger/35" :
+            maxStuckDays > 7 ? "border-[#F5A524]/35" :
+            activeInvs.length === 0 ? "border-[#4ADE80]/15" :
+            "border-[#3F3F46]";
+
+          const cardBg =
+            maxStuckDays > 14 ? "bg-danger/[0.04]" :
+            maxStuckDays > 7 ? "bg-[#F5A524]/[0.04]" :
+            "bg-[#27272A]";
+
+          return (
+            <Card key={project.id} className={`${cardBorder} ${cardBg}`}>
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded bg-accent px-2.5 py-0.5 text-[10px] font-black text-[#111111]">
+                        #{getProjectSequence(project)}
+                      </span>
+                      {maxStuckDays > 14 ? (
+                        <span className="rounded-full bg-danger/15 px-2.5 py-0.5 text-[10px] font-bold text-danger">
+                          ⚠ {maxStuckDays}d estancada
+                        </span>
+                      ) : maxStuckDays > 7 ? (
+                        <span className="rounded-full bg-[#F5A524]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#F5A524]">
+                          {maxStuckDays}d sin avanzar
+                        </span>
+                      ) : null}
+                      {activeInvs.length === 0 && invs.length > 0 ? (
+                        <span className="rounded-full bg-[#4ADE80]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#4ADE80]">
+                          ✓ Todo cobrado
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 truncate text-sm font-semibold text-foreground">{project.baseName}</p>
+                    <p className="text-xs text-[#888888]">{project.client} · {project.department}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenProject(project.id)}
+                    className="shrink-0 rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#888888] transition hover:border-accent/40 hover:text-accent"
+                  >
+                    Ver →
+                  </button>
+                </div>
+
+                {/* Invoice rows */}
+                <div className="space-y-1.5">
+                  {invs.map((inv) => {
+                    const days = getInvoiceDaysSince(inv);
+                    const isActive = inv.status !== "pagada" && inv.status !== "cancelada";
+                    return (
+                      <div
+                        key={inv.id}
+                        className="flex flex-wrap items-center gap-2 rounded-xl bg-[#1E1E20] px-3 py-2 text-xs"
+                      >
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${INVOICE_STATUS_COLOR_MAP[inv.status] ?? "bg-[#3F3F46] text-[#888888]"}`}>
+                          {INVOICE_STATUS_LABELS_MAP[inv.status] ?? inv.status}
+                        </span>
+                        {inv.oc ? <span className="font-semibold text-foreground">OC {inv.oc}</span> : null}
+                        <span className="font-bold text-foreground tabular-nums">{mxn(inv.subtotal)}</span>
+                        {inv.facturarA ? <span className="text-[#888888]">→ {inv.facturarA}</span> : null}
+                        {inv.mdp ? (
+                          <span className="rounded bg-[#3F3F46] px-1.5 py-0.5 font-mono text-[9px] text-[#888888]">
+                            {inv.mdp}
+                          </span>
+                        ) : null}
+                        {inv.fechaSolicitud ? (
+                          <span className="text-[10px] text-[#52525B]">
+                            {parseLocalDate(inv.fechaSolicitud).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                          </span>
+                        ) : null}
+                        {inv.fechaPago ? (
+                          <span className="ml-auto text-[10px] font-semibold text-[#4ADE80]">
+                            Pago: {parseLocalDate(inv.fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                          </span>
+                        ) : isActive && days > 0 ? (
+                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-[#F5A524]" : "text-[#555555]"}`}>
+                            {days}d
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

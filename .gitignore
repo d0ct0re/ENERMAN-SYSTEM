@@ -1,17 +1,39 @@
-node_modules
-dist
-.tools
+# Dependencias
+node_modules/
+
+# Build output
+dist/
+
+# Credenciales y configuración local — NUNCA subir al repo
+api/config.php
+api/diag.php
 .env
 .env.local
+.env.deploy
+
+# Logs y temporales
 npm-debug.log*
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
 
+# SQL con contraseñas en texto plano — nunca al repo
+database/fase1-usuarios.sql
+database/insert-users.sql
+database/insert-users-json-object.sql
+database/reset-active-user-passwords.sql
+
+# Archivos de análisis / backups locales
 *.zip
 hostinger-backup/
 hostinger-deploy/
 .claude/
 projectra-database.sql
 projectra-analysis-*.zip
+export-analysis.ps1
+
+# Scripts de conveniencia local (no necesarios en repo)
+run-dev.bat
+run-dev.ps1
+logo-preview.html
 

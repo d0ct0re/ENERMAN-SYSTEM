@@ -1,46 +1,39 @@
 import { AlertTriangle, WandSparkles } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ClientInput } from "@/components/ui/client-input";
+import { DepartmentInput } from "@/components/ui/department-input";
+import { LugarInput } from "@/components/ui/lugar-input";
+import { TypeSelector } from "@/components/ui/type-selector";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { buildRequestName } from "@/lib/utils";
-import { PROJECT_TYPE_LABELS, ProjectItem, ProjectType, RequestItem } from "@/types";
+import { ProjectItem, ProjectType, RequestItem } from "@/types";
 
 interface NewRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (request: Omit<RequestItem, "id" | "createdAt" | "createdBy" | "status">) => void;
   existingProjects: ProjectItem[];
-  clientOptions: string[];
-  departmentOptions: string[];
 }
-
-const TYPE_ENTRIES = Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][];
 
 export function NewRequestDialog({
   open,
   onOpenChange,
   onSubmit,
   existingProjects,
-  clientOptions,
-  departmentOptions,
 }: NewRequestDialogProps): JSX.Element {
   const [baseName, setBaseName] = useState("");
   const [client, setClient] = useState("");
   const [department, setDepartment] = useState("");
+  const [lugar, setLugar] = useState("");
   const [type, setType] = useState<ProjectType>("INST");
   const [description, setDescription] = useState("");
 
   const structuredName = useMemo(
-    () =>
-      buildRequestName({
-        client,
-        department,
-        type,
-        baseName,
-      }),
-    [baseName, client, department, type],
+    () => buildRequestName({ client, department, lugar, type, baseName }),
+    [baseName, client, department, lugar, type],
   );
 
   const duplicateProject = useMemo(
@@ -60,6 +53,7 @@ export function NewRequestDialog({
     setBaseName("");
     setClient("");
     setDepartment("");
+    setLugar("");
     setType("INST");
     setDescription("");
   };
@@ -70,6 +64,7 @@ export function NewRequestDialog({
       baseName,
       client,
       department,
+      lugar: lugar || undefined,
       type,
       description,
       duplicateOfProjectId: duplicateProject?.id,
@@ -87,9 +82,7 @@ export function NewRequestDialog({
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          reset();
-        }
+        if (!nextOpen) reset();
         onOpenChange(nextOpen);
       }}
       title="Nueva solicitud"
@@ -97,46 +90,10 @@ export function NewRequestDialog({
       className="max-w-3xl"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          value={client}
-          onChange={(event) => setClient(event.target.value)}
-          placeholder="Cliente"
-          list="client-options"
-        />
-        <datalist id="client-options">
-          {clientOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-
-        <Input
-          value={department}
-          onChange={(event) => setDepartment(event.target.value)}
-          placeholder="Departamento"
-          list="department-options"
-        />
-        <datalist id="department-options">
-          {departmentOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-
-        <div className="sm:col-span-2">
-          <label className="block space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Tipo de trabajo</span>
-            <select
-              value={type}
-              onChange={(event) => setType(event.target.value as ProjectType)}
-              className="h-12 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
-            >
-              {TYPE_ENTRIES.map(([code, label]) => (
-                <option key={code} value={code}>
-                  {code} — {label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <ClientInput value={client} onChange={setClient} />
+        <DepartmentInput value={department} onChange={setDepartment} />
+        <LugarInput value={lugar} onChange={setLugar} />
+        <TypeSelector value={type} onChange={setType} />
       </div>
 
       <div className="mt-4 space-y-4">
@@ -164,12 +121,8 @@ export function NewRequestDialog({
       ) : null}
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSubmit} disabled={!canSubmit}>
-          Enviar
-        </Button>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+        <Button onClick={handleSubmit} disabled={!canSubmit}>Enviar</Button>
       </div>
     </Dialog>
   );

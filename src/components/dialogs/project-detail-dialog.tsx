@@ -1,910 +1,1993 @@
 import {
-  AlertCircle, CalendarDays, Camera, CheckCircle2, Download, Edit3, Eye,
-  FileUp, Images, MessageCircleMore, MoreVertical, Plus, Receipt, Save, Trash2, XCircle,
+  Camera, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Download, Eye, FileUp, Folder, FolderOpen,
+  MessageCircleMore, MoreVertical, Plus, Trash2, X, XCircle, ZoomIn,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { type ChatMessage, realtime } from "@/lib/realtime";
 import { Dialog } from "@/components/ui/dialog";
 import { Tabs } from "@/components/ui/tabs";
 import {
-  CotizacionStatus, EstimacionStatus, InvoiceItem, InvoiceStatus, MDP,
-  PaymentStatus, PriorityLevel, ProjectExpenseItem, ProjectItem, ProjectStatus,
-  TIPO_PAGO_LABELS, TipoPago, UserItem,
+  CotizacionStatus, EstimacionStatus, ExpenseCategory, ExpenseType, FileCategory, FileStatus,
+  InvoiceItem, InvoiceStatus, MDP, PagoProyecto, PaymentStatus, PriorityLevel,
+  ProjectExpenseItem, ProjectItem, ProjectStatus, ProjectType, PROJECT_TYPE_LABELS,
+  UbicacionProyecto, UserItem,
 } from "@/types";
-import { FieldDisplay } from "@/components/common/field-display";
 import { StatusBadge } from "@/components/common/status-badge";
 import { PriorityBadge } from "@/components/common/priority-badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { formatDate, formatOptionalDate } from "@/lib/utils";
-import { GastosProyecto } from "@/components/gastos/GastosProyecto";
+import { formatDate, parseLocalDate } from "@/lib/utils";
+import { resolveImgUrl, serveFileUrl } from "@/lib/api";
+import type { ProjectFileItem } from "@/types";
 
-type ProjectDialogTab = "info" | "files" | "gastos" | "chat" | "history" | "calendar" | "facturas";
+type MainTab = "info" | "chat" | "archivos";
+type InfoTab = "f1" | "f2" | "f3" | "f4";
 
-const SELECT_CLASS = "h-11 w-full rounded-xl border border-white/[0.07] bg-[#1F1F22] px-3 text-sm font-semibold text-foreground outline-none transition focus:border-accent/45 focus:ring-4 focus:ring-accent/10";
-const ADMIN_FIELD_CLASS = "space-y-1.5";
-const ADMIN_LABEL_CLASS = "text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]";
+// ── Estilos base ──────────────────────────────────────────────
+const INP = "h-11 w-full rounded-xl border border-white/[0.07] bg-[#1F1F22] px-3 text-sm font-semibold text-foreground outline-none transition focus:border-[#60A5FA]/50 focus:ring-2 focus:ring-[#60A5FA]/10 disabled:cursor-not-allowed disabled:opacity-50";
+const INP_RO = "h-11 w-full rounded-xl border border-white/[0.04] bg-[#17171A] px-3 text-sm font-semibold text-[#71717A] outline-none cursor-not-allowed";
+const LBL = "text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]";
 
-const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
-  solicitada: "Solicitada a Mere",
-  recibida: "Recibida",
-  "en-portal": "En portal",
-  enviada: "Factura enviada",
-  pagada: "Pagada",
-  cancelada: "Cancelada",
-};
+// Contenedor de campo normal (azul — ambos pueden editar)
+const FLD = "space-y-1.5";
+// Contenedor de campo admin (naranja — solo Admin)
+const FLD_ADM = "space-y-1.5 border-l-2 border-orange-400/40 pl-3";
 
-const ESTIMACION_OPTIONS: EstimacionStatus[] = ["Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A", "Sin información"];
-const COTIZACION_OPTIONS: CotizacionStatus[] = ["Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información"];
-
-const STATUS_STRIPE: Record<ProjectStatus, string> = {
-  "en-concurso": "bg-blue-400",
-  "en-programacion": "bg-[#F5A524]",
-  "in-progress": "bg-accent",
-  "pendiente-aprobacion": "bg-orange-400",
-  "pendiente-autorizar": "bg-orange-500",
-  reasignado: "bg-purple-400",
-  "cierre-por-sistema": "bg-[#71717A]",
-  comparativa: "bg-indigo-400",
-  "no-autorizado": "bg-danger",
-  completed: "bg-emerald-500",
-  cancelled: "bg-[#52525B]",
-};
-
-const INVOICE_STRIPE: Record<InvoiceStatus, string> = {
-  solicitada: "bg-[#F5A524]",
-  recibida: "bg-blue-400",
-  "en-portal": "bg-[#F5A524]",
-  enviada: "bg-secondary",
-  pagada: "bg-accent",
-  cancelada: "bg-[#52525B]",
-};
-
-const INVOICE_STEP_KEYS: InvoiceStatus[] = ["solicitada", "recibida", "en-portal", "enviada", "pagada"];
-
-function InvoiceProgressSteps({ status }: { status: InvoiceStatus }): JSX.Element {
-  if (status === "cancelada") {
-    return (
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-[#888888]">
-        <XCircle className="h-3.5 w-3.5" />
-        Cancelada
-      </div>
-    );
-  }
-  const currentIdx = INVOICE_STEP_KEYS.indexOf(status);
+// Sufijos de etiqueta
+function LabelAdmin({ text }: { text: string }): JSX.Element {
   return (
-    <div className="flex flex-wrap items-center gap-0.5">
-      {INVOICE_STEP_KEYS.map((step, i) => {
-        const done = i < currentIdx;
-        const active = i === currentIdx;
-        return (
-          <div key={step} className="flex items-center">
-            {done ? (
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-accent" />
-            ) : (
-              <div className={`h-2.5 w-2.5 shrink-0 rounded-full transition-all duration-300 ${active ? "bg-accent ring-2 ring-accent/40 ring-offset-1 ring-offset-[#27272A]" : "bg-[#3F3F46]"}`} />
-            )}
-            {i < INVOICE_STEP_KEYS.length - 1 ? (
-              <div className={`mx-1 h-px w-4 shrink-0 transition-colors duration-300 ${done ? "bg-accent/40" : "bg-[#3F3F46]"}`} />
-            ) : null}
-          </div>
-        );
-      })}
-      <span className={`ml-2 text-[11px] font-semibold ${currentIdx === INVOICE_STEP_KEYS.length - 1 ? "text-accent" : "text-[#A1A1AA]"}`}>
-        {INVOICE_STATUS_LABELS[status]}
-      </span>
+    <span className={LBL}>
+      {text}<span className="text-orange-400/90"> · ADMIN</span>
+    </span>
+  );
+}
+function LabelAuto({ text }: { text: string }): JSX.Element {
+  return (
+    <span className={LBL}>
+      {text}<span className="text-[#4ADE80]/90"> · AUTO</span>
+    </span>
+  );
+}
+
+// ── Mapeos urgencia/prioridad ──────────────────────────────────
+const URGENCIA_TO_PRIORITY: Record<string, PriorityLevel> = {
+  Bajo: "low", Medio: "medium", Alto: "high", Emergencia: "critical",
+};
+const PRIORITY_TO_URGENCIA: Record<PriorityLevel, string> = {
+  low: "Bajo", medium: "Medio", high: "Alto", critical: "Emergencia",
+};
+
+const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
+  { value: "en-programacion", label: "En programación" },
+  { value: "en-concurso", label: "En concurso" },
+  { value: "in-progress", label: "En proceso" },
+  { value: "pendiente-aprobacion", label: "Pend. aprobación" },
+  { value: "pendiente-autorizar", label: "Pend. de autorizar" },
+  { value: "reasignado", label: "Reasignado" },
+  { value: "cierre-por-sistema", label: "Cierre por sistema" },
+  { value: "comparativa", label: "Comparativa" },
+  { value: "no-autorizado", label: "No autorizado" },
+  { value: "completed", label: "Terminado" },
+  { value: "cancelled", label: "Cancelado" },
+];
+
+const ESTIMACION_OPTIONS: EstimacionStatus[] = [
+  "Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A", "Sin información",
+];
+const COTIZACION_OPTIONS: CotizacionStatus[] = [
+  "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información",
+];
+
+// Picker de fecha en DD/MM/AAAA — definido a nivel de módulo para que React no lo
+// desmonte/remonte en cada render del diálogo (si se define dentro del componente,
+// cada render crea una nueva referencia de función y React trata el elemento como
+// un tipo distinto, forzando un remount que rompe el foco del calendario nativo).
+function DatePickerMX({ value, onChange }: { value: string; onChange: (v: string) => void }): JSX.Element {
+  const display = value ? value.split("-").reverse().join("/") : "";
+  return (
+    <div className="relative">
+      <div className={`${INP} flex items-center pointer-events-none select-none`} aria-hidden>
+        {display || <span className="text-[#71717A]">DD/MM/AAAA</span>}
+      </div>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 w-full h-full cursor-pointer border-0 bg-transparent outline-none rounded-xl"
+        style={{ color: "transparent" }}
+      />
     </div>
   );
 }
 
-interface ProjectDetailDialogProps {
+// ── Borrador inline de pago (F4) ──────────────────────────────
+interface PagoDraft {
+  id: string;
+  numeroPago: number;
+  estado: "pendiente" | "realizado";
+  promesaPago: string;
+  tipoPagoAbono: "PPD" | "PUE" | "Contado";
+  factura: string;
+  mdp: "PPD" | "PUE";
+  complementoPago: string;
+  fechaPago: string;
+  subtotalAbono: string;
+  createdAt: string;
+}
+
+function createEmptyPago(num: number): PagoDraft {
+  return {
+    id: crypto.randomUUID(),
+    numeroPago: num,
+    estado: "pendiente",
+    promesaPago: "",
+    tipoPagoAbono: "Contado",
+    factura: "",
+    mdp: "PPD",
+    complementoPago: "",
+    fechaPago: "",
+    subtotalAbono: "",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function pagoDraftFromSaved(p: PagoProyecto): PagoDraft {
+  return {
+    id: p.id,
+    numeroPago: p.numeroPago,
+    estado: p.estado ?? "pendiente",
+    promesaPago: p.promesaPago ?? "",
+    tipoPagoAbono: p.tipoPagoAbono ?? "Contado",
+    factura: p.factura ?? "",
+    mdp: p.mdp ?? "PPD",
+    complementoPago: p.complementoPago ?? "",
+    fechaPago: p.fechaPago ?? "",
+    subtotalAbono: p.subtotalAbono.toString(),
+    createdAt: p.createdAt,
+  };
+}
+
+// ── Props ──────────────────────────────────────────────────────
+export interface ProjectDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project?: ProjectItem;
   users: UserItem[];
-  onSaveProject: (projectId: string, payload: Pick<ProjectItem, "description" | "summary">) => void;
-  onAdminUpdateProject: (
-    projectId: string,
-    payload: {
-      status: ProjectStatus;
-      paymentStatus: PaymentStatus;
-      tipoPago?: TipoPago;
-      priority: PriorityLevel;
-      commitmentDate?: string;
-      startDate?: string;
-      endDate?: string;
-      estimacion?: EstimacionStatus;
-      cotizacion?: CotizacionStatus;
-      oc?: string;
-      facturarA?: string;
-      negociador?: string;
-      usuarioContacto?: string;
-      totalSinIva?: number;
-      assignedEngineerId?: string;
-    },
-  ) => void;
-  onAddComment: (projectId: string, message: string, isPriority: boolean, authorId: string) => void;
-  onAddProjectImportantDate: (projectId: string, payload: { title: string; date: string; description?: string }) => void;
-  onAddExpense: (projectId: string, expense: Omit<ProjectExpenseItem, "id" | "createdAt" | "creadoPor">) => void;
-  onDeleteExpense: (projectId: string, expenseId: string) => void;
-  onUpdateBudget: (projectId: string, amount: number) => void;
-  onAddInvoice?: (projectId: string, invoice: Omit<InvoiceItem, "id" | "createdAt" | "createdBy">) => void;
-  onUpdateInvoice?: (projectId: string, invoiceId: string, updates: Partial<InvoiceItem>) => void;
   currentUser: UserItem;
   canEditProject: boolean;
   canManageProjectStatus: boolean;
-  canManageProjectCalendar: boolean;
-  canAddExpense: boolean;
-  canDeleteExpense: boolean;
   canEditBudget: boolean;
   canDeleteProject: boolean;
   canManageInvoices?: boolean;
-  onUploadFile?: (projectId: string, file: File) => Promise<void>;
+  onUpdateProject: (projectId: string, fields: Partial<ProjectItem> & { assignedEngineerId?: string }) => Promise<void> | void;
+  onAddComment: (projectId: string, message: string, isPriority: boolean, authorId: string) => void;
+  onMessageSent?: (projectId: string, authorId: string, authorName: string, message: string, isPriority: boolean) => void;
+  onUploadFile?: (projectId: string, file: File, category?: FileCategory) => Promise<void>;
+  onDeleteFile?: (projectId: string, fileId: string, category: FileCategory) => Promise<void>;
   onDeleteProject: (projectId: string) => void;
+  clientOptions?: string[];
+  departmentOptions?: string[];
+  onAddExpense?: (projectId: string, expense: Omit<ProjectExpenseItem, "id" | "createdAt" | "creadoPor">) => void;
+  onDeleteExpense?: (projectId: string, expenseId: string) => void;
+  onAddInvoice?: (projectId: string, invoice: Omit<InvoiceItem, "id" | "createdAt" | "createdBy">) => void;
+  onUpdateInvoice?: (projectId: string, invoiceId: string, updates: Partial<InvoiceItem>) => void;
+  onAddProjectImportantDate?: (projectId: string, payload: { title: string; date: string }) => void;
+  // Legacy / sin UI aún
+  onSaveProject?: (...args: unknown[]) => void;
+  onAdminUpdateProject?: (...args: unknown[]) => void;
+  canManageProjectCalendar?: boolean;
+  canAddExpense?: boolean;
+  canDeleteExpense?: boolean;
 }
 
-const emptyInvoiceDraft = () => ({
-  fechaSolicitud: new Date().toISOString().slice(0, 10),
-  factura: "",
-  oc: "",
-  subtotal: "",
-  facturarA: "",
-  promesaPago: "",
-  mdp: "PPD" as MDP,
-  complementoPago: "",
-  abonoAntesIva: "",
-});
+// ── Helpers ────────────────────────────────────────────────────
+function mxn(val?: number): string {
+  if (val === undefined || val === null || isNaN(val)) return "$0";
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency", currency: "MXN", minimumFractionDigits: 0,
+  }).format(val);
+}
 
+function n(s: string): number | undefined {
+  const v = parseFloat(s);
+  return isNaN(v) ? undefined : v;
+}
+
+// ── Componente principal ───────────────────────────────────────
 export function ProjectDetailDialog({
-  open,
-  onOpenChange,
-  project,
-  users,
-  onSaveProject,
-  onAdminUpdateProject,
-  onAddComment,
-  onAddProjectImportantDate,
-  onAddExpense,
-  onDeleteExpense,
-  onUpdateBudget,
-  onAddInvoice,
-  onUpdateInvoice,
-  currentUser,
-  canEditProject,
-  canManageProjectStatus,
-  canManageProjectCalendar,
-  canAddExpense,
-  canDeleteExpense,
-  canEditBudget,
-  canDeleteProject,
-  canManageInvoices = false,
-  onUploadFile,
-  onDeleteProject,
+  open, onOpenChange, project, users, currentUser,
+  canEditProject, canManageProjectStatus, canEditBudget, canDeleteProject, canManageInvoices,
+  onUpdateProject, onAddComment, onUploadFile, onDeleteFile, onDeleteProject, onMessageSent,
+  onAddExpense, onDeleteExpense, onAddInvoice, onUpdateInvoice, onAddProjectImportantDate,
+  clientOptions = [], departmentOptions = [],
 }: ProjectDetailDialogProps): JSX.Element | null {
-  const [tab, setTab] = useState<ProjectDialogTab>("info");
-  const [isEditing, setIsEditing] = useState(false);
+  const [mainTab, setMainTab] = useState<MainTab>("info");
+  const [infoTab, setInfoTab] = useState<InfoTab>("f1");
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
-  const [summary, setSummary] = useState(project?.summary ?? "");
-  const [description, setDescription] = useState(project?.description ?? "");
-  const [adminStatus, setAdminStatus] = useState<ProjectStatus>(project?.status ?? "en-programacion");
-  const [adminPaymentStatus, setAdminPaymentStatus] = useState<PaymentStatus>(project?.paymentStatus ?? "unpaid");
-  const [adminTipoPago, setAdminTipoPago] = useState<TipoPago | "">(project?.tipoPago ?? "");
-  const [adminPriority, setAdminPriority] = useState<PriorityLevel>(project?.priority ?? "medium");
-  const [adminCommitmentDate, setAdminCommitmentDate] = useState(project?.commitmentDate ?? "");
-  const [adminStartDate, setAdminStartDate] = useState(project?.startDate ?? "");
-  const [adminEndDate, setAdminEndDate] = useState(project?.endDate ?? "");
-  const [adminEstimacion, setAdminEstimacion] = useState<EstimacionStatus | "">(project?.estimacion ?? "");
-  const [adminCotizacion, setAdminCotizacion] = useState<CotizacionStatus | "">(project?.cotizacion ?? "");
-  const [adminOc, setAdminOc] = useState(project?.oc ?? "");
-  const [adminFacturarA, setAdminFacturarA] = useState(project?.facturarA ?? "");
-  const [adminNegociador, setAdminNegociador] = useState(project?.negociador ?? "");
-  const [adminUsuarioContacto, setAdminUsuarioContacto] = useState(project?.usuarioContacto ?? "");
-  const [adminTotalSinIva, setAdminTotalSinIva] = useState(project?.totalSinIva?.toString() ?? "");
-  const [adminAssignedEngineerId, setAdminAssignedEngineerId] = useState("");
-  const [importantDateTitle, setImportantDateTitle] = useState("");
-  const [importantDateValue, setImportantDateValue] = useState("");
+
+  // ── F1 state ──
+  const [f1Client, setF1Client] = useState("");
+  const [f1Department, setF1Department] = useState("");
+  const [f1Lugar, setF1Lugar] = useState("");
+  const [f1Type, setF1Type] = useState<ProjectType>("INST");
+  const [f1Urgencia, setF1Urgencia] = useState("Medio");
+  const [f1EngineerId, setF1EngineerId] = useState("");
+  const [f1Negociador, setF1Negociador] = useState("");
+  const [f1ContactUser, setF1ContactUser] = useState("");
+  const [f1BaseName, setF1BaseName] = useState("");
+  const [f1Description, setF1Description] = useState("");
+  const [f1Ubicacion, setF1Ubicacion] = useState<UbicacionProyecto>({});
+
+  const [f1TotalContratado, setF1TotalContratado] = useState("");
+
+  // ── F1 — Fechas importantes form ──
+  const [showDateForm, setShowDateForm] = useState(false);
+  const [dateTitle, setDateTitle] = useState("");
+  const [dateValue, setDateValue] = useState("");
+
+  // ── F2 state ──
+  const [f2Status, setF2Status] = useState<ProjectStatus>("en-programacion");
+  const [f2Estimacion, setF2Estimacion] = useState<EstimacionStatus | "">("");
+  const [f2Cotizacion, setF2Cotizacion] = useState<CotizacionStatus | "">("");
+  const [f2PaymentStatus, setF2PaymentStatus] = useState<PaymentStatus>("unpaid");
+  const [f2FechaSolicitud, setF2FechaSolicitud] = useState("");
+  const [f2StartDate, setF2StartDate] = useState("");
+  const [f2EndDate, setF2EndDate] = useState("");
+  const [f2CommitmentDate, setF2CommitmentDate] = useState("");
+  const [f2Fotos, setF2Fotos] = useState(false);
+  const [f2FotosStatus,      setF2FotosStatus]      = useState<FileStatus>("no");
+  const [f2EstimFileStatus, setF2EstimFileStatus] = useState<FileStatus>("no");
+  const [f2CotizFileStatus, setF2CotizFileStatus] = useState<FileStatus>("no");
+  const [f2ReporteFileStatus, setF2ReporteFileStatus] = useState<FileStatus>("no");
+  const [f2OtrosFileStatus, setF2OtrosFileStatus] = useState<FileStatus>("no");
+  const [f2Reporte, setF2Reporte] = useState(false);
+  const [f2Autorizador, setF2Autorizador] = useState("");
+  const [f2Comentarios, setF2Comentarios] = useState("");
+
+  // ── F3 state ──
+  const [f3TotalSinIva, setF3TotalSinIva] = useState("");
+  const [f3Iva, setF3Iva] = useState("");
+  const [f3Materiales, setF3Materiales] = useState("");
+  const [f3Servicios, setF3Servicios] = useState("");
+  const [f3Personal, setF3Personal] = useState("");
+  const [f3SvoContratado, setF3SvoContratado] = useState("");
+  const [f3Comision, setF3Comision] = useState("");
+  const [f3OtrosGastos, setF3OtrosGastos] = useState("");
+  const [f3Oapc, setF3Oapc] = useState("");
+  const [f3Egpc, setF3Egpc] = useState("");
+  const [f3Luna, setF3Luna] = useState("");
+  const [f3PagoPadillas, setF3PagoPadillas] = useState(true);
+  const [f3EstatusTrabajo, setF3EstatusTrabajo] = useState<"Pendiente" | "Pagado">("Pendiente");
+  const [f3EstatusAlberto, setF3EstatusAlberto] = useState<"Pendiente" | "Pagado">("Pendiente");
+  const [f3EstatusLuna, setF3EstatusLuna] = useState<"Pendiente" | "Pagado">("Pendiente");
+  const [f3ComentariosDireccion, setF3ComentariosDireccion] = useState("");
+
+  // ── F4 state ──
+  const [pagoDrafts, setPagoDrafts] = useState<PagoDraft[]>([createEmptyPago(1)]);
+  const [f4EstatusFinal, setF4EstatusFinal] = useState<"Pendiente" | "Pagado">("Pendiente");
+
+  // ── Saving states ──
+  const [savingF1, setSavingF1] = useState(false);
+  const [savingF2, setSavingF2] = useState(false);
+  const [savingF3, setSavingF3] = useState(false);
+  const [savingF4, setSavingF4] = useState(false);
+
+  // ── Expense form (F3) ──
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [expTitulo, setExpTitulo] = useState("");
+  const [expMonto, setExpMonto] = useState("");
+  const [expTipo, setExpTipo] = useState<ExpenseType>("material");
+  const [expCategoria, setExpCategoria] = useState<ExpenseCategory>("material");
+  const [expFecha, setExpFecha] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // ── Invoice form (F4) ──
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invOc, setInvOc] = useState("");
+  const [invSubtotal, setInvSubtotal] = useState("");
+  const [invFacturarA, setInvFacturarA] = useState("");
+  const [invMdp, setInvMdp] = useState<MDP>("PPD");
+  const [invFechaSolicitud, setInvFechaSolicitud] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // ── Chat ──
   const [message, setMessage] = useState("");
   const [isPriority, setIsPriority] = useState(false);
-  const [invoiceDraft, setInvoiceDraft] = useState(emptyInvoiceDraft());
-  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Archivos ──
+  const [uploadingSection, setUploadingSection] = useState<FileCategory | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [draggingSection, setDraggingSection] = useState<FileCategory | null>(null);
+  // ── Galería de imágenes ──
+  const [galleryFiles, setGalleryFiles] = useState<ProjectFileItem[]>([]);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryBroken, setGalleryBroken] = useState(false);
+  // aliases de compatibilidad (usados en la sección de documentos al abrir imagen)
+  const lightboxFile = galleryFiles[galleryIndex] ?? null;
+  const lightboxUrl  = galleryFiles.length > 0 ? serveFileUrl(project?.id ?? "", galleryFiles[galleryIndex]?.id ?? "") : null;
+  const setLightboxBroken = setGalleryBroken;
+
+  const openGallery = (files: ProjectFileItem[], startId: string) => {
+    const idx = files.findIndex(f => f.id === startId);
+    setGalleryFiles(files);
+    setGalleryIndex(idx >= 0 ? idx : 0);
+    setGalleryBroken(false);
+  };
+  const closeGallery = () => { setGalleryFiles([]); setGalleryIndex(0); };
+  const galleryPrev = () => { setGalleryBroken(false); setGalleryIndex(i => (i - 1 + galleryFiles.length) % galleryFiles.length); };
+  const galleryNext = () => { setGalleryBroken(false); setGalleryIndex(i => (i + 1) % galleryFiles.length); };
+  const [openSections, setOpenSections] = useState<Record<FileCategory, boolean>>({
+    fotos: true, estimacion: false, cotizacion: false, reporte: false, otros: false,
+  });
+  const fotosFileInputRef = useRef<HTMLInputElement>(null);
+  const estimacionFileInputRef = useRef<HTMLInputElement>(null);
+  const cotizacionFileInputRef = useRef<HTMLInputElement>(null);
+  const reporteFileInputRef = useRef<HTMLInputElement>(null);
+  const otrosFileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Computed ──
   const usersById = useMemo(
-    () => Object.fromEntries(users.map((user) => [user.id, user])),
+    () => Object.fromEntries(users.map((u) => [u.id, u])),
     [users],
   );
-  const engineerUsers = useMemo(() => users.filter((user) => user.role === "engineer" && user.isActive !== false), [users]);
+  const engineerUsers = useMemo(
+    () => users.filter((u) => u.role === "engineer" && u.isActive !== false),
+    [users],
+  );
   const assignedEngineer = useMemo(() => {
     if (!project) return undefined;
-    return engineerUsers.find((user) => user.id === project.createdBy || project.participants.includes(user.id));
+    return engineerUsers.find(
+      (u) => u.id === project.createdBy || project.participants.includes(u.id),
+    );
   }, [engineerUsers, project]);
 
+  const consecutivo = useMemo(
+    () => (project ? project.structuredName.split("-")[0] : "—"),
+    [project],
+  );
+
+  const ganancia = useMemo(() => {
+    const total = parseFloat(f3TotalSinIva) || 0;
+    const costos = [f3Materiales, f3Servicios, f3Personal, f3SvoContratado, f3Comision, f3OtrosGastos]
+      .map((v) => parseFloat(v) || 0)
+      .reduce((a, b) => a + b, 0);
+    return total - costos;
+  }, [f3TotalSinIva, f3Materiales, f3Servicios, f3Personal, f3SvoContratado, f3Comision, f3OtrosGastos]);
+
+  const abonoTotal = useMemo(
+    () => pagoDrafts.filter((p) => p.estado === "realizado").reduce((s, p) => s + (parseFloat(p.subtotalAbono) || 0), 0),
+    [pagoDrafts],
+  );
+  const porCobrar = useMemo(
+    () => (parseFloat(f3TotalSinIva) || project?.totalSinIva || 0) - abonoTotal,
+    [f3TotalSinIva, project?.totalSinIva, abonoTotal],
+  );
+
+  const progress = useMemo(() => {
+    if (!project) return 0;
+    let done = 0;
+    if (project.client) done++;
+    if (project.status !== "en-programacion" || project.startDate) done++;
+    if (project.totalSinIva) done++;
+    if ((project.pagosProyecto?.length ?? 0) > 0) done++;
+    return Math.round((done / 4) * 100);
+  }, [project]);
+
+  // Muestra fecha en formato inequívoco (dd mmm aaaa) sin importar el locale del navegador.
+  const fmtHint = (d: string): string => {
+    if (!d) return "";
+    try { return parseLocalDate(d).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }); }
+    catch { return ""; }
+  };
+
+  // DatePickerMX se define a nivel de módulo (ver arriba del archivo).
+
+  // ── Archivos por sección ──
+  const filesBySection = useMemo<Record<FileCategory, import("@/types").ProjectFileItem[]>>(() => {
+    const map: Record<FileCategory, import("@/types").ProjectFileItem[]> = { fotos: [], estimacion: [], cotizacion: [], reporte: [], otros: [] };
+    for (const f of (project?.files ?? [])) {
+      const cat: FileCategory = f.category ?? (/\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) ? "fotos" : "reporte");
+      map[cat].push(f);
+    }
+    return map;
+  }, [project?.files]);
+
+  // ── Reset al cambiar de proyecto ──
   useEffect(() => {
     if (!project) return;
-    setTab("info");
-    setIsEditing(false);
+    setMainTab("info");
+    setInfoTab("f1");
     setShowDeleteMenu(false);
-    setSummary(project.summary);
-    setDescription(project.description);
-    setAdminStatus(project.status);
-    setAdminPaymentStatus(project.paymentStatus);
-    setAdminTipoPago(project.tipoPago ?? "");
-    setAdminPriority(project.priority);
-    setAdminCommitmentDate(project.commitmentDate ?? "");
-    setAdminStartDate(project.startDate ?? "");
-    setAdminEndDate(project.endDate ?? "");
-    setAdminEstimacion(project.estimacion ?? "");
-    setAdminCotizacion(project.cotizacion ?? "");
-    setAdminOc(project.oc ?? "");
-    setAdminFacturarA(project.facturarA ?? "");
-    setAdminNegociador(project.negociador ?? "");
-    setAdminUsuarioContacto(project.usuarioContacto ?? "");
-    setAdminTotalSinIva(project.totalSinIva?.toString() ?? "");
-    setAdminAssignedEngineerId(
-      users.find((user) => user.role === "engineer" && (user.id === project.createdBy || project.participants.includes(user.id)))?.id ?? "",
+    // F1
+    setF1Client(project.client ?? "");
+    setF1Department(project.department ?? "");
+    setF1Lugar(project.lugar ?? "");
+    setF1Type(project.type ?? "INST");
+    setF1Urgencia(PRIORITY_TO_URGENCIA[project.priority] ?? "Medio");
+    setF1EngineerId(
+      engineerUsers.find(
+        (u) => u.id === project.createdBy || project.participants.includes(u.id),
+      )?.id ?? "",
     );
-    setImportantDateTitle("");
-    setImportantDateValue("");
+    setF1Negociador(project.negociador ?? "");
+    setF1ContactUser(project.usuarioContacto ?? "");
+    setF1BaseName(project.baseName ?? "");
+    setF1Description(project.description ?? "");
+    setF1Ubicacion(project.ubicacion ?? {});
+    setF1TotalContratado(project.totalContratado?.toString() ?? "");
+    setShowDateForm(false); setDateTitle(""); setDateValue(new Date().toISOString().slice(0, 10));
+    // F2
+    setF2Status(project.status ?? "en-programacion");
+    setF2Estimacion(project.estimacion ?? "");
+    setF2Cotizacion(project.cotizacion ?? "");
+    setF2PaymentStatus(project.paymentStatus ?? "unpaid");
+    setF2FechaSolicitud((project.fechaSolicitud ?? project.createdAt ?? "").slice(0, 10));
+    setF2StartDate(project.startDate ?? "");
+    setF2EndDate(project.endDate ?? "");
+    setF2CommitmentDate(project.commitmentDate ?? "");
+    setF2Fotos(project.fotos ?? false);
+    setF2FotosStatus(project.fotosStatus ?? (project.fotos ? "si" : "no"));
+    setF2EstimFileStatus(project.estimacionFileStatus ?? "no");
+    setF2CotizFileStatus(project.cotizacionFileStatus ?? "no");
+    setF2ReporteFileStatus(project.reporteFileStatus ?? "no");
+    setF2OtrosFileStatus(project.otrosFileStatus ?? "no");
+    setF2Reporte(project.reporte ?? false);
+    setF2Autorizador(project.autorizador ?? "");
+    setF2Comentarios(project.comentariosCampo ?? "");
+    // F3
+    setF3TotalSinIva(project.totalSinIva?.toString() ?? "");
+    setF3Iva(project.iva?.toString() ?? "");
+    setF3Materiales(project.costoMateriales?.toString() ?? "");
+    setF3Servicios(project.costoServicios?.toString() ?? "");
+    setF3Personal(project.costoPersonal?.toString() ?? "");
+    setF3SvoContratado(project.costoSvoContratado?.toString() ?? "");
+    setF3Comision(project.costoComision?.toString() ?? "");
+    setF3OtrosGastos(project.costoOtros?.toString() ?? "");
+    setF3Oapc(project.oapc?.toString() ?? "");
+    setF3Egpc(project.egpc?.toString() ?? "");
+    setF3Luna(project.luna?.toString() ?? "");
+    setF3PagoPadillas(project.pagoPadillas ?? true);
+    setF3EstatusTrabajo(project.estatusPagoTrabajo ?? "Pendiente");
+    setF3EstatusAlberto(project.estatusPagoAlberto ?? "Pendiente");
+    setF3EstatusLuna(project.estatusPagoLuna ?? "Pendiente");
+    setF3ComentariosDireccion(project.comentariosDireccion ?? "");
+    // F4
+    setPagoDrafts(
+      project.pagosProyecto && project.pagosProyecto.length > 0
+        ? project.pagosProyecto.map(pagoDraftFromSaved)
+        : [createEmptyPago(1)],
+    );
+    setF4EstatusFinal(project.estatusPagoFinal ?? "Pendiente");
+    // Expense form
+    setShowExpenseForm(false);
+    setExpTitulo(""); setExpMonto(""); setExpTipo("material"); setExpCategoria("material");
+    setExpFecha(new Date().toISOString().slice(0, 10));
+    // Invoice form
+    setShowInvoiceForm(false);
+    setInvOc(""); setInvSubtotal(""); setInvFacturarA(""); setInvMdp("PPD");
+    setInvFechaSolicitud(new Date().toISOString().slice(0, 10));
+    // Chat + Archivos
     setMessage("");
     setIsPriority(false);
-    setInvoiceDraft(emptyInvoiceDraft());
-    setShowInvoiceForm(false);
-    setLightboxUrl(null);
+    closeGallery();
+    setUploadError(null);
+    // Limpiar mensajes al cambiar de proyecto
+    setChatMessages([]);
   }, [project?.id]);
+
+  // Sincroniza los campos F1 cuando el proyecto cambia externamente via polling (mismo project.id, datos nuevos).
+  // Cubre todos los campos de Apertura que el ingeniero puede editar: cliente, departamento, lugar,
+  // tipo, urgencia, ingeniero asignado, negociador, contacto, nombre, descripción, ubicación, monto.
+  useEffect(() => {
+    if (!project) return;
+    setF1Client(project.client ?? "");
+    setF1Department(project.department ?? "");
+    setF1Lugar(project.lugar ?? "");
+    setF1Type(project.type ?? "INST");
+    setF1Urgencia(PRIORITY_TO_URGENCIA[project.priority] ?? "Medio");
+    setF1EngineerId(
+      engineerUsers.find(
+        (u) => u.id === project.createdBy || project.participants.includes(u.id),
+      )?.id ?? "",
+    );
+    setF1Negociador(project.negociador ?? "");
+    setF1ContactUser(project.usuarioContacto ?? "");
+    setF1BaseName(project.baseName ?? "");
+    setF1Description(project.description ?? "");
+    setF1Ubicacion(project.ubicacion ?? {});
+    setF1TotalContratado(project.totalContratado?.toString() ?? "");
+  }, [
+    project?.client,
+    project?.department,
+    project?.lugar,
+    project?.type,
+    project?.priority,
+    project?.createdBy,
+    // participants es array — serializar para que React detecte cambios de referencia
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(project?.participants),
+    project?.negociador,
+    project?.usuarioContacto,
+    project?.baseName,
+    project?.description,
+    // ubicacion es objeto — serializar igual
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    JSON.stringify(project?.ubicacion),
+    project?.totalContratado,
+  ]);
+
+  // Sincroniza los campos F2 cuando el proyecto cambia externamente via polling (mismo project.id, datos nuevos).
+  // Cubre: fechas, estados, fotos, reporte, autorizador y comentarios.
+  // No toca campos que el usuario podría estar editando ahora mismo en otro formulario.
+  useEffect(() => {
+    if (!project) return;
+    setF2Status(project.status ?? "en-programacion");
+    setF2Estimacion(project.estimacion ?? "");
+    setF2Cotizacion(project.cotizacion ?? "");
+    setF2PaymentStatus(project.paymentStatus ?? "unpaid");
+    setF2StartDate(project.startDate ?? "");
+    setF2EndDate(project.endDate ?? "");
+    setF2CommitmentDate(project.commitmentDate ?? "");
+    setF2Fotos(project.fotos ?? false);
+    setF2Reporte(project.reporte ?? false);
+    setF2Autorizador(project.autorizador ?? "");
+    setF2Comentarios(project.comentariosCampo ?? "");
+  }, [
+    project?.status,
+    project?.estimacion,
+    project?.cotizacion,
+    project?.paymentStatus,
+    project?.startDate,
+    project?.endDate,
+    project?.commitmentDate,
+    project?.fotos,
+    project?.reporte,
+    project?.autorizador,
+    project?.comentariosCampo,
+  ]);
+
+  // Sincroniza los campos F3 (Financiero) cuando el proyecto cambia externamente via polling.
+  // Solo visible para admin y gestor (canEditBudget). Cubre costos, estatus de pago internos y comentarios.
+  useEffect(() => {
+    if (!project) return;
+    setF3TotalSinIva(project.totalSinIva?.toString() ?? "");
+    setF3Iva(project.iva?.toString() ?? "");
+    setF3Materiales(project.costoMateriales?.toString() ?? "");
+    setF3Servicios(project.costoServicios?.toString() ?? "");
+    setF3Personal(project.costoPersonal?.toString() ?? "");
+    setF3SvoContratado(project.costoSvoContratado?.toString() ?? "");
+    setF3Comision(project.costoComision?.toString() ?? "");
+    setF3OtrosGastos(project.costoOtros?.toString() ?? "");
+    setF3Oapc(project.oapc?.toString() ?? "");
+    setF3Egpc(project.egpc?.toString() ?? "");
+    setF3Luna(project.luna?.toString() ?? "");
+    setF3PagoPadillas(project.pagoPadillas ?? true);
+    setF3EstatusTrabajo(project.estatusPagoTrabajo ?? "Pendiente");
+    setF3EstatusAlberto(project.estatusPagoAlberto ?? "Pendiente");
+    setF3EstatusLuna(project.estatusPagoLuna ?? "Pendiente");
+    setF3ComentariosDireccion(project.comentariosDireccion ?? "");
+  }, [
+    project?.totalSinIva,
+    project?.iva,
+    project?.costoMateriales,
+    project?.costoServicios,
+    project?.costoPersonal,
+    project?.costoSvoContratado,
+    project?.costoComision,
+    project?.costoOtros,
+    project?.oapc,
+    project?.egpc,
+    project?.luna,
+    project?.pagoPadillas,
+    project?.estatusPagoTrabajo,
+    project?.estatusPagoAlberto,
+    project?.estatusPagoLuna,
+    project?.comentariosDireccion,
+  ]);
+
+  // Sincroniza los campos F4 (Pagos) cuando el proyecto cambia externamente via polling.
+  // Solo visible para admin y gestor. pagosProyecto es array — se serializa para detectar cambios.
+  useEffect(() => {
+    if (!project) return;
+    setPagoDrafts(
+      project.pagosProyecto && project.pagosProyecto.length > 0
+        ? project.pagosProyecto.map(pagoDraftFromSaved)
+        : [createEmptyPago(1)],
+    );
+    setF4EstatusFinal(project.estatusPagoFinal ?? "Pendiente");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(project?.pagosProyecto), project?.estatusPagoFinal]);
+
+  // Sincroniza los badges de archivo cuando cambian externamente (aprobación admin, realtime polling)
+  // Solo actualiza estos campos read-only; no toca el resto del formulario para no interrumpir edición en curso
+  useEffect(() => {
+    if (!project) return;
+    setF2FotosStatus(project.fotosStatus ?? (project.fotos ? "si" : "no"));
+    setF2EstimFileStatus(project.estimacionFileStatus ?? "no");
+    setF2CotizFileStatus(project.cotizacionFileStatus ?? "no");
+    setF2ReporteFileStatus(project.reporteFileStatus ?? "no");
+    setF2OtrosFileStatus(project.otrosFileStatus ?? "no");
+  }, [
+    project?.fotosStatus,
+    project?.estimacionFileStatus,
+    project?.cotizacionFileStatus,
+    project?.reporteFileStatus,
+    project?.otrosFileStatus,
+    project?.fotos,
+  ]);
+
+  // ── Cargar mensajes al abrir + suscribir al polling ──────────
+  useEffect(() => {
+    if (!open || !project) return;
+
+    realtime.setProject(project.id);
+
+    // Carga inicial del historial
+    setChatLoading(true);
+    realtime.loadMessages(project.id)
+      .then(msgs => setChatMessages(msgs))
+      .catch(() => undefined)
+      .finally(() => setChatLoading(false));
+
+    // Suscribirse a mensajes nuevos via polling
+    const unsub = realtime.onMessages((newMsgs) => {
+      setChatMessages(prev => {
+        const existingIds = new Set(prev.map(m => m.id));
+        const fresh = newMsgs.filter(m => !existingIds.has(m.id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
+    });
+
+    return () => {
+      unsub();
+      realtime.setProject(null);
+    };
+  }, [open, project?.id]);
+
+  // ── Auto-scroll al fondo cuando llegan mensajes nuevos ───────
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages.length]);
 
   if (!project) return null;
 
-  const resetLocalState = (): void => {
-    setTab("info");
-    setIsEditing(false);
-    setShowDeleteMenu(false);
-    setSummary(project.summary);
-    setDescription(project.description);
-    setAdminStatus(project.status);
-    setAdminPaymentStatus(project.paymentStatus);
-    setAdminTipoPago(project.tipoPago ?? "");
-    setAdminPriority(project.priority);
-    setAdminCommitmentDate(project.commitmentDate ?? "");
-    setAdminStartDate(project.startDate ?? "");
-    setAdminEndDate(project.endDate ?? "");
-    setAdminEstimacion(project.estimacion ?? "");
-    setAdminCotizacion(project.cotizacion ?? "");
-    setAdminOc(project.oc ?? "");
-    setAdminFacturarA(project.facturarA ?? "");
-    setAdminNegociador(project.negociador ?? "");
-    setAdminUsuarioContacto(project.usuarioContacto ?? "");
-    setAdminTotalSinIva(project.totalSinIva?.toString() ?? "");
-    setAdminAssignedEngineerId(assignedEngineer?.id ?? "");
-    setImportantDateTitle("");
-    setImportantDateValue("");
+  // ── Handler de envío de mensaje de chat ──────────────────────
+  const handleSendChatMessage = async (): Promise<void> => {
+    if (!message.trim() || chatSending) return;
+    const text = message.trim();
+    const priority = isPriority;
     setMessage("");
     setIsPriority(false);
-    setInvoiceDraft(emptyInvoiceDraft());
-    setShowInvoiceForm(false);
-    setLightboxUrl(null);
+    setChatSending(true);
+    try {
+      const sent = await realtime.sendMessage(project.id, text, priority);
+      if (sent) {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === sent.id)) return prev;
+          return [...prev, sent];
+        });
+        onMessageSent?.(project.id, currentUser.id, currentUser.name, text, priority);
+      }
+    } catch {
+      // Reestablecer el mensaje si falló
+      setMessage(text);
+    } finally {
+      setChatSending(false);
+    }
   };
 
-  const handleSave = (): void => {
-    onSaveProject(project.id, { description, summary });
-    setIsEditing(false);
+  // ── Handlers de guardado ──
+  const handleSaveF1 = async (): Promise<void> => {
+    setSavingF1(true);
+    try {
+      await onUpdateProject(project.id, {
+        client: f1Client,
+        department: f1Department,
+        lugar: f1Lugar || undefined,
+        type: f1Type,
+        priority: URGENCIA_TO_PRIORITY[f1Urgencia] ?? "medium",
+        negociador: f1Negociador || undefined,
+        usuarioContacto: f1ContactUser || undefined,
+        baseName: f1BaseName,
+        description: f1Description,
+        ubicacion: f1Ubicacion,
+        totalContratado: n(f1TotalContratado) ?? project.totalContratado,
+        assignedEngineerId: f1EngineerId || undefined,
+      });
+    } catch { /* error ya mostrado via toast en handleUpdateProject */ }
+    finally { setSavingF1(false); }
   };
 
-  const handleAdminStatusSave = (): void => {
-    onAdminUpdateProject(project.id, {
-      status: adminStatus,
-      paymentStatus: adminPaymentStatus,
-      tipoPago: adminTipoPago || undefined,
-      priority: adminPriority,
-      commitmentDate: adminCommitmentDate || undefined,
-      startDate: adminStartDate || undefined,
-      endDate: adminEndDate || undefined,
-      estimacion: adminEstimacion || undefined,
-      cotizacion: adminCotizacion || undefined,
-      oc: adminOc || undefined,
-      facturarA: adminFacturarA || undefined,
-      negociador: adminNegociador || undefined,
-      usuarioContacto: adminUsuarioContacto || undefined,
-      totalSinIva: adminTotalSinIva ? Number(adminTotalSinIva) : undefined,
-      assignedEngineerId: adminAssignedEngineerId || undefined,
+  const handleSaveF2 = async (): Promise<void> => {
+    setSavingF2(true);
+    try {
+      await onUpdateProject(project.id, {
+        status: f2Status,
+        estimacion: (f2Estimacion as EstimacionStatus) || undefined,
+        cotizacion: (f2Cotizacion as CotizacionStatus) || undefined,
+        paymentStatus: f2PaymentStatus,
+        startDate: f2StartDate || undefined,
+        endDate: f2EndDate || undefined,
+        commitmentDate: f2CommitmentDate || undefined,
+        fotos: f2Fotos,
+        fotosStatus: f2FotosStatus,
+        reporte: f2Reporte,
+        autorizador: f2Autorizador || undefined,
+        comentariosCampo: f2Comentarios || undefined,
+      });
+    } catch { /* error ya mostrado via toast en handleUpdateProject */ }
+    finally { setSavingF2(false); }
+  };
+
+  const handleSaveF3 = async (): Promise<void> => {
+    setSavingF3(true);
+    try {
+      await onUpdateProject(project.id, {
+        totalSinIva: n(f3TotalSinIva),
+        iva: n(f3Iva),
+        costoMateriales: n(f3Materiales),
+        costoServicios: n(f3Servicios),
+        costoPersonal: n(f3Personal),
+        costoSvoContratado: n(f3SvoContratado),
+        costoComision: n(f3Comision),
+        costoOtros: n(f3OtrosGastos),
+        oapc: n(f3Oapc),
+        egpc: n(f3Egpc),
+        luna: n(f3Luna),
+        pagoPadillas: f3PagoPadillas,
+        estatusPagoTrabajo: f3EstatusTrabajo,
+        estatusPagoAlberto: f3EstatusAlberto,
+        estatusPagoLuna: f3EstatusLuna,
+        comentariosDireccion: f3ComentariosDireccion || undefined,
+      });
+    } catch { /* error ya mostrado via toast en handleUpdateProject */ }
+    finally { setSavingF3(false); }
+  };
+
+  const handleSaveF4 = async (): Promise<void> => {
+    setSavingF4(true);
+    try {
+      const pagos: PagoProyecto[] = pagoDrafts.map((d) => ({
+        id: d.id,
+        numeroPago: d.numeroPago,
+        estado: d.estado,
+        promesaPago: d.promesaPago || undefined,
+        tipoPagoAbono: d.tipoPagoAbono,
+        factura: d.factura || undefined,
+        mdp: d.mdp,
+        complementoPago: d.complementoPago || undefined,
+        fechaPago: d.fechaPago || undefined,
+        subtotalAbono: parseFloat(d.subtotalAbono) || 0,
+        createdAt: d.createdAt,
+      }));
+      await onUpdateProject(project.id, {
+        pagosProyecto: pagos,
+        estatusPagoFinal: f4EstatusFinal,
+      });
+    } catch { /* error ya mostrado via toast en handleUpdateProject */ }
+    finally { setSavingF4(false); }
+  };
+
+  const updatePagoDraft = (id: string, field: keyof PagoDraft, value: string): void => {
+    setPagoDrafts((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  };
+
+  const togglePagoEstado = (id: string): void => {
+    setPagoDrafts((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const next = p.estado === "pendiente" ? "realizado" : "pendiente";
+        return {
+          ...p,
+          estado: next,
+          fechaPago: next === "realizado" && !p.fechaPago ? new Date().toISOString().slice(0, 10) : p.fechaPago,
+        };
+      }),
+    );
+  };
+
+  const addPago = (): void => {
+    setPagoDrafts((prev) => [...prev, createEmptyPago(prev.length + 1)]);
+  };
+
+  const removePago = (id: string): void => {
+    setPagoDrafts((prev) => {
+      const filtered = prev.filter((p) => p.id !== id);
+      return filtered.map((p, i) => ({ ...p, numeroPago: i + 1 }));
     });
   };
 
-  const handleAddImportantDate = (): void => {
-    if (!importantDateTitle.trim() || !importantDateValue) return;
-    onAddProjectImportantDate(project.id, { title: importantDateTitle.trim(), date: importantDateValue });
-    setImportantDateTitle("");
-    setImportantDateValue("");
-  };
+  const infoTabs: { key: InfoTab; label: string; sublabel: string }[] = [
+    { key: "f1", label: "F1", sublabel: "Apertura" },
+    { key: "f2", label: "F2", sublabel: "Ejecución" },
+    ...(canEditBudget ? [{ key: "f3" as InfoTab, label: "F3", sublabel: "Financiero" }] : []),
+    ...(canEditBudget ? [{ key: "f4" as InfoTab, label: "F4", sublabel: "Pagos" }] : []),
+  ];
 
-  const handleAddInvoice = (): void => {
-    if (!onAddInvoice) return;
-    if (!invoiceDraft.oc.trim() || !invoiceDraft.subtotal || !invoiceDraft.facturarA.trim()) return;
-    const complementoPago = invoiceDraft.mdp === "PUE" ? "N/A" : invoiceDraft.complementoPago;
-    onAddInvoice(project.id, {
-      fechaSolicitud: invoiceDraft.fechaSolicitud,
-      factura: invoiceDraft.factura || undefined,
-      oc: invoiceDraft.oc.trim(),
-      subtotal: Number(invoiceDraft.subtotal),
-      facturarA: invoiceDraft.facturarA.trim(),
-      promesaPago: invoiceDraft.promesaPago || undefined,
-      status: "solicitada",
-      mdp: invoiceDraft.mdp,
-      complementoPago,
-      abonoAntesIva: invoiceDraft.abonoAntesIva ? Number(invoiceDraft.abonoAntesIva) : undefined,
-    });
-    setInvoiceDraft(emptyInvoiceDraft());
-    setShowInvoiceForm(false);
-  };
+  const ubicacionFields: { key: keyof UbicacionProyecto; label: string; placeholder: string }[] = [
+    { key: "calle", label: "Calle", placeholder: "Nombre de calle" },
+    { key: "planta", label: "Planta", placeholder: "Planta baja, 1er piso..." },
+    { key: "edificio", label: "Edificio", placeholder: "Nombre o clave" },
+    { key: "piso", label: "Piso", placeholder: "Número de piso" },
+    { key: "puerta", label: "Puerta / Local", placeholder: "Puerta o local" },
+    { key: "descripcion", label: "Descripción ubicación", placeholder: "Referencia adicional" },
+  ];
 
-  const mxn = (value?: number) =>
-    value !== undefined
-      ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 0 }).format(value)
-      : "—";
+  function SaveBtn({ onClick, label, saving }: { onClick: () => Promise<void> | void; label: string; saving?: boolean }): JSX.Element {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={saving}
+        className="mt-1 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] py-3.5 text-sm font-bold text-foreground transition hover:bg-[#3F3F46] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {saving ? "Guardando..." : label}
+      </button>
+    );
+  }
 
-  const invoices = project.invoices ?? [];
-  const invoiceCount = invoices.length;
-
+  // ── Render ─────────────────────────────────────────────────
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) resetLocalState();
-        onOpenChange(nextOpen);
-      }}
+      onOpenChange={onOpenChange}
       title={project.baseName}
       description={project.structuredName}
-      className="max-w-6xl"
+      className="max-w-3xl"
     >
-      <Tabs
-        value={tab}
-        onValueChange={setTab}
-        options={[
-          { key: "info", label: "Info" },
-          { key: "facturas", label: "Facturación", count: invoiceCount },
-          { key: "files", label: "Archivos", count: project.files.length },
-          { key: "gastos", label: "Costos", count: project.expenses.length },
-          { key: "calendar", label: "Calendario", count: (project.commitmentDate ? 1 : 0) + (project.importantDates?.length ?? 0) },
-          { key: "chat", label: "Chat", count: project.comments.length },
-          { key: "history", label: "Historial", count: project.history.length },
-        ]}
-      />
-
-      {/* ── TAB INFO ── */}
-      {tab === "info" ? (
-        <div className="mt-5 space-y-5">
-
-          {/* Header con franja de status */}
-          <div className="relative overflow-hidden rounded-[26px] bg-[#313136]/50 p-5">
-            <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-[26px] ${STATUS_STRIPE[project.status]}`} />
-            <div className="pl-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge kind="project" value={project.status} />
-                    <StatusBadge kind="payment" value={project.paymentStatus} />
-                    <PriorityBadge priority={project.priority} />
-                  </div>
-                  <p className="text-sm text-[#888888]">{project.client} · {project.department} · {project.type}</p>
-                </div>
-                {canEditProject ? (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant={isEditing ? "secondary" : "outline"}
-                      onClick={() => { setIsEditing((c) => !c); setShowDeleteMenu(false); }}
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Editar
-                    </Button>
-                    {canDeleteProject ? (
-                      <div className="relative">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowDeleteMenu((c) => !c)}
-                          aria-label="Más acciones"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                        {showDeleteMenu ? (
-                          <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[172px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
-                              onClick={() => { onDeleteProject(project.id); onOpenChange(false); }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Eliminar proyecto
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          {/* Control administrativo */}
-          {canManageProjectStatus ? (
-            <div className="space-y-4 rounded-[24px] bg-[#242427] p-4 sm:p-5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Control administrativo</p>
-                <p className="mt-1 text-sm text-[#888888]">Estado operativo, comercial y datos de cobranza.</p>
-                </div>
-                <Button variant="secondary" onClick={handleAdminStatusSave}>
-                  Guardar cambios
-                </Button>
-              </div>
-
-              <label className={ADMIN_FIELD_CLASS}>
-                <span className={ADMIN_LABEL_CLASS}>Ingeniero asignado</span>
-                <select value={adminAssignedEngineerId} onChange={(e) => setAdminAssignedEngineerId(e.target.value)} className={SELECT_CLASS}>
-                  <option value="">Sin ingeniero asignado</option>
-                  {engineerUsers.map((user) => (
-                    <option key={user.id} value={user.id}>{user.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Estado del proyecto</span>
-                  <select value={adminStatus} onChange={(e) => setAdminStatus(e.target.value as ProjectStatus)} className={SELECT_CLASS}>
-                    <option value="en-programacion">En programación</option>
-                    <option value="en-concurso">En concurso</option>
-                    <option value="in-progress">En proceso</option>
-                    <option value="pendiente-aprobacion">Pend. aprobación de proyecto</option>
-                    <option value="pendiente-autorizar">Pend. de autorizar</option>
-                    <option value="reasignado">Reasignado</option>
-                    <option value="cierre-por-sistema">Cierre por sistema</option>
-                    <option value="comparativa">Comparativa</option>
-                    <option value="no-autorizado">No autorizado</option>
-                    <option value="completed">Terminado</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Modalidad contractual</span>
-                  <select value={adminTipoPago} onChange={(e) => setAdminTipoPago(e.target.value as TipoPago)} className={SELECT_CLASS}>
-                    <option value="">Sin definir</option>
-                    {(Object.entries(TIPO_PAGO_LABELS) as [TipoPago, string][]).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Estado de cobro</span>
-                  <select value={adminPaymentStatus} onChange={(e) => setAdminPaymentStatus(e.target.value as PaymentStatus)} className={SELECT_CLASS}>
-                    <option value="unpaid">No pagado</option>
-                    <option value="partial">Pago parcial</option>
-                    <option value="paid">Pagado</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Urgencia</span>
-                  <select value={adminPriority} onChange={(e) => setAdminPriority(e.target.value as PriorityLevel)} className={SELECT_CLASS}>
-                    <option value="low">Baja</option>
-                    <option value="medium">Media</option>
-                    <option value="high">Alta</option>
-                    <option value="critical">Crítica</option>
-                  </select>
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Estimación</span>
-                  <select value={adminEstimacion} onChange={(e) => setAdminEstimacion(e.target.value as EstimacionStatus)} className={SELECT_CLASS}>
-                    <option value="">Sin definir</option>
-                    {ESTIMACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Cotización</span>
-                  <select value={adminCotizacion} onChange={(e) => setAdminCotizacion(e.target.value as CotizacionStatus)} className={SELECT_CLASS}>
-                    <option value="">Sin definir</option>
-                    {COTIZACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Fecha compromiso</span>
-                  <Input type="date" value={adminCommitmentDate} onChange={(e) => setAdminCommitmentDate(e.target.value)} />
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Fecha de inicio</span>
-                  <Input type="date" value={adminStartDate} onChange={(e) => setAdminStartDate(e.target.value)} />
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Fecha de finalización</span>
-                  <Input type="date" value={adminEndDate} onChange={(e) => setAdminEndDate(e.target.value)} />
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>OC del cliente</span>
-                  <Input value={adminOc} onChange={(e) => setAdminOc(e.target.value)} placeholder="Número de OC o N/A" className="h-11 rounded-xl border-white/[0.07] bg-[#1F1F22]" />
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Total sin IVA</span>
-                  <Input type="number" value={adminTotalSinIva} onChange={(e) => setAdminTotalSinIva(e.target.value)} placeholder="0.00" className="h-11 rounded-xl border-white/[0.07] bg-[#1F1F22]" />
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Facturar a</span>
-                  <Input value={adminFacturarA} onChange={(e) => setAdminFacturarA(e.target.value)} placeholder="Razón social legal del cliente" className="h-11 rounded-xl border-white/[0.07] bg-[#1F1F22]" />
-                </label>
-                <label className={ADMIN_FIELD_CLASS}>
-                  <span className={ADMIN_LABEL_CLASS}>Usuario de contacto</span>
-                  <Input value={adminUsuarioContacto} onChange={(e) => setAdminUsuarioContacto(e.target.value)} placeholder="Persona contacto del cliente" className="h-11 rounded-xl border-white/[0.07] bg-[#1F1F22]" />
-                </label>
-              </div>
-
-              <label className={ADMIN_FIELD_CLASS}>
-                <span className={ADMIN_LABEL_CLASS}>Negociador (solo Prolec)</span>
-                <Input value={adminNegociador} onChange={(e) => setAdminNegociador(e.target.value)} placeholder="N/A para otros clientes" className="h-11 rounded-xl border-white/[0.07] bg-[#1F1F22]" />
-              </label>
-            </div>
-          ) : null}
-
-          {/* Datos del proyecto — grid informativo */}
-          <div className="grid gap-3 lg:grid-cols-2">
-            <FieldDisplay label="Nombre estructurado" value={project.structuredName} />
-            <FieldDisplay label="Ingeniero asignado" value={assignedEngineer?.name ?? "Sin asignar"} />
-            <FieldDisplay
-              label="Actividad resumida"
-              value={
-                isEditing ? (
-                  <Input value={summary} onChange={(e) => setSummary(e.target.value)} />
-                ) : (
-                  project.summary
-                )
-              }
-            />
-            <FieldDisplay label="Involucrados" value={project.participants.map((p) => usersById[p]?.name).filter(Boolean).join(", ") || "Sin participantes"} />
-            <FieldDisplay label="Modalidad contractual" value={project.tipoPago ? TIPO_PAGO_LABELS[project.tipoPago] : "Sin definir"} />
-            <FieldDisplay label="OC cliente" value={project.oc ?? "—"} />
-            <FieldDisplay label="Facturar a" value={project.facturarA ?? "—"} />
-            <FieldDisplay label="Usuario de contacto" value={project.usuarioContacto ?? "—"} />
-            <FieldDisplay label="Estimación" value={project.estimacion ?? "—"} />
-            <FieldDisplay label="Cotización" value={project.cotizacion ?? "—"} />
-            <FieldDisplay label="Total contratado" value={mxn(project.totalContratado)} />
-            <FieldDisplay label="Total sin IVA" value={project.totalSinIva ? mxn(project.totalSinIva) : "—"} />
-            <FieldDisplay label="Fecha compromiso" value={formatOptionalDate(project.commitmentDate)} />
-            <FieldDisplay label="Fecha de inicio" value={formatOptionalDate(project.startDate)} />
-            <FieldDisplay label="Fecha de finalización" value={formatOptionalDate(project.endDate)} />
-            <FieldDisplay label="Fecha de solicitud" value={formatDate(project.createdAt)} />
-            <FieldDisplay label="Actualizado" value={formatDate(project.updatedAt)} />
-            <FieldDisplay label="Estado de cobro" value={project.paymentLabel} />
-          </div>
-
-          <FieldDisplay
-            label="Descripción"
-            value={
-              isEditing ? (
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[180px]" />
-              ) : (
-                project.description
-              )
-            }
-          />
-
-          {isEditing ? (
-            <div className="flex justify-end">
-              <Button onClick={handleSave}>
-                <Save className="h-4 w-4" />
-                Guardar cambios
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* ── TAB FACTURACIÓN ── */}
-      {tab === "facturas" ? (
-        <div className="mt-5 space-y-4">
-          {canManageInvoices && onAddInvoice ? (
-            <div className="rounded-[26px] border border-accent/15 bg-accent/[0.05] p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-accent">
-                  <Receipt className="h-4 w-4" />
-                  Solicitar factura
-                </div>
-                <Button variant="outline" onClick={() => setShowInvoiceForm((c) => !c)}>
-                  {showInvoiceForm ? "Cancelar" : <><Plus className="h-4 w-4" />Nueva factura</>}
-                </Button>
-              </div>
-
-              {showInvoiceForm ? (
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Fecha de solicitud</span>
-                      <Input type="date" value={invoiceDraft.fechaSolicitud} onChange={(e) => setInvoiceDraft((c) => ({ ...c, fechaSolicitud: e.target.value }))} />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">OC cliente</span>
-                      <Input value={invoiceDraft.oc} onChange={(e) => setInvoiceDraft((c) => ({ ...c, oc: e.target.value }))} placeholder="Número de OC o N/A" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Subtotal (con IVA)</span>
-                      <Input type="number" value={invoiceDraft.subtotal} onChange={(e) => setInvoiceDraft((c) => ({ ...c, subtotal: e.target.value }))} placeholder="0.00" />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Abono antes de IVA</span>
-                      <Input type="number" value={invoiceDraft.abonoAntesIva} onChange={(e) => setInvoiceDraft((c) => ({ ...c, abonoAntesIva: e.target.value }))} placeholder="0.00 (opcional)" />
-                    </label>
-                  </div>
-                  <label className="block space-y-2">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Facturar a (razón social)</span>
-                    <Input value={invoiceDraft.facturarA} onChange={(e) => setInvoiceDraft((c) => ({ ...c, facturarA: e.target.value }))} placeholder="Razón social legal" />
-                  </label>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Método de pago (MDP)</span>
-                      <select
-                        value={invoiceDraft.mdp}
-                        onChange={(e) => setInvoiceDraft((c) => ({
-                          ...c,
-                          mdp: e.target.value as MDP,
-                          complementoPago: e.target.value === "PUE" ? "N/A" : c.complementoPago,
-                        }))}
-                        className={SELECT_CLASS}
-                      >
-                        <option value="PPD">PPD — Pago en Parcialidades o Diferido</option>
-                        <option value="PUE">PUE — Pago en Una Exhibición</option>
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Complemento de pago</span>
-                      <Input
-                        value={invoiceDraft.mdp === "PUE" ? "N/A (automático)" : invoiceDraft.complementoPago}
-                        disabled={invoiceDraft.mdp === "PUE"}
-                        onChange={(e) => setInvoiceDraft((c) => ({ ...c, complementoPago: e.target.value }))}
-                        placeholder="Número de complemento"
-                      />
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#888888]">Promesa de pago</span>
-                      <Input type="date" value={invoiceDraft.promesaPago} onChange={(e) => setInvoiceDraft((c) => ({ ...c, promesaPago: e.target.value }))} />
-                    </label>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={handleAddInvoice}
-                      disabled={!invoiceDraft.oc.trim() || !invoiceDraft.subtotal || !invoiceDraft.facturarA.trim()}
-                    >
-                      <Receipt className="h-4 w-4" />
-                      Solicitar factura
-                    </Button>
-                  </div>
+      {/* Badges + progress */}
+      <div className="mb-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge kind="project" value={project.status} />
+          <StatusBadge kind="payment" value={project.paymentStatus} />
+          <PriorityBadge priority={project.priority} />
+          {canDeleteProject ? (
+            <div className="relative ml-auto">
+              <button
+                type="button"
+                onClick={() => setShowDeleteMenu((c) => !c)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#3F3F46] text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+              {showDeleteMenu ? (
+                <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[172px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-danger/10"
+                    onClick={() => { onDeleteProject(project.id); onOpenChange(false); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar proyecto
+                  </button>
                 </div>
               ) : null}
             </div>
           ) : null}
-
-          {invoices.length > 0 ? (
-            <div className="space-y-3">
-              {invoices.map((invoice) => {
-                const stuck = invoice.status === "solicitada" || invoice.status === "en-portal";
-                return (
-                  <div
-                    key={invoice.id}
-                    className={`relative overflow-hidden rounded-[24px] bg-[#27272A] p-5 transition-all duration-200 ${stuck ? "ring-1 ring-[#F5A524]/35 shadow-[0_0_12px_rgba(245,165,36,0.08)]" : "ring-1 ring-[#3F3F46]/60"}`}
-                  >
-                    {/* Franja lateral de status */}
-                    <div className={`absolute left-0 top-0 h-full w-1.5 rounded-l-[24px] ${INVOICE_STRIPE[invoice.status]}`} />
-
-                    <div className="pl-3">
-                      {/* Encabezado: steps + alerta si atascada */}
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <InvoiceProgressSteps status={invoice.status} />
-                        {stuck ? (
-                          <div className="flex items-center gap-1.5 rounded-full bg-[#F5A524]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F5A524]">
-                            <AlertCircle className="h-3 w-3" />
-                            Pendiente de avance
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-2">
-                          {invoice.factura ? (
-                            <span className="inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-bold text-accent">
-                              {invoice.factura}
-                            </span>
-                          ) : null}
-                          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-                            <span className="text-[#888888]">OC</span>
-                            <span className="font-semibold text-foreground">{invoice.oc}</span>
-                            <span className="text-[#888888]">Subtotal</span>
-                            <span className="font-bold text-foreground tabular-nums">{mxn(invoice.subtotal)}</span>
-                            <span className="text-[#888888]">Facturar a</span>
-                            <span className="font-medium text-foreground">{invoice.facturarA}</span>
-                            <span className="text-[#888888]">MDP</span>
-                            <span className="font-medium text-foreground">{invoice.mdp}</span>
-                            {invoice.promesaPago ? (
-                              <>
-                                <span className="text-[#888888]">Promesa pago</span>
-                                <span className="font-medium text-foreground">{formatDate(invoice.promesaPago)}</span>
-                              </>
-                            ) : null}
-                            {invoice.fechaPago ? (
-                              <>
-                                <span className="text-[#888888]">Fecha pago</span>
-                                <span className="font-semibold text-accent">{formatDate(invoice.fechaPago)}</span>
-                              </>
-                            ) : null}
-                            {invoice.complementoPago && invoice.complementoPago !== "N/A" ? (
-                              <>
-                                <span className="text-[#888888]">Complemento</span>
-                                <span className="font-medium text-foreground">{invoice.complementoPago}</span>
-                              </>
-                            ) : null}
-                            {invoice.abonoAntesIva ? (
-                              <>
-                                <span className="text-[#888888]">Abono antes IVA</span>
-                                <span className="font-medium text-foreground">{mxn(invoice.abonoAntesIva)}</span>
-                              </>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {canManageInvoices && onUpdateInvoice ? (
-                          <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Actualizar estado</span>
-                            <select
-                              value={invoice.status}
-                              onChange={(e) => {
-                                const newStatus = e.target.value as InvoiceStatus;
-                                const extra: Partial<InvoiceItem> = { status: newStatus };
-                                if (newStatus === "pagada") extra.fechaPago = new Date().toISOString().slice(0, 10);
-                                onUpdateInvoice(project.id, invoice.id, extra);
-                              }}
-                              className="h-10 min-w-[200px] rounded-2xl border border-[#3F3F46] bg-[#313136] px-3 text-sm font-semibold text-foreground outline-none transition focus:border-accent/50"
-                            >
-                              {(Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]).map(([key, label]) => (
-                                <option key={key} value={key}>{label}</option>
-                              ))}
-                            </select>
-                            {invoice.status === "recibida" ? (
-                              <Input
-                                value={invoice.factura ?? ""}
-                                onChange={(e) => onUpdateInvoice!(project.id, invoice.id, { factura: e.target.value })}
-                                placeholder="Número de factura"
-                                className="h-10 text-sm"
-                              />
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <p className="mt-3 border-t border-[#3F3F46]/50 pt-3 text-xs text-[#888888]">
-                        Solicitada {formatDate(invoice.fechaSolicitud)} · por {usersById[invoice.createdBy]?.name ?? "Sistema"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-[24px] border border-dashed border-[#3F3F46] bg-[#27272A] p-10 text-center">
-              <Receipt className="mx-auto mb-3 h-8 w-8 text-[#52525B]" />
-              <p className="text-sm font-medium text-[#888888]">No hay facturas registradas en este proyecto.</p>
-            </div>
-          )}
         </div>
-      ) : null}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#3F3F46]">
+          <div
+            className="h-full rounded-full bg-accent transition-all duration-700"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
 
-      {/* ── TAB ARCHIVOS ── */}
-      {tab === "files" ? (() => {
-        const imageFiles = project.files.filter((f) => /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name));
-        const docFiles = project.files.filter((f) => !/\.(png|jpg|jpeg|gif|webp)$/i.test(f.name));
-        return (
-          <div className="mt-5 space-y-4">
-            {/* Hidden inputs */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-              multiple
-              onChange={async (e) => {
-                const files = Array.from(e.target.files ?? []);
-                if (!files.length || !onUploadFile) return;
-                setUploadError(null);
-                setIsUploading(true);
-                try {
-                  for (const f of files) { await onUploadFile(project.id, f); }
-                } catch (err) {
-                  setUploadError(err instanceof Error ? err.message : "Error al subir archivo");
-                } finally {
-                  setIsUploading(false);
-                  e.target.value = "";
-                }
-              }}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              className="hidden"
-              accept="image/*"
-              capture="environment"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file || !onUploadFile) return;
-                setUploadError(null);
-                setIsUploading(true);
-                try {
-                  await onUploadFile(project.id, file);
-                } catch (err) {
-                  setUploadError(err instanceof Error ? err.message : "Error al subir foto");
-                } finally {
-                  setIsUploading(false);
-                  e.target.value = "";
-                }
-              }}
-            />
+      {/* Main tabs */}
+      <Tabs
+        value={mainTab}
+        onValueChange={setMainTab}
+        options={[
+          { key: "info", label: "Info" },
+          { key: "chat", label: "Chat", count: chatMessages.length || project.comments.length },
+          { key: "archivos", label: "Archivos", count: project.files.length },
+        ]}
+      />
 
-            {/* Zona de arrastre compacta */}
-            {canEditProject ? (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); }}
-                onDrop={async (e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  if (!onUploadFile) return;
-                  const files = Array.from(e.dataTransfer.files);
-                  if (!files.length) return;
-                  setUploadError(null);
-                  setIsUploading(true);
-                  try {
-                    for (const f of files) { await onUploadFile(project.id, f); }
-                  } catch (err) {
-                    setUploadError(err instanceof Error ? err.message : "Error al subir archivo");
-                  } finally {
-                    setIsUploading(false);
-                  }
-                }}
-                className={`rounded-2xl border-2 border-dashed px-4 py-3 transition-all duration-200 ${isDragging ? "border-accent/60 bg-accent/5 scale-[1.005]" : "border-[#3F3F46] bg-[#27272A]/40"}`}
+      {/* ══════════════════ INFO TAB ══════════════════ */}
+      {mainTab === "info" ? (
+        <div className="mt-4 space-y-4">
+          {/* F-sub-tabs */}
+          <div
+            className="grid gap-1 rounded-2xl bg-[#1E1E20] p-1"
+            style={{ gridTemplateColumns: `repeat(${infoTabs.length}, 1fr)` }}
+          >
+            {infoTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setInfoTab(tab.key)}
+                className={`flex flex-col items-center rounded-xl px-1 py-2.5 text-center transition-all duration-200 ${
+                  infoTab === tab.key ? "bg-[#313136] shadow-sm" : "hover:bg-[#27272A]"
+                }`}
               >
-                {isUploading ? (
-                  <div className="flex items-center justify-center gap-2.5 py-1">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                    <p className="text-sm font-semibold text-accent">Subiendo...</p>
+                <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${infoTab === tab.key ? "text-[#888888]" : "text-[#52525B]"}`}>
+                  {tab.label}
+                </span>
+                <span className={`text-sm font-bold ${infoTab === tab.key ? "text-foreground" : "text-[#71717A]"}`}>
+                  {tab.sublabel}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Leyenda y barra de código (comunes a todos los sub-tabs) */}
+          {infoTab === "f1" ? (
+            <p className="border-l-2 border-[#3F3F46] pl-3 text-xs text-[#555555]">
+              Ingeniero o Admin · <span className="text-[#60A5FA]/70">Campos azules = ambos</span> · <span className="text-orange-400/70">Campos naranja = solo Admin</span>
+            </p>
+          ) : infoTab === "f2" ? (
+            <p className="border-l-2 border-[#3F3F46] pl-3 text-xs text-[#555555]">
+              Ingeniero · Llena durante y después del trabajo en campo
+            </p>
+          ) : infoTab === "f3" ? (
+            <p className="border-l-2 border-orange-400/40 pl-3 text-xs font-semibold text-orange-400/80">
+              Solo Admin · Información financiera interna
+            </p>
+          ) : (
+            <p className="border-l-2 border-orange-400/40 pl-3 text-xs font-semibold text-orange-400/80">
+              Solo Admin · Registro de pagos recibidos
+            </p>
+          )}
+
+          {/* Barra de código */}
+          <div className="rounded-xl border border-[#1E3A5F]/40 bg-[#1A2235] px-4 py-2.5">
+            <p className="font-mono text-sm font-bold tracking-wide text-[#60A5FA]">
+              {project.structuredName}
+            </p>
+          </div>
+
+          {/* ────────── F1 APERTURA ────────── */}
+          {infoTab === "f1" ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* Consecutivo + fecha solicitud */}
+                <div className={FLD}>
+                  <label className={LBL}>No. Consecutivo 🔒</label>
+                  <div className={`${INP_RO} flex items-center gap-2`}>
+                    <span className="font-mono font-black text-foreground">{consecutivo}</span>
+                    {(project.fechaSolicitud ?? project.createdAt) ? (
+                      <>
+                        <span className="text-[#3F3F46]">·</span>
+                        <span className="text-xs font-semibold text-[#888888]">
+                          {parseLocalDate(project.fechaSolicitud ?? project.createdAt!).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                      </>
+                    ) : null}
                   </div>
+                </div>
+                {/* Cliente */}
+                <div className={FLD}>
+                  <label className={LBL}>1 · Cliente</label>
+                  <input
+                    list="cl-list"
+                    className={INP}
+                    value={f1Client}
+                    onChange={(e) => setF1Client(e.target.value)}
+                    placeholder="— Seleccionar"
+                    disabled={!canEditProject}
+                  />
+                  <datalist id="cl-list">
+                    {clientOptions.map((c) => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+                {/* Departamento */}
+                <div className={FLD}>
+                  <label className={LBL}>2 · Departamento</label>
+                  <input
+                    list="dp-list"
+                    className={INP}
+                    value={f1Department}
+                    onChange={(e) => setF1Department(e.target.value)}
+                    placeholder="— Seleccionar"
+                    disabled={!canEditProject}
+                  />
+                  <datalist id="dp-list">
+                    {departmentOptions.map((d) => <option key={d} value={d} />)}
+                  </datalist>
+                </div>
+                {/* Lugar */}
+                <div className={`${FLD} sm:col-span-2`}>
+                  <label className={LBL}>3 · Lugar</label>
+                  <input
+                    className={INP}
+                    value={f1Lugar}
+                    onChange={(e) => setF1Lugar(e.target.value)}
+                    placeholder="Ej. AULAS 2, Planta Norte, Edificio C..."
+                    disabled={!canEditProject}
+                  />
+                </div>
+                {/* Tipo */}
+                <div className={FLD}>
+                  <label className={LBL}>4 · Tipo de proyecto</label>
+                  <select
+                    className={INP}
+                    value={f1Type}
+                    onChange={(e) => setF1Type(e.target.value as ProjectType)}
+                    disabled={!canEditProject}
+                  >
+                    <option value="">— Seleccionar</option>
+                    {(Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][]).map(
+                      ([k, v]) => <option key={k} value={k}>{v}</option>,
+                    )}
+                  </select>
+                </div>
+                {/* Nombre del trabajo */}
+                <div className={`${FLD} sm:col-span-2`}>
+                  <label className={LBL}>5 · Nombre / Descripción del trabajo</label>
+                  <input
+                    className={INP}
+                    value={f1BaseName}
+                    onChange={(e) => setF1BaseName(e.target.value)}
+                    placeholder="Ej. Medidor A4"
+                    disabled={!canEditProject}
+                  />
+                </div>
+                {/* Urgencia */}
+                <div className={FLD}>
+                  <label className={LBL}>7 · Urgencia</label>
+                  <select
+                    className={INP}
+                    value={f1Urgencia}
+                    onChange={(e) => setF1Urgencia(e.target.value)}
+                    disabled={!canEditProject}
+                  >
+                    <option value="Bajo">Bajo</option>
+                    <option value="Medio">Medio</option>
+                    <option value="Alto">Alto</option>
+                    <option value="Emergencia">Emergencia</option>
+                  </select>
+                </div>
+                {/* Ingeniero asignado */}
+                <div className={canManageProjectStatus ? FLD_ADM : FLD}>
+                  {canManageProjectStatus
+                    ? <LabelAdmin text="8 · Ingeniero asignado" />
+                    : <label className={LBL}>8 · Ingeniero asignado</label>}
+                  {canManageProjectStatus ? (
+                    <select
+                      className={INP}
+                      value={f1EngineerId}
+                      onChange={(e) => setF1EngineerId(e.target.value)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {engineerUsers.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input className={INP_RO} value={assignedEngineer?.name ?? "Sin asignar"} readOnly />
+                  )}
+                </div>
+              </div>
+
+              {/* 9 · Ubicación */}
+              <div>
+                <p className={`${LBL} mb-2`}>9 · Ubicación del trabajo</p>
+                <div className="grid gap-2.5 rounded-2xl bg-[#1E1E20] p-3 sm:grid-cols-2">
+                  {ubicacionFields.map(({ key, label, placeholder }) => (
+                    <div key={key} className={FLD}>
+                      <label className={LBL}>{label}</label>
+                      <input
+                        className={INP}
+                        value={f1Ubicacion[key] ?? ""}
+                        onChange={(e) =>
+                          setF1Ubicacion((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                        placeholder={placeholder}
+                        disabled={!canEditProject}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 10 · Negociador + 11 · Contacto */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className={FLD}>
+                  <label className={LBL}>10 · Compras / Negociador</label>
+                  <input
+                    className={INP}
+                    value={f1Negociador}
+                    onChange={(e) => setF1Negociador(e.target.value)}
+                    placeholder="N/A"
+                    disabled={!canEditProject}
+                  />
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>11 · Usuario de contacto</label>
+                  <input
+                    className={INP}
+                    value={f1ContactUser}
+                    onChange={(e) => setF1ContactUser(e.target.value)}
+                    placeholder="Contacto del cliente"
+                    disabled={!canEditProject}
+                  />
+                </div>
+              </div>
+
+              {/* 12 · Monto contratado */}
+              {canEditBudget ? (
+                <div className={FLD_ADM}>
+                  <LabelAdmin text="12 · Monto contratado" />
+                  <input
+                    type="number"
+                    className={INP}
+                    value={f1TotalContratado}
+                    onChange={(e) => setF1TotalContratado(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              ) : project.totalContratado ? (
+                <div className={FLD}>
+                  <label className={LBL}>12 · Monto contratado</label>
+                  <input className={INP_RO} value={mxn(project.totalContratado)} readOnly />
+                </div>
+              ) : null}
+
+              {/* 13 · Fechas importantes */}
+              <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                    13 · Fechas importantes
+                  </p>
+                  {onAddProjectImportantDate ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDateForm((v) => !v)}
+                      className="flex items-center gap-1 rounded-xl bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/20"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {showDateForm ? "Cancelar" : "Agregar"}
+                    </button>
+                  ) : null}
+                </div>
+
+                {showDateForm && onAddProjectImportantDate ? (
+                  <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div className={FLD}>
+                        <label className={LBL}>Título</label>
+                        <input className={INP} value={dateTitle} onChange={(e) => setDateTitle(e.target.value)} placeholder="Ej: Entrega de estimación" />
+                      </div>
+                      <div className={FLD}>
+                        <label className={LBL}>Fecha</label>
+                        <DatePickerMX value={dateValue} onChange={setDateValue} />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!dateTitle.trim() || !dateValue}
+                      onClick={() => {
+                        onAddProjectImportantDate(project.id, { title: dateTitle.trim(), date: dateValue });
+                        setDateTitle(""); setDateValue(new Date().toISOString().slice(0, 10));
+                        setShowDateForm(false);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent/15 py-2.5 text-sm font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Guardar fecha
+                    </button>
+                  </div>
+                ) : null}
+
+                {(project.importantDates ?? []).length === 0 ? (
+                  <p className="py-2 text-center text-xs text-[#52525B]">Sin fechas registradas</p>
                 ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm text-[#888888]">
-                      <FileUp className={`h-4 w-4 shrink-0 transition-colors ${isDragging ? "text-accent" : ""}`} />
-                      <span>{isDragging ? "Suelta para subir" : "Arrastra imágenes o archivos aquí"}</span>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button variant="secondary" onClick={() => { setUploadError(null); fileInputRef.current?.click(); }} disabled={isUploading}>
-                        <Images className="h-4 w-4" />
-                        Galería
-                      </Button>
-                      <Button variant="outline" onClick={() => { setUploadError(null); cameraInputRef.current?.click(); }} disabled={isUploading}>
-                        <Camera className="h-4 w-4" />
-                        Cámara
-                      </Button>
-                    </div>
+                  <div className="space-y-1.5">
+                    {[...(project.importantDates ?? [])].sort((a, b) => a.date.localeCompare(b.date)).map((d) => {
+                      const daysLeft = Math.round((new Date(`${d.date}T00:00:00`).getTime() - Date.now()) / 86400000);
+                      const isOverdue = daysLeft < 0;
+                      const isNear = daysLeft >= 0 && daysLeft <= 3;
+                      return (
+                        <div key={d.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${isOverdue ? "bg-danger/10 ring-1 ring-danger/20" : isNear ? "bg-[#F5A524]/10 ring-1 ring-[#F5A524]/20" : "bg-[#27272A]"}`}>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-foreground">{d.title}</p>
+                            <p className="text-xs text-[#71717A]">{d.date}</p>
+                          </div>
+                          <span className={`ml-3 shrink-0 text-xs font-bold tabular-nums ${isOverdue ? "text-danger" : isNear ? "text-[#F5A524]" : "text-[#52525B]"}`}>
+                            {isOverdue ? `${Math.abs(daysLeft)}d atrás` : daysLeft === 0 ? "hoy" : `en ${daysLeft}d`}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            ) : null}
+
+              {canEditProject ? <SaveBtn onClick={handleSaveF1} label="Guardar apertura" saving={savingF1} /> : null}
+            </div>
+          ) : null}
+
+          {/* ────────── F2 EJECUCIÓN ────────── */}
+          {infoTab === "f2" ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className={FLD}>
+                  <label className={LBL}>Estado del proyecto</label>
+                  <select className={INP} value={f2Status} onChange={(e) => setF2Status(e.target.value as ProjectStatus)} disabled={!canEditProject}>
+                    {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>Estado estimación</label>
+                  <select className={INP} value={f2Estimacion} onChange={(e) => setF2Estimacion(e.target.value as EstimacionStatus)} disabled={!canEditProject}>
+                    <option value="">— Sin definir</option>
+                    {ESTIMACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>Estado cotización</label>
+                  <select className={INP} value={f2Cotizacion} onChange={(e) => setF2Cotizacion(e.target.value as CotizacionStatus)} disabled={!canEditProject}>
+                    <option value="">— Sin definir</option>
+                    {COTIZACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>Estado pago</label>
+                  <select className={INP} value={f2PaymentStatus} onChange={(e) => setF2PaymentStatus(e.target.value as PaymentStatus)} disabled={!canEditProject}>
+                    <option value="">— Sin definir</option>
+                    <option value="unpaid">No pagado</option>
+                    <option value="partial">Pago parcial</option>
+                    <option value="paid">Pagado</option>
+                  </select>
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>F. Solicitud 🔒</label>
+                  <div className={`${INP_RO} flex items-center`}>
+                    {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
+                  </div>
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>F. Inicio</label>
+                  {canEditProject ? (
+                    <DatePickerMX value={f2StartDate} onChange={setF2StartDate} />
+                  ) : (
+                    <div className={`${INP_RO} flex items-center`}>
+                      {f2StartDate ? fmtHint(f2StartDate) : <span className="text-[#555]">Sin fecha</span>}
+                    </div>
+                  )}
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>F. Fin ★</label>
+                  {canEditProject ? (
+                    <DatePickerMX value={f2EndDate} onChange={setF2EndDate} />
+                  ) : (
+                    <div className={`${INP_RO} flex items-center`}>
+                      {f2EndDate ? fmtHint(f2EndDate) : <span className="text-[#555]">Sin fecha</span>}
+                    </div>
+                  )}
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>F. Compromiso</label>
+                  {canEditProject ? (
+                    <DatePickerMX value={f2CommitmentDate} onChange={setF2CommitmentDate} />
+                  ) : (
+                    <div className={`${INP_RO} flex items-center`}>
+                      {f2CommitmentDate ? fmtHint(f2CommitmentDate) : <span className="text-[#555]">Sin fecha</span>}
+                    </div>
+                  )}
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>Fotos de evidencia</label>
+                  <div className={`${INP_RO} flex items-center`}>
+                    {f2FotosStatus === "no" && <span>No</span>}
+                    {f2FotosStatus === "en-revision" && <span className="text-[#F5A524]">En revisión</span>}
+                    {f2FotosStatus === "si" && <span className="text-[#4ADE80]">Si</span>}
+                    {f2FotosStatus === "rechazado" && <span className="text-danger">Rechazado</span>}
+                  </div>
+                </div>
+                <div className={FLD}>
+                  <label className={LBL}>Reporte generado</label>
+                  <div className={`${INP_RO} flex items-center`}>
+                    {f2ReporteFileStatus === "no" && <span>No</span>}
+                    {f2ReporteFileStatus === "en-revision" && <span className="text-[#F5A524]">En revisión</span>}
+                    {f2ReporteFileStatus === "si" && <span className="text-[#4ADE80]">Si</span>}
+                    {f2ReporteFileStatus === "rechazado" && <span className="text-danger">Rechazado</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Autorizador — solo Admin */}
+              <div className={FLD_ADM}>
+                <LabelAdmin text="Autorizador" />
+                {canManageProjectStatus ? (
+                  <input className={INP} value={f2Autorizador} onChange={(e) => setF2Autorizador(e.target.value)} placeholder="Nombre del autorizador" />
+                ) : (
+                  <input className={INP_RO} value={project.autorizador ?? "—"} readOnly />
+                )}
+              </div>
+
+              {/* Comentarios del campo */}
+              <div className={FLD}>
+                <label className={LBL}>Comentarios del campo</label>
+                <textarea
+                  className={`${INP} h-auto min-h-[90px] resize-none py-2.5`}
+                  value={f2Comentarios}
+                  onChange={(e) => setF2Comentarios(e.target.value)}
+                  placeholder="Notas del ingeniero sobre el trabajo realizado..."
+                  disabled={!canEditProject}
+                  rows={3}
+                />
+              </div>
+
+              {canEditProject ? <SaveBtn onClick={handleSaveF2} label="Guardar ejecución" saving={savingF2} /> : null}
+            </div>
+          ) : null}
+
+          {/* ────────── F3 FINANCIERO ────────── */}
+          {infoTab === "f3" && canEditBudget ? (
+            <div className="space-y-4">
+              {/* Summary cards */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Total S/IVA</p>
+                  <p className="text-base font-black tabular-nums text-foreground">{mxn(parseFloat(f3TotalSinIva) || 0)}</p>
+                </div>
+                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Ganancia</p>
+                  <p className={`text-base font-black tabular-nums ${ganancia >= 0 ? "text-accent" : "text-danger"}`}>{mxn(ganancia)}</p>
+                </div>
+                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Por cobrar</p>
+                  <p className={`text-base font-black tabular-nums ${porCobrar <= 0 ? "text-accent" : "text-[#F5A524]"}`}>{mxn(porCobrar)}</p>
+                </div>
+              </div>
+
+              {/* Total + IVA */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className={FLD_ADM}>
+                  <LabelAdmin text="Total sin IVA" />
+                  <input
+                    type="number"
+                    className={INP}
+                    value={f3TotalSinIva}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setF3TotalSinIva(v);
+                      setF3Iva((parseFloat(v) || 0) * 0.16 ? String(((parseFloat(v) || 0) * 0.16).toFixed(2)) : "");
+                    }}
+                    placeholder="0"
+                  />
+                </div>
+                <div className={FLD_ADM}>
+                  <LabelAuto text="IVA (16%)" />
+                  <input
+                    type="number"
+                    className={INP_RO}
+                    value={f3Iva}
+                    readOnly
+                    tabIndex={-1}
+                    placeholder="Calculado automático"
+                  />
+                </div>
+              </div>
+
+              {/* Desglose de costos */}
+              <div className="rounded-2xl bg-[#1E1E20] p-3">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                  Desglose de costos
+                </p>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {[
+                    { label: "Materiales", val: f3Materiales, set: setF3Materiales },
+                    { label: "Servicios", val: f3Servicios, set: setF3Servicios },
+                    { label: "Personal", val: f3Personal, set: setF3Personal },
+                    { label: "Svo. Contratado", val: f3SvoContratado, set: setF3SvoContratado },
+                    { label: "Comisión", val: f3Comision, set: setF3Comision },
+                    { label: "Otros gastos", val: f3OtrosGastos, set: setF3OtrosGastos },
+                  ].map(({ label, val, set }) => (
+                    <div key={label} className={FLD_ADM}>
+                      <LabelAdmin text={label} />
+                      <input type="number" className={INP} value={val} onChange={(e) => set(e.target.value)} placeholder="0" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calculados automáticos */}
+                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                  <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
+                    <LabelAuto text="Ganancia" />
+                    <p className={`mt-1 text-base font-black tabular-nums ${ganancia >= 0 ? "text-[#4ADE80]" : "text-[#F87171]"}`}>
+                      {mxn(ganancia)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
+                    <LabelAuto text="Por cobrar" />
+                    <p className={`mt-1 text-base font-black tabular-nums ${porCobrar <= 0 ? "text-[#4ADE80]" : "text-foreground"}`}>
+                      {mxn(porCobrar)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comentarios dirección */}
+              <div className={FLD_ADM}>
+                <LabelAdmin text="Comentarios dirección" />
+                <textarea
+                  className={`${INP} h-auto min-h-[80px] resize-none py-2.5`}
+                  value={f3ComentariosDireccion}
+                  onChange={(e) => setF3ComentariosDireccion(e.target.value)}
+                  placeholder="Notas internas..."
+                  rows={3}
+                />
+              </div>
+
+              {/* ── Gastos de campo ── */}
+              <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                    Gastos de campo
+                    {(project.expenses ?? []).length > 0 && (
+                      <span className="ml-2 font-black tabular-nums text-accent">
+                        {mxn((project.expenses ?? []).reduce((s, e) => s + e.monto, 0))}
+                      </span>
+                    )}
+                  </p>
+                  {onAddExpense ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowExpenseForm((v) => !v)}
+                      className="flex items-center gap-1 rounded-xl bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/20"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {showExpenseForm ? "Cancelar" : "Agregar"}
+                    </button>
+                  ) : null}
+                </div>
+
+                {showExpenseForm && onAddExpense ? (
+                  <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      <div className={FLD}>
+                        <label className={LBL}>Título</label>
+                        <input className={INP} value={expTitulo} onChange={(e) => setExpTitulo(e.target.value)} placeholder="Descripción del gasto" />
+                      </div>
+                      <div className={FLD}>
+                        <label className={LBL}>Monto</label>
+                        <input type="number" className={INP} value={expMonto} onChange={(e) => setExpMonto(e.target.value)} placeholder="0" />
+                      </div>
+                      <div className={FLD}>
+                        <label className={LBL}>Tipo</label>
+                        <select className={INP} value={expTipo} onChange={(e) => setExpTipo(e.target.value as ExpenseType)}>
+                          <option value="material">Material</option>
+                          <option value="personal">Personal</option>
+                        </select>
+                      </div>
+                      <div className={FLD}>
+                        <label className={LBL}>Categoría</label>
+                        <select className={INP} value={expCategoria} onChange={(e) => setExpCategoria(e.target.value as ExpenseCategory)}>
+                          <option value="material">Material</option>
+                          <option value="herramienta">Herramienta</option>
+                          <option value="transporte">Transporte</option>
+                          <option value="servicio">Servicio</option>
+                          <option value="sueldo">Sueldo</option>
+                          <option value="horas_extras">Horas extras</option>
+                          <option value="viaticos">Viáticos</option>
+                          <option value="bono">Bono</option>
+                        </select>
+                      </div>
+                      <div className={`${FLD} sm:col-span-2`}>
+                        <label className={LBL}>Fecha</label>
+                        <DatePickerMX value={expFecha} onChange={setExpFecha} />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!expTitulo.trim() || !expMonto || !expFecha}
+                      onClick={() => {
+                        onAddExpense(project.id, {
+                          titulo: expTitulo.trim(),
+                          descripcion: "",
+                          monto: parseFloat(expMonto) || 0,
+                          tipo: expTipo,
+                          categoria: expCategoria,
+                          fecha: expFecha,
+                          imagenes: [],
+                        });
+                        setExpTitulo(""); setExpMonto(""); setExpFecha(new Date().toISOString().slice(0, 10));
+                        setShowExpenseForm(false);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent/15 py-2.5 text-sm font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Guardar gasto
+                    </button>
+                  </div>
+                ) : null}
+
+                {(project.expenses ?? []).length === 0 ? (
+                  <p className="py-2 text-center text-xs text-[#52525B]">Sin gastos registrados</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {[...(project.expenses ?? [])].reverse().map((exp) => (
+                      <div key={exp.id} className="flex items-center justify-between rounded-xl bg-[#27272A] px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{exp.titulo}</p>
+                          <p className="text-xs text-[#71717A]">{exp.categoria} · {exp.fecha}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 pl-3">
+                          <span className="text-sm font-bold tabular-nums text-accent">{mxn(exp.monto)}</span>
+                          {onDeleteExpense ? (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteExpense(project.id, exp.id)}
+                              className="rounded-lg p-1 text-[#52525B] transition hover:text-danger"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <SaveBtn onClick={handleSaveF3} label="Guardar financiero" saving={savingF3} />
+            </div>
+          ) : null}
+
+          {/* ────────── F4 PAGOS ────────── */}
+          {infoTab === "f4" && canEditBudget ? (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Total</p>
+                  <p className="text-base font-black tabular-nums text-foreground">{mxn(project.totalSinIva)}</p>
+                </div>
+                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Abono total</p>
+                  <p className="text-base font-black tabular-nums text-accent">{mxn(abonoTotal)}</p>
+                </div>
+                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Por cobrar</p>
+                  <p className={`text-base font-black tabular-nums ${porCobrar <= 0 ? "text-accent" : "text-[#F5A524]"}`}>{mxn(porCobrar)}</p>
+                </div>
+              </div>
+
+              {/* Bloques de pago */}
+              <div className="space-y-3">
+                {pagoDrafts.map((pago) => {
+                  const isRealizado = pago.estado === "realizado";
+                  const fechaLabel = pago.fechaPago
+                    ? parseLocalDate(pago.fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
+                    : null;
+                  return (
+                    <div
+                      key={pago.id}
+                      className={`rounded-2xl border p-4 transition-colors ${
+                        isRealizado ? "border-[#4ADE80]/30 bg-[#0D2417]" : "border-[#3F3F46] bg-[#1E1E20]"
+                      }`}
+                    >
+                      {/* Header */}
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                            Pago {pago.numeroPago}
+                          </span>
+                          {isRealizado ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#4ADE80]/15 px-2 py-0.5 text-[10px] font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/25">
+                              <Check className="h-2.5 w-2.5" />
+                              Realizado
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-[#F5A524]/10 px-2 py-0.5 text-[10px] font-bold text-[#F5A524] ring-1 ring-[#F5A524]/20">
+                              Pendiente
+                            </span>
+                          )}
+                        </div>
+                        {pagoDrafts.length > 1 ? (
+                          <button
+                            type="button"
+                            className="text-[#52525B] transition-colors hover:text-danger"
+                            onClick={() => removePago(pago.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {/* Campos mínimos siempre visibles */}
+                      <div className="grid gap-2.5 sm:grid-cols-3">
+                        <div className={FLD}>
+                          <label className={LBL}>Promesa de pago</label>
+                          <DatePickerMX value={pago.promesaPago} onChange={(v) => updatePagoDraft(pago.id, "promesaPago", v)} />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Tipo</label>
+                          <select className={INP} value={pago.tipoPagoAbono} onChange={(e) => updatePagoDraft(pago.id, "tipoPagoAbono", e.target.value)}>
+                            <option value="PPD">PPD</option>
+                            <option value="PUE">PUE</option>
+                            <option value="Contado">Contado</option>
+                          </select>
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>{isRealizado ? "Subtotal abono" : "Monto esperado"}</label>
+                          <input type="number" className={INP} value={pago.subtotalAbono} onChange={(e) => updatePagoDraft(pago.id, "subtotalAbono", e.target.value)} placeholder="0" />
+                        </div>
+                      </div>
+
+                      {/* Campos adicionales — solo cuando realizado */}
+                      {isRealizado ? (
+                        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
+                          <div className={FLD}>
+                            <label className={LBL}>Factura</label>
+                            <input className={INP} value={pago.factura} onChange={(e) => updatePagoDraft(pago.id, "factura", e.target.value)} placeholder="A-001" />
+                          </div>
+                          <div className={FLD}>
+                            <label className={LBL}>MDP</label>
+                            <select className={INP} value={pago.mdp} onChange={(e) => updatePagoDraft(pago.id, "mdp", e.target.value)}>
+                              <option value="PPD">PPD</option>
+                              <option value="PUE">PUE</option>
+                            </select>
+                          </div>
+                          <div className={FLD}>
+                            <label className={LBL}>Complemento pago</label>
+                            <input className={INP} value={pago.complementoPago} onChange={(e) => updatePagoDraft(pago.id, "complementoPago", e.target.value)} placeholder="—" />
+                          </div>
+                          <div className={`${FLD} sm:col-span-3`}>
+                            <label className={LBL}>Fecha de pago</label>
+                            <DatePickerMX value={pago.fechaPago} onChange={(v) => updatePagoDraft(pago.id, "fechaPago", v)} />
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {/* Botón de toggle estado */}
+                      <button
+                        type="button"
+                        onClick={() => togglePagoEstado(pago.id)}
+                        className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition ${
+                          isRealizado
+                            ? "bg-[#1F2937] text-[#888888] hover:text-[#F87171]"
+                            : "bg-[#166534]/20 text-[#4ADE80] ring-1 ring-[#4ADE80]/20 hover:bg-[#166534]/40"
+                        }`}
+                      >
+                        {isRealizado ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            {fechaLabel ? `Pagado el ${fechaLabel}` : "Pagado"} · Deshacer
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            Marcar como pagado
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Agregar pago */}
+              <button
+                type="button"
+                onClick={addPago}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#3F3F46] py-3 text-sm font-semibold text-[#888888] transition hover:border-[#52525B] hover:text-foreground"
+              >
+                <Plus className="h-4 w-4" />
+                Agregar pago
+              </button>
+
+              {/* Estatus pago final */}
+              <div className={FLD_ADM}>
+                <LabelAdmin text="Estatus pago final" />
+                <select
+                  className={INP}
+                  value={f4EstatusFinal}
+                  onChange={(e) => setF4EstatusFinal(e.target.value as "Pendiente" | "Pagado")}
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Pagado">Pagado</option>
+                </select>
+              </div>
+
+              {/* ── Facturas ── */}
+              {(canManageInvoices || (project.invoices ?? []).length > 0) ? (
+                <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Facturas</p>
+                    {canManageInvoices && onAddInvoice ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowInvoiceForm((v) => !v)}
+                        className="flex items-center gap-1 rounded-xl bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/20"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {showInvoiceForm ? "Cancelar" : "Nueva factura"}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {showInvoiceForm && canManageInvoices && onAddInvoice ? (
+                    <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                      <div className="grid gap-2.5 sm:grid-cols-2">
+                        <div className={FLD}>
+                          <label className={LBL}>OC</label>
+                          <input className={INP} value={invOc} onChange={(e) => setInvOc(e.target.value)} placeholder="Orden de compra" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Subtotal</label>
+                          <input type="number" className={INP} value={invSubtotal} onChange={(e) => setInvSubtotal(e.target.value)} placeholder="0" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Facturar a</label>
+                          <input className={INP} value={invFacturarA} onChange={(e) => setInvFacturarA(e.target.value)} placeholder="Razón social" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>MDP</label>
+                          <select className={INP} value={invMdp} onChange={(e) => setInvMdp(e.target.value as MDP)}>
+                            <option value="PPD">PPD</option>
+                            <option value="PUE">PUE</option>
+                          </select>
+                        </div>
+                        <div className={`${FLD} sm:col-span-2`}>
+                          <label className={LBL}>Fecha solicitud</label>
+                          <DatePickerMX value={invFechaSolicitud} onChange={setInvFechaSolicitud} />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!invOc.trim() || !invSubtotal || !invFacturarA.trim()}
+                        onClick={() => {
+                          onAddInvoice(project.id, {
+                            fechaSolicitud: invFechaSolicitud,
+                            oc: invOc.trim(),
+                            subtotal: parseFloat(invSubtotal) || 0,
+                            facturarA: invFacturarA.trim(),
+                            status: "solicitada",
+                            mdp: invMdp,
+                            complementoPago: "",
+                          });
+                          setInvOc(""); setInvSubtotal(""); setInvFacturarA("");
+                          setShowInvoiceForm(false);
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent/15 py-2.5 text-sm font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Crear factura
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {(project.invoices ?? []).length === 0 ? (
+                    <p className="py-2 text-center text-xs text-[#52525B]">Sin facturas registradas</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(project.invoices ?? []).map((inv) => {
+                        const STATUS_COLORS: Record<InvoiceStatus, string> = {
+                          solicitada: "text-[#F5A524] bg-[#F5A524]/10 ring-[#F5A524]/20",
+                          recibida:   "text-[#60A5FA] bg-[#60A5FA]/10 ring-[#60A5FA]/20",
+                          "en-portal":"text-[#A78BFA] bg-[#A78BFA]/10 ring-[#A78BFA]/20",
+                          enviada:    "text-[#34D399] bg-[#34D399]/10 ring-[#34D399]/20",
+                          pagada:     "text-[#4ADE80] bg-[#4ADE80]/10 ring-[#4ADE80]/20",
+                          cancelada:  "text-[#F87171] bg-[#F87171]/10 ring-[#F87171]/20",
+                        };
+                        const STATUS_NEXT: Partial<Record<InvoiceStatus, InvoiceStatus>> = {
+                          solicitada: "recibida", recibida: "en-portal",
+                          "en-portal": "enviada", enviada: "pagada",
+                        };
+                        const STATUS_LABELS: Record<InvoiceStatus, string> = {
+                          solicitada: "Solicitada", recibida: "Recibida", "en-portal": "En portal",
+                          enviada: "Enviada", pagada: "Pagada", cancelada: "Cancelada",
+                        };
+                        return (
+                          <div key={inv.id} className="rounded-xl bg-[#27272A] p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-foreground">OC: {inv.oc}</p>
+                                <p className="text-xs text-[#71717A]">{inv.facturarA} · {mxn(inv.subtotal)}</p>
+                                {inv.factura ? <p className="mt-0.5 text-xs text-[#52525B]">Factura: {inv.factura}</p> : null}
+                                {inv.fechaPago ? <p className="mt-0.5 text-xs text-[#4ADE80]">Pagado: {inv.fechaPago}</p> : null}
+                              </div>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${STATUS_COLORS[inv.status]}`}>
+                                {STATUS_LABELS[inv.status]}
+                              </span>
+                            </div>
+                            {canManageInvoices && onUpdateInvoice && STATUS_NEXT[inv.status] ? (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateInvoice(project.id, inv.id, { status: STATUS_NEXT[inv.status]! })}
+                                className="mt-2 w-full rounded-lg bg-white/5 py-1.5 text-xs font-semibold text-[#888888] transition hover:bg-white/10 hover:text-foreground"
+                              >
+                                Avanzar → {STATUS_LABELS[STATUS_NEXT[inv.status]!]}
+                              </button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              <SaveBtn onClick={handleSaveF4} label="Guardar pagos" saving={savingF4} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* ══════════════════ CHAT TAB ══════════════════ */}
+      {mainTab === "chat" ? (
+        <div className="mt-5 flex flex-col gap-3">
+          {/* ── Historial de mensajes ── */}
+          <div className="flex max-h-[340px] flex-col gap-2 overflow-y-auto rounded-[28px] bg-[#1E1E20] p-4 scroll-smooth">
+            {chatLoading ? (
+              <p className="py-6 text-center text-sm text-[#52525B]">Cargando mensajes…</p>
+            ) : chatMessages.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[#52525B]">
+                Sin mensajes todavía. Sé el primero.
+              </p>
+            ) : (
+              chatMessages.map((msg) => {
+                const isMine = msg.authorId === currentUser.id;
+                return (
+                  <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[80%] rounded-[24px] px-4 py-3 text-sm shadow-soft ${
+                        isMine ? "bg-accent text-[#111111]" : "bg-[#3F3F46] text-foreground"
+                      } ${msg.isPriority ? "ring-2 ring-danger/50" : ""}`}
+                    >
+                      <div className="mb-1 flex items-center gap-2 text-xs font-semibold opacity-75">
+                        <span>{msg.authorName}</span>
+                        <span className="opacity-60">·</span>
+                        <span className="opacity-60 capitalize">{msg.authorRole === "system_admin" ? "Gestor" : msg.authorRole}</span>
+                        {msg.isPriority ? (
+                          <span className="rounded-full bg-danger/20 px-2 py-0.5 text-[10px] text-danger">
+                            Prioritario
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="leading-relaxed">{msg.message}</p>
+                      <p className="mt-1.5 text-[10px] opacity-50">{formatDate(msg.createdAt)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            {/* Ancla para auto-scroll al fondo */}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* ── Input de nuevo mensaje ── */}
+          <div className="rounded-[28px] bg-[#27272A] p-4">
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                // Ctrl+Enter envía el mensaje
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && message.trim()) {
+                  e.preventDefault();
+                  void handleSendChatMessage();
+                }
+              }}
+              placeholder="Escribe un mensaje… (Ctrl+Enter para enviar)"
+              className={`${INP} h-auto min-h-[80px] resize-none py-2.5`}
+              rows={3}
+              disabled={chatSending}
+            />
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-[#888888] transition-colors hover:text-foreground">
+                <input
+                  type="checkbox"
+                  checked={isPriority}
+                  onChange={(e) => setIsPriority(e.target.checked)}
+                  className="h-4 w-4 accent-danger"
+                />
+                Marcar como prioritario
+              </label>
+              <button
+                type="button"
+                onClick={() => { void handleSendChatMessage(); }}
+                disabled={!message.trim() || chatSending}
+                className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-[#111111] transition hover:opacity-90 disabled:opacity-40"
+              >
+                <MessageCircleMore className="h-4 w-4" />
+                {chatSending ? "Enviando…" : "Enviar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ══════════════════ ARCHIVOS TAB ══════════════════ */}
+      {mainTab === "archivos" ? (() => {
+        const DOCS_ACCEPT = "image/png,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt";
+        const REPORTE_ACCEPT = ".xls,.xlsx,.doc,.docx,.dwg,.dxf";
+        const SECTION_MAX_MB: Record<FileCategory, number> = {
+          fotos: 30, estimacion: 30, cotizacion: 30, reporte: 45, otros: 30,
+        };
+        const FILE_SECTIONS: { key: FileCategory; label: string; accept: string; onlyImages: boolean; maxMB: number }[] = [
+          { key: "fotos",      label: "Fotos de evidencia", accept: "image/*",      onlyImages: true,  maxMB: 30 },
+          { key: "estimacion", label: "Estimación",         accept: DOCS_ACCEPT,    onlyImages: false, maxMB: 30 },
+          { key: "cotizacion", label: "Cotización",         accept: DOCS_ACCEPT,    onlyImages: false, maxMB: 30 },
+          { key: "reporte",    label: "Reporte",            accept: REPORTE_ACCEPT, onlyImages: false, maxMB: 45 },
+          { key: "otros",      label: "Otros",              accept: DOCS_ACCEPT,    onlyImages: false, maxMB: 30 },
+        ];
+
+        const getFileRef = (cat: FileCategory) => {
+          if (cat === "fotos")      return fotosFileInputRef;
+          if (cat === "estimacion") return estimacionFileInputRef;
+          if (cat === "cotizacion") return cotizacionFileInputRef;
+          if (cat === "reporte")    return reporteFileInputRef;
+          return otrosFileInputRef;
+        };
+
+        const getSectionStatus = (cat: FileCategory): FileStatus => {
+          if (cat === "fotos")      return f2FotosStatus;
+          if (cat === "estimacion") return f2EstimFileStatus;
+          if (cat === "cotizacion") return f2CotizFileStatus;
+          if (cat === "reporte")    return f2ReporteFileStatus;
+          return f2OtrosFileStatus;
+        };
+        const setSectionStatus = (cat: FileCategory, val: FileStatus): void => {
+          if (cat === "fotos")           setF2FotosStatus(val);
+          else if (cat === "estimacion") setF2EstimFileStatus(val);
+          else if (cat === "cotizacion") setF2CotizFileStatus(val);
+          else if (cat === "reporte")    setF2ReporteFileStatus(val);
+          else                           setF2OtrosFileStatus(val);
+        };
+        const statusFieldOf = (cat: FileCategory): keyof ProjectItem => {
+          if (cat === "fotos")      return "fotosStatus";
+          if (cat === "estimacion") return "estimacionFileStatus";
+          if (cat === "cotizacion") return "cotizacionFileStatus";
+          if (cat === "reporte")    return "reporteFileStatus";
+          return "otrosFileStatus";
+        };
+
+        const handleUpload = async (files: File[], category: FileCategory): Promise<void> => {
+          if (!files.length || !onUploadFile) return;
+          const maxMB = SECTION_MAX_MB[category];
+          const oversized = files.find(f => f.size > maxMB * 1024 * 1024);
+          if (oversized) { setUploadError(`"${oversized.name}" supera el límite de ${maxMB} MB.`); return; }
+          setUploadError(null);
+          setUploadingSection(category);
+          try {
+            for (const f of files) await onUploadFile(project.id, f, category);
+            const cur = getSectionStatus(category);
+            if (cur === "no" || cur === "rechazado") {
+              setSectionStatus(category, "en-revision");
+              onUpdateProject(project.id, { [statusFieldOf(category)]: "en-revision" });
+            }
+          } catch (err) {
+            setUploadError(err instanceof Error ? err.message : "Error al subir");
+          } finally {
+            setUploadingSection(null);
+          }
+        };
+
+        const handleDeleteFileInSection = async (fileId: string, category: FileCategory): Promise<void> => {
+          if (!onDeleteFile) return;
+          setDeletingFileId(fileId);
+          try {
+            await onDeleteFile(project.id, fileId, category);
+            const remaining = filesBySection[category].filter(f => f.id !== fileId);
+            if (remaining.length === 0) {
+              setSectionStatus(category, "no");
+            }
+          } catch {
+            // silently ignore — the file remains visible
+          } finally {
+            setDeletingFileId(null);
+          }
+        };
+
+        const isEngineer = currentUser.role === "engineer";
+        const canDeleteFiles = isEngineer || currentUser.role === "admin" || currentUser.role === "system_admin";
+
+        return (
+          <div className="mt-5 space-y-2.5">
+            {/* Hidden inputs */}
+            <input ref={fotosFileInputRef}      type="file" className="hidden" accept="image/*"                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "fotos");      e.target.value = ""; }} />
+            <input ref={estimacionFileInputRef} type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "estimacion"); e.target.value = ""; }} />
+            <input ref={cotizacionFileInputRef} type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "cotizacion"); e.target.value = ""; }} />
+            <input ref={reporteFileInputRef}    type="file" className="hidden" accept=".xls,.xlsx,.doc,.docx,.dwg,.dxf" multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "reporte");    e.target.value = ""; }} />
+            <input ref={otrosFileInputRef}      type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "otros");       e.target.value = ""; }} />
+            <input ref={cameraInputRef} type="file" className="hidden" accept="image/*" capture="environment" onChange={async (e) => { const f = e.target.files?.[0]; if (f) await handleUpload([f], "fotos"); e.target.value = ""; }} />
 
             {uploadError ? (
               <div className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
@@ -912,279 +1995,471 @@ export function ProjectDetailDialog({
               </div>
             ) : null}
 
-            {/* Galería de imágenes */}
-            {imageFiles.length > 0 ? (
-              <div className="space-y-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#888888]">
-                  Fotos e imágenes · {imageFiles.length}
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {imageFiles.map((file) => (
-                    <button
-                      key={file.id}
-                      type="button"
-                      onClick={() => file.url && setLightboxUrl(file.url)}
-                      className="group relative aspect-square overflow-hidden rounded-2xl bg-[#313136] ring-1 ring-white/5 transition-all duration-200 hover:ring-accent/40 hover:shadow-lg"
-                    >
-                      <img
-                        src={file.url}
-                        alt={file.name}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      {/* Overlay con nombre al hacer hover */}
-                      <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/75 via-black/10 to-transparent p-2.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        <p className="truncate text-left text-[11px] font-semibold text-white">{file.name}</p>
-                        <p className="text-left text-[10px] text-white/60">{file.sizeLabel}</p>
-                      </div>
-                      {/* Botón descargar */}
-                      {file.url ? (
-                        <div className="absolute right-2 top-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                          <a
-                            href={file.url}
-                            download={file.name}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80">
-                              <Download className="h-3.5 w-3.5" />
-                            </div>
-                          </a>
-                        </div>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+            {FILE_SECTIONS.map((section) => {
+              const sectionFiles = filesBySection[section.key];
+              const isUploading  = uploadingSection === section.key;
+              const isDragging   = draggingSection  === section.key;
+              const isOpen       = openSections[section.key];
+              const fileRef      = getFileRef(section.key);
 
-            {/* Lista de documentos */}
-            {docFiles.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#888888]">
-                  Documentos · {docFiles.length}
-                </p>
-                <div className="space-y-1.5">
-                  {docFiles.map((file) => (
-                    <div key={file.id} className="flex items-center gap-3 rounded-[18px] bg-[#313136]/50 px-3 py-2.5 transition-colors hover:bg-[#313136]/80">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3F3F46] text-[10px] font-black uppercase text-[#A1A1AA]">
-                        {file.name.split(".").pop()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
-                        <p className="text-xs text-[#888888]">{file.sizeLabel} · {formatDate(file.uploadedAt)}</p>
-                      </div>
-                      {file.url ? (
-                        <div className="flex shrink-0 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => window.open(file.url, "_blank")}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#3F3F46] text-[#888888] transition-colors hover:border-accent/40 hover:text-accent"
-                            title="Abrir"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <a href={file.url} download={file.name} target="_blank" rel="noreferrer">
-                            <button
-                              type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#3F3F46] text-[#888888] transition-colors hover:border-accent/40 hover:text-accent"
-                              title="Descargar"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </button>
-                          </a>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Estado vacío */}
-            {project.files.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-[#3F3F46] bg-[#27272A]/50 p-10 text-center">
-                <Images className="mx-auto mb-3 h-8 w-8 text-[#3F3F46]" />
-                <p className="text-sm font-semibold text-[#888888]">Sin archivos subidos</p>
-                <p className="mt-1 text-xs text-[#52525B]">Arrastra fotos de WhatsApp, de escritorio o usa la cámara.</p>
-              </div>
-            ) : null}
-          </div>
-        );
-      })() : null}
-
-      {/* ── TAB GASTOS ── */}
-      {tab === "gastos" ? (
-        <GastosProyecto
-          expenses={project.expenses}
-          totalContratado={project.totalContratado}
-          canAdd={canAddExpense}
-          canDelete={canDeleteExpense}
-          canEditBudget={canEditBudget}
-          onAddExpense={(expense) => onAddExpense(project.id, expense)}
-          onDeleteExpense={(expenseId) => onDeleteExpense(project.id, expenseId)}
-          onUpdateBudget={(amount) => onUpdateBudget(project.id, amount)}
-        />
-      ) : null}
-
-      {/* ── TAB CALENDARIO ── */}
-      {tab === "calendar" ? (
-        <div className="mt-5 space-y-5">
-          {canManageProjectCalendar ? (
-            <div className="rounded-[28px] border border-accent/15 bg-accent/[0.05] p-5">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-2xl bg-accent/15 p-3 text-accent">
-                  <Plus className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Agregar fecha importante</h3>
-                  <p className="text-sm text-[#888888]">Esta fecha aparecerá en los calendarios de los involucrados.</p>
-                </div>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-[1fr,180px]">
-                <Input value={importantDateTitle} onChange={(e) => setImportantDateTitle(e.target.value)} placeholder="Título de la fecha" />
-                <Input type="date" value={importantDateValue} onChange={(e) => setImportantDateValue(e.target.value)} />
-              </div>
-              <div className="mt-4 flex justify-end">
-                <Button onClick={handleAddImportantDate} disabled={!importantDateTitle.trim() || !importantDateValue}>
-                  <Plus className="h-4 w-4" />
-                  Agregar fecha
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="rounded-[28px] bg-[#27272A] p-5 shadow-card">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="rounded-2xl bg-secondary/15 p-3 text-secondary">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Calendario del proyecto</h3>
-                <p className="text-sm text-[#888888]">Compromisos y fechas importantes internas.</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {project.commitmentDate ? (
-                <div className="rounded-[20px] border border-secondary/20 bg-secondary/10 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">Fecha compromiso</p>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{formatDate(project.commitmentDate)}</p>
-                </div>
-              ) : null}
-              {(project.importantDates ?? []).map((item) => (
-                <div key={item.id} className="rounded-[20px] border border-warning/20 bg-warning/10 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#F5A524]">{item.title}</p>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{formatDate(item.date)}</p>
-                </div>
-              ))}
-              {!project.commitmentDate && (project.importantDates ?? []).length === 0 ? (
-                <div className="rounded-[20px] border border-dashed border-[#3F3F46] bg-[#313136]/50 p-8 text-center text-sm text-[#888888]">
-                  No hay fechas en este proyecto.
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── TAB CHAT ── */}
-      {tab === "chat" ? (
-        <div className="mt-5 space-y-4">
-          <div className="min-h-[120px] space-y-3 rounded-[28px] bg-[#1E1E20] p-4">
-            {project.comments.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[#52525B]">Sin comentarios todavía. Sé el primero.</p>
-            ) : null}
-            {project.comments.map((comment) => {
-              const author = usersById[comment.authorId];
-              const isMine = comment.authorId === currentUser.id;
               return (
-                <div key={comment.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-[24px] px-4 py-3 text-sm shadow-soft ${isMine ? "bg-accent text-[#111111]" : "bg-[#3F3F46] text-foreground"}`}>
-                    <div className="mb-1 flex items-center gap-2 text-xs font-medium opacity-80">
-                      <span>{author?.name ?? "Usuario"}</span>
-                      {comment.isPriority ? <span className="rounded-full bg-danger/20 px-2 py-0.5 text-danger">Prioritario</span> : null}
+                <div key={section.key} className="overflow-hidden rounded-2xl border border-[#3F3F46]">
+                  {/* Header */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenSections(s => ({ ...s, [section.key]: !s[section.key] }))}
+                    className="flex w-full items-center justify-between bg-[#1E1E20] px-4 py-3 transition-colors hover:bg-[#27272A]"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isOpen
+                        ? <FolderOpen className="h-4 w-4 text-accent" />
+                        : <Folder className="h-4 w-4 text-[#888888]" />}
+                      <span className={`text-sm font-bold ${isOpen ? "text-foreground" : "text-[#A1A1AA]"}`}>
+                        {section.label}
+                      </span>
+                      {sectionFiles.length > 0 ? (
+                        <span className="rounded-full bg-[#313136] px-2 py-0.5 text-xs font-bold text-[#888888]">
+                          {sectionFiles.length}
+                        </span>
+                      ) : null}
                     </div>
-                    <p>{comment.message}</p>
-                    <p className="mt-1 text-[10px] opacity-60">{formatDate(comment.createdAt)}</p>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      {canEditProject ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="inline-flex items-center gap-1 rounded-xl border border-[#3F3F46] bg-[#27272A] px-2.5 py-1 text-xs font-semibold text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+                          onClick={(e) => { e.stopPropagation(); setUploadError(null); fileRef.current?.click(); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); fileRef.current?.click(); } }}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Agregar
+                        </span>
+                      ) : null}
+                      {section.key === "fotos" && canEditProject ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="inline-flex items-center gap-1 rounded-xl border border-[#3F3F46] bg-[#27272A] px-2.5 py-1 text-xs font-semibold text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+                          onClick={(e) => { e.stopPropagation(); setUploadError(null); cameraInputRef.current?.click(); }}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); cameraInputRef.current?.click(); } }}
+                        >
+                          <Camera className="h-3 w-3" />
+                          Cámara
+                        </span>
+                      ) : null}
+                      <ChevronDown className={`h-4 w-4 text-[#888888] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                    </div>
+                  </button>
+
+                  {/* Body */}
+                  {isOpen ? (
+                    <div className="space-y-3 bg-[#27272A]/20 p-4">
+                      {/* Banner de estado (todas las secciones) */}
+                      {(() => {
+                        const st = getSectionStatus(section.key);
+                        const noLabel = section.key === "fotos" ? "Sin fotos de evidencia" : `Sin archivos en ${section.label.toLowerCase()}`;
+                        const approveExtra = section.key === "fotos" ? { fotos: true } : {};
+                        const rejectExtra  = section.key === "fotos" ? { fotos: false } : {};
+                        return (
+                          <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${
+                            st === "en-revision" ? "border border-[#F5A524]/25 bg-[#F5A524]/10 text-[#F5A524]" :
+                            st === "si"          ? "border border-[#4ADE80]/25 bg-[#4ADE80]/10 text-[#4ADE80]" :
+                            st === "rechazado"   ? "border border-danger/25 bg-danger/10 text-danger" :
+                            "border border-[#3F3F46] bg-[#1E1E20] text-[#888888]"
+                          }`}>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <span>
+                                {st === "no"          ? noLabel :
+                                 st === "en-revision" ? "En revisión — pendiente de aprobación del admin" :
+                                 st === "si"          ? "Si" :
+                                 "Rechazado — sube una nueva versión"}
+                              </span>
+                              {canManageProjectStatus && st === "en-revision" ? (
+                                <div className="flex shrink-0 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionStatus(section.key, "si");
+                                      onUpdateProject(project.id, { [statusFieldOf(section.key)]: "si", ...approveExtra });
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
+                                  >
+                                    <Check className="h-3.5 w-3.5" /> Aprobar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionStatus(section.key, "rechazado");
+                                      onUpdateProject(project.id, { [statusFieldOf(section.key)]: "rechazado", ...rejectExtra });
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-xl bg-danger/10 px-4 py-2 text-sm font-bold text-danger ring-1 ring-danger/30 transition hover:bg-danger/20"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" /> Rechazar
+                                  </button>
+                                </div>
+                              ) : canManageProjectStatus && st === "si" ? (
+                                <div className="flex shrink-0 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionStatus(section.key, "en-revision");
+                                      onUpdateProject(project.id, { [statusFieldOf(section.key)]: "en-revision", ...(section.key === "fotos" ? { fotos: true } : {}) });
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-xl bg-[#F5A524]/10 px-4 py-2 text-sm font-bold text-[#F5A524] ring-1 ring-[#F5A524]/30 transition hover:bg-[#F5A524]/20"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" /> Quitar aprobación
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionStatus(section.key, "rechazado");
+                                      onUpdateProject(project.id, { [statusFieldOf(section.key)]: "rechazado", ...rejectExtra });
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-xl bg-danger/10 px-4 py-2 text-sm font-bold text-danger ring-1 ring-danger/30 transition hover:bg-danger/20"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" /> Rechazar
+                                  </button>
+                                </div>
+                              ) : canManageProjectStatus && st === "rechazado" ? (
+                                <div className="flex shrink-0 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionStatus(section.key, "si");
+                                      onUpdateProject(project.id, { [statusFieldOf(section.key)]: "si", ...approveExtra });
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
+                                  >
+                                    <Check className="h-3.5 w-3.5" /> Aprobar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSectionStatus(section.key, "en-revision");
+                                      onUpdateProject(project.id, { [statusFieldOf(section.key)]: "en-revision", ...(section.key === "fotos" ? { fotos: true } : {}) });
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-xl bg-[#F5A524]/10 px-4 py-2 text-sm font-bold text-[#F5A524] ring-1 ring-[#F5A524]/30 transition hover:bg-[#F5A524]/20"
+                                  >
+                                    <XCircle className="h-3.5 w-3.5" /> Poner en revisión
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Drop zone */}
+                      {canEditProject ? (
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setDraggingSection(section.key); }}
+                          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDraggingSection(null); }}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            setDraggingSection(null);
+                            const dropped = Array.from(e.dataTransfer.files).filter(f => {
+                              if (section.onlyImages) return f.type.startsWith("image/");
+                              if (section.key === "reporte") return /\.(xls|xlsx|doc|docx|dwg|dxf)$/i.test(f.name);
+                              return true;
+                            });
+                            if (!dropped.length) {
+                              if (section.onlyImages) setUploadError("FOTOS solo acepta imágenes (JPG, PNG, WEBP).");
+                              else if (section.key === "reporte") setUploadError("REPORTE solo acepta Excel (.xlsx), Word (.docx) y AutoCAD (.dwg, .dxf).");
+                              return;
+                            }
+                            await handleUpload(dropped, section.key);
+                          }}
+                          className={`rounded-xl border-2 border-dashed px-4 py-2.5 transition-all duration-200 ${
+                            isDragging ? "scale-[1.005] border-accent/60 bg-accent/5" : "border-[#3F3F46] bg-[#1E1E20]/50"
+                          }`}
+                        >
+                          {isUploading ? (
+                            <div className="flex items-center justify-center gap-2.5 py-0.5">
+                              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                              <p className="text-xs font-semibold text-accent">Subiendo…</p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs text-[#888888]">
+                              <FileUp className={`h-3.5 w-3.5 shrink-0 ${isDragging ? "text-accent" : ""}`} />
+                              <span>{isDragging ? "Suelta para subir" : `Arrastra archivos aquí · máx. ${section.maxMB} MB`}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {/* Archivos de la sección */}
+                      {sectionFiles.length > 0 ? (
+                        section.onlyImages ? (
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {sectionFiles.map((file) => (
+                              <button
+                                key={file.id}
+                                type="button"
+                                onClick={() => openGallery(sectionFiles, file.id)}
+                                className="group relative aspect-square overflow-hidden rounded-2xl bg-[#313136] ring-1 ring-white/5 transition-all duration-200 hover:ring-accent/40 hover:shadow-lg"
+                              >
+                                <img
+                                  src={resolveImgUrl(file.url ?? '', project.id, file.id)}
+                                  alt={file.name}
+                                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const img = e.currentTarget;
+                                    img.style.display = "none";
+                                    const parent = img.parentElement;
+                                    if (parent && !parent.querySelector(".thumb-fallback")) {
+                                      const fb = document.createElement("div");
+                                      fb.className = "thumb-fallback absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#888888]";
+                                      fb.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span style="font-size:10px">Sin vista</span>';
+                                      parent.appendChild(fb);
+                                    }
+                                  }}
+                                />
+                                <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/75 via-black/10 to-transparent p-2.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                  <p className="truncate text-left text-[11px] font-semibold text-white">{file.name}</p>
+                                </div>
+                                <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                  {file.url ? (
+                                    <a href={serveFileUrl(project.id, file.id, true)} download={file.name} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80">
+                                        <Download className="h-3.5 w-3.5" />
+                                      </div>
+                                    </a>
+                                  ) : null}
+                                  {canDeleteFiles ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); void handleDeleteFileInSection(file.id, section.key); }}
+                                      disabled={deletingFileId === file.id}
+                                      className="flex h-7 w-7 items-center justify-center rounded-xl bg-danger/80 text-white backdrop-blur-sm transition-colors hover:bg-danger disabled:opacity-50"
+                                    >
+                                      {deletingFileId === file.id
+                                        ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                        : <Trash2 className="h-3.5 w-3.5" />}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {sectionFiles.map((file) => {
+                              const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
+                              return (
+                                <div key={file.id} className="flex items-center gap-3 rounded-[18px] bg-[#313136]/50 px-3 py-2.5 transition-colors hover:bg-[#313136]/80">
+                                  {isImg && file.url ? (
+                                    <img src={resolveImgUrl(file.url, project.id, file.id)} alt={file.name} className="h-10 w-10 shrink-0 rounded-xl object-cover" />
+                                  ) : (
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3F3F46] text-[10px] font-black uppercase text-[#A1A1AA]">
+                                      {file.name.split(".").pop()}
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
+                                    <p className="text-xs text-[#888888]">{file.sizeLabel} · {formatDate(file.uploadedAt)}</p>
+                                  </div>
+                                  <div className="flex shrink-0 gap-1.5">
+                                    {file.url ? (() => {
+                                      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+                                      const isPreviewableDoc = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext);
+                                      const isPreviewableImg = ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+                                      const fileServeUrl = serveFileUrl(project.id, file.id);
+
+                                      // Para imágenes: abrir en lightbox; para docs: Google Docs Viewer; para otros: descargar
+                                      const handleEye = () => {
+                                        if (isPreviewableImg) {
+                                          openGallery(sectionFiles.filter(f => /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name)), file.id);
+                                        } else if (isPreviewableDoc) {
+                                          // Google Docs Viewer permite previsualizar PDF/Word/Excel sin descargar
+                                          const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileServeUrl)}&embedded=true`;
+                                          window.open(viewerUrl, "_blank");
+                                        } else {
+                                          window.open(fileServeUrl, "_blank");
+                                        }
+                                      };
+
+                                      return (
+                                        <>
+                                          <button type="button" onClick={handleEye} title={isPreviewableImg || isPreviewableDoc ? "Vista previa" : "Abrir archivo"} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#3F3F46] text-[#888888] transition-colors hover:border-accent/40 hover:text-accent">
+                                            <Eye className="h-3.5 w-3.5" />
+                                          </button>
+                                          <a href={serveFileUrl(project.id, file.id, true)} download={file.name} target="_blank" rel="noreferrer">
+                                            <button type="button" title="Descargar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#3F3F46] text-[#888888] transition-colors hover:border-accent/40 hover:text-accent">
+                                              <Download className="h-3.5 w-3.5" />
+                                            </button>
+                                          </a>
+                                        </>
+                                      );
+                                    })() : null}
+                                    {canDeleteFiles ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleDeleteFileInSection(file.id, section.key)}
+                                        disabled={deletingFileId === file.id}
+                                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-danger/30 text-danger/60 transition-colors hover:border-danger hover:bg-danger/10 hover:text-danger disabled:opacity-40"
+                                      >
+                                        {deletingFileId === file.id
+                                          ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-danger border-t-transparent" />
+                                          : <Trash2 className="h-3.5 w-3.5" />}
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )
+                      ) : (
+                        <p className="py-3 text-center text-xs font-semibold text-[#52525B]">
+                          Sin archivos en esta carpeta
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
-          <div className="rounded-[28px] bg-[#27272A] p-4">
-            <Textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Escribe un comentario operativo o de coordinación." className="min-h-[120px]" />
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-[#888888] transition-colors hover:text-foreground">
-                <input type="checkbox" checked={isPriority} onChange={(e) => setIsPriority(e.target.checked)} className="h-4 w-4 accent-danger" />
-                Marcar comentario como prioritario
-              </label>
-              <Button
-                onClick={() => {
-                  if (!message.trim()) return;
-                  onAddComment(project.id, message.trim(), isPriority, currentUser.id);
-                  setMessage("");
-                  setIsPriority(false);
-                }}
-              >
-                <MessageCircleMore className="h-4 w-4" />
-                Enviar comentario
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+        );
+      })() : null}
 
-      {/* ── LIGHTBOX ── */}
-      {lightboxUrl ? (
+      {/* ══ GALERÍA DE IMÁGENES ══ */}
+      {galleryFiles.length > 0 ? (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightboxUrl(null)}
-          onKeyDown={(e) => { if (e.key === "Escape") setLightboxUrl(null); }}
+          className="fixed inset-0 z-[9999] flex flex-col bg-black/95"
           role="dialog"
           aria-modal="true"
           tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === "Escape")     closeGallery();
+            if (e.key === "ArrowLeft"  && galleryFiles.length > 1) galleryPrev();
+            if (e.key === "ArrowRight" && galleryFiles.length > 1) galleryNext();
+          }}
         >
-          <button
-            type="button"
-            onClick={() => setLightboxUrl(null)}
-            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#27272A]/80 text-[#A1A1AA] transition-colors hover:bg-[#3F3F46] hover:text-white"
-            aria-label="Cerrar"
-          >
-            <XCircle className="h-6 w-6" />
-          </button>
-          <img
-            src={lightboxUrl}
-            alt="Vista de imagen"
-            className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      ) : null}
-
-      {/* ── TAB HISTORIAL ── */}
-      {tab === "history" ? (
-        <div className="mt-5">
-          {project.history.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-[#3F3F46] bg-[#27272A] p-10 text-center text-sm text-[#888888]">
-              Sin historial registrado.
+          {/* ── Barra superior ── */}
+          <div className="flex shrink-0 items-center justify-between gap-4 px-4 py-3 bg-black/60 backdrop-blur-sm border-b border-white/5">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Thumbnails mini-strip */}
+              <div className="hidden sm:flex items-center gap-1.5">
+                {galleryFiles.map((f, i) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setGalleryBroken(false); setGalleryIndex(i); }}
+                    className={`h-8 w-8 shrink-0 overflow-hidden rounded-lg ring-2 transition-all ${i === galleryIndex ? "ring-accent scale-110" : "ring-transparent opacity-50 hover:opacity-80"}`}
+                  >
+                    <img
+                      src={serveFileUrl(project.id, f.id)}
+                      alt={f.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white leading-tight">{galleryFiles[galleryIndex]?.name}</p>
+                <p className="text-[11px] text-[#888888]">{galleryFiles[galleryIndex]?.sizeLabel} · foto {galleryIndex + 1} de {galleryFiles.length}</p>
+              </div>
             </div>
-          ) : (
-            <div className="relative space-y-0 pl-6">
-              {/* Línea vertical del timeline */}
-              <div className="absolute left-[9px] top-3 h-[calc(100%-24px)] w-px bg-[#3F3F46]" />
-              {project.history.map((item, idx) => (
-                <div key={item.id} className={`relative pb-4 ${idx === project.history.length - 1 ? "pb-0" : ""}`}>
-                  {/* Dot */}
-                  <div className="absolute -left-[19px] top-[18px] h-3 w-3 rounded-full border-2 border-[#27272A] bg-secondary" />
-                  <div className="rounded-[20px] bg-[#313136]/50 p-4 transition-colors duration-150 hover:bg-[#313136]/80">
-                    <p className="text-sm font-semibold text-foreground">{item.action}</p>
-                    <p className="mt-1 text-xs text-[#888888]">{formatDate(item.createdAt)} · {item.author}</p>
-                  </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {lightboxFile ? (
+                <a
+                  href={serveFileUrl(project.id, lightboxFile.id, true)}
+                  download={lightboxFile.name}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={closeGallery}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-[#A1A1AA] transition hover:bg-white/20 hover:text-white"
+                aria-label="Cerrar galería"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Área de imagen ── */}
+          <div className="relative flex flex-1 items-center justify-center overflow-hidden" onClick={closeGallery}>
+            {/* Flecha izquierda */}
+            {galleryFiles.length > 1 ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); galleryPrev(); }}
+                className="absolute left-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition hover:bg-black/75 hover:scale-105"
+                aria-label="Anterior"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            ) : null}
+
+            {galleryBroken ? (
+              <div className="flex flex-col items-center gap-4 rounded-2xl bg-[#1E1E20] p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#313136] text-[#52525B]">
+                  <ZoomIn className="h-7 w-7" />
                 </div>
+                <p className="text-sm text-[#888888]">No se puede previsualizar</p>
+                {lightboxFile ? (
+                  <a
+                    href={serveFileUrl(project.id, lightboxFile.id, true)}
+                    download={lightboxFile.name}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-black transition hover:opacity-90"
+                  >
+                    <Download className="h-4 w-4" />
+                    Descargar
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <img
+                key={galleryFiles[galleryIndex]?.id}
+                src={lightboxUrl ?? ""}
+                alt={galleryFiles[galleryIndex]?.name ?? ""}
+                className="max-h-full max-w-full object-contain select-none"
+                style={{ maxHeight: "calc(100vh - 120px)" }}
+                draggable={false}
+                onClick={(e) => e.stopPropagation()}
+                onError={() => setGalleryBroken(true)}
+              />
+            )}
+
+            {/* Flecha derecha */}
+            {galleryFiles.length > 1 ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); galleryNext(); }}
+                className="absolute right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition hover:bg-black/75 hover:scale-105"
+                aria-label="Siguiente"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            ) : null}
+          </div>
+
+          {/* ── Puntos de navegación ── */}
+          {galleryFiles.length > 1 ? (
+            <div className="flex shrink-0 justify-center gap-1.5 py-3">
+              {galleryFiles.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => { setGalleryBroken(false); setGalleryIndex(i); }}
+                  className={`rounded-full transition-all ${i === galleryIndex ? "h-2 w-6 bg-accent" : "h-2 w-2 bg-white/30 hover:bg-white/50"}`}
+                  aria-label={`Foto ${i + 1}`}
+                />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       ) : null}
     </Dialog>
