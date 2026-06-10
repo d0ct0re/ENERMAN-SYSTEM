@@ -29,7 +29,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           local-dir: ./dist/
-          server-dir: /public_html/
+          server-dir: /
           dangerous-clean-slate: true
 
       - name: Subir API (api/index.php) a Hostinger
@@ -39,4 +39,4 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           local-dir: ./api/
-          server-dir: /public_html/api/
+          server-dir: /api/
