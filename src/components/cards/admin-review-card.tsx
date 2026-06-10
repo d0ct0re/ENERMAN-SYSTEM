@@ -10,7 +10,6 @@ interface AdminReviewCardProps {
   request: RequestItem;
   onOpen: (requestId: string) => void;
   onApprove?: (requestId: string) => void;
-  onApproveWithSequence?: (requestId: string, sequence: string) => void;
   onReject?: (requestId: string, reason: string) => void;
   onCorrection?: (requestId: string, reason: string) => void;
   requesterName?: string;
@@ -23,31 +22,18 @@ export function AdminReviewCard({
   request,
   onOpen,
   onApprove,
-  onApproveWithSequence,
   onReject,
   onCorrection,
   requesterName,
   suggestedSequence,
 }: AdminReviewCardProps): JSX.Element {
   const [mode, setMode] = useState<Mode>("idle");
-  const [sequence, setSequence] = useState(suggestedSequence ?? "");
   const [rejectReason, setRejectReason] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
   const isPending = request.status === "under-review";
 
-  const handleApproveOpen = (): void => {
-    setSequence(suggestedSequence ?? "");
-    setMode("approving");
-  };
-
   const handleConfirmApprove = (): void => {
-    const seq = sequence.trim();
-    if (!seq) return;
-    if (onApproveWithSequence) {
-      onApproveWithSequence(request.id, seq);
-    } else {
-      onApprove?.(request.id);
-    }
+    onApprove?.(request.id);
     setMode("idle");
   };
 
@@ -108,9 +94,13 @@ export function AdminReviewCard({
         <div className="space-y-2.5 rounded-2xl border border-[#4ADE80]/20 bg-[#0D2417] p-3" onClick={(e) => e.stopPropagation()}>
           <p className="text-xs font-bold text-[#4ADE80]">Confirmar aprobación</p>
           <p className="text-xs text-[#888888]">
-            Se asignará el consecutivo{" "}
-            <span className="font-mono font-black text-foreground">#{sequence || "—"}</span>{" "}
-            de forma automática.
+            El servidor asignará el siguiente consecutivo disponible de forma atómica.
+            {suggestedSequence ? (
+              <>
+                {" "}Estimado:{" "}
+                <span className="font-mono font-semibold text-foreground">~#{suggestedSequence}</span>
+              </>
+            ) : null}
           </p>
           <div className="flex gap-2">
             <button
@@ -118,7 +108,7 @@ export function AdminReviewCard({
               onClick={handleConfirmApprove}
               className="flex-1 rounded-xl bg-[#166534]/30 py-2 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/20 transition hover:bg-[#166534]/50"
             >
-              Confirmar #{sequence || "—"}
+              Confirmar aprobación
             </button>
             <button
               type="button"
@@ -198,10 +188,10 @@ export function AdminReviewCard({
         <p className="text-xs text-[#888888]">Ingresado: {formatDate(request.createdAt)}</p>
         {mode === "idle" ? (
           <div className="flex flex-wrap gap-2">
-            {isPending && (onApprove || onApproveWithSequence) ? (
+            {isPending && onApprove ? (
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); handleApproveOpen(); }}
+                onClick={(e) => { e.stopPropagation(); setMode("approving"); }}
                 className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/20 transition hover:bg-[#166534]/40"
               >
                 <Check className="h-3.5 w-3.5" />

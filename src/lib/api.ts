@@ -302,7 +302,27 @@ export async function downloadBackup(): Promise<void> {
     throw new Error((data.error as string | undefined) ?? `Error ${response.status}`);
   }
   const blob = await response.blob();
-  const fname = `amper-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+  const fname = `enerman-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.json`;
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadFilesBackup(): Promise<void> {
+  const url = `${API_BASE_URL}/index.php?action=backup_files&t=${Date.now()}`;
+  const response = await fetch(url, { credentials: "include" });
+  if (response.status === 204) throw new Error("No hay archivos subidos aún.");
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+    throw new Error((data.error as string | undefined) ?? `Error ${response.status}`);
+  }
+  const blob = await response.blob();
+  const fname = `enerman-archivos-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.zip`;
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = objectUrl;

@@ -660,7 +660,7 @@ export default function App(): JSX.Element {
       baseName: payload.baseName,
     });
     const project: ProjectItem = {
-      id: `project-${sequence}`,
+      id: crypto.randomUUID(),
       structuredName,
       baseName: payload.baseName,
       client: payload.client,
@@ -697,6 +697,11 @@ export default function App(): JSX.Element {
       .map((user) => user.id);
 
     setProjects((current) => [project, ...current]);
+
+    if (apiReady) {
+      const persist = () => apiUpdateProject(project.id, project);
+      persist().catch(() => setTimeout(() => persist().catch(() => undefined), 2000));
+    }
     addNotification({
       id: crypto.randomUUID(),
       role: "admin",
@@ -872,99 +877,6 @@ export default function App(): JSX.Element {
     setToastMessage("Solicitud rechazada");
   };
 
-  const handleApproveWithSequence = (requestId: string, customSequence: string): void => {
-    lastMutationAt.current = Date.now();
-    const req = requests.find((r) => r.id === requestId);
-    if (!req) return;
-    const linkedProjectId = req.linkedProjectId ?? crypto.randomUUID();
-    const approvedStructuredName = buildStructuredName({
-      sequence: customSequence,
-      client: req.client,
-      department: req.department,
-      lugar: req.lugar,
-      type: req.type,
-      baseName: req.baseName,
-    });
-
-    // Computar el nuevo estado directamente para poder guardar de inmediato
-    // (evita race condition: el debounce de 450ms podría dispararse DESPUÉS de switch_session
-    // al usuario ingeniero, causando que save_state falle con 403 "engineer no puede crear proyectos")
-    const now = new Date().toISOString();
-    const newProject: ProjectItem = {
-      id: linkedProjectId,
-      structuredName: approvedStructuredName,
-      baseName: req.baseName,
-      client: req.client,
-      department: req.department,
-      lugar: req.lugar || undefined,
-      type: req.type,
-      status: "en-programacion",
-      paymentStatus: "unpaid",
-      paymentLabel: "No pagado",
-      priority: "medium",
-      summary: "Pendiente de programación administrativa.",
-      description: req.description,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: req.createdBy,
-      participants: [req.createdBy],
-      totalContratado: 0,
-      files: [],
-      comments: [],
-      expenses: [],
-      fechaSolicitud: now,
-      history: [{ id: crypto.randomUUID(), createdAt: now, action: "Proyecto creado desde solicitud aprobada", author: activeUser.name }],
-    };
-
-    const newProjects = req.linkedProjectId ? projects : [newProject, ...projects];
-    const newRequests = requests.map((r) =>
-      r.id === requestId
-        ? { ...r, sequence: customSequence, structuredName: approvedStructuredName, status: "approved" as const, linkedProjectId, rejectionReason: undefined, correctionReason: undefined }
-        : r,
-    );
-
-    if (!req.linkedProjectId) {
-      setProjects(newProjects);
-    }
-    setRequests(newRequests);
-
-    // Guardados atómicos — reemplazan save_state masivo y eliminan la race condition de sesión
-    if (apiReady) {
-      if (!req.linkedProjectId) {
-        // Nuevo proyecto: insert atómico (update_project hace upsert si no existe)
-        apiUpdateProject(linkedProjectId, newProject).catch(() => undefined);
-      }
-      const approvedRequestFields = {
-        sequence: customSequence,
-        structuredName: approvedStructuredName,
-        status: "approved" as const,
-        linkedProjectId,
-        rejectionReason: undefined,
-        correctionReason: undefined,
-      };
-      apiUpdateRequest(requestId, approvedRequestFields).catch(() => undefined);
-    }
-
-    addNotification({
-      id: crypto.randomUUID(),
-      role: "engineer" as const,
-      userIds: [req.createdBy],
-      title: "Solicitud aprobada",
-      description: `Tu solicitud ${approvedStructuredName} fue aprobada y el proyecto quedó en programación.`,
-      createdAt: new Date().toISOString(),
-      isRead: false,
-      relatedRequestId: requestId,
-      relatedProjectId: linkedProjectId,
-    });
-    setSelectedRequestId(null);
-    setToastMessage(`Proyecto #${customSequence} creado`);
-    // Asegura que el contador no quede por debajo del número recién usado manualmente
-    // Retry: si falla el bump, el próximo apiNextSequence podría devolver un número ya usado
-    if (apiReady) {
-      const bump = () => apiBumpSequence(Number.parseInt(customSequence, 10));
-      bump().catch(() => setTimeout(() => bump().catch(() => undefined), 2000));
-    }
-  };
 
   const handleReactivateRequest = (requestId: string): void => {
     const reactivatedFields = { status: "under-review" as const, rejectionReason: undefined, correctionReason: undefined };
@@ -1107,6 +1019,31 @@ export default function App(): JSX.Element {
 
     if (pendingNotification) {
       addNotification(pendingNotification as NotificationItem);
+    }
+
+    // ── Notificaciones de aprobación/rechazo de archivos ──
+    const FILE_STATUS_FIELDS = [
+      { key: "fotosStatus", label: "Fotos de evidencia" },
+      { key: "estimacionFileStatus", label: "Estimación" },
+      { key: "cotizacionFileStatus", label: "Cotización" },
+      { key: "reporteFileStatus", label: "Reporte" },
+      { key: "otrosFileStatus", label: "Otros documentos" },
+    ] as const;
+    const engineerToNotify = newCreatedBy ?? currentProject.createdBy;
+    for (const { key, label } of FILE_STATUS_FIELDS) {
+      const newStatus = (projectFields as Record<string, unknown>)[key];
+      if ((newStatus === "si" || newStatus === "rechazado") && engineerToNotify) {
+        addNotification({
+          id: crypto.randomUUID(),
+          role: "engineer",
+          userIds: [engineerToNotify],
+          title: newStatus === "si" ? "Archivos aprobados" : "Archivos rechazados",
+          description: `${label} de ${currentProject.structuredName} ${newStatus === "si" ? "fueron aprobados" : "fueron rechazados"}.`,
+          createdAt: now,
+          isRead: false,
+          relatedProjectId: currentProject.id,
+        });
+      }
     }
   };
 
@@ -1432,7 +1369,7 @@ export default function App(): JSX.Element {
     });
 
     const project: ProjectItem = {
-      id: `project-${sequence}`,
+      id: crypto.randomUUID(),
       structuredName,
       baseName: payload.baseName,
       client: payload.client,
@@ -1473,6 +1410,14 @@ export default function App(): JSX.Element {
     };
 
     setProjects((current) => [project, ...current]);
+
+    // Persistencia atómica inmediata — no depender del debounce de save_state.
+    // Si el gestor navega o recarga antes de los 3 s, el proyecto queda en BD.
+    if (apiReady) {
+      const persist = () => apiUpdateProject(project.id, project);
+      persist().catch(() => setTimeout(() => persist().catch(() => undefined), 2000));
+    }
+
     if (assignedEngineer) {
       addNotification({
         id: crypto.randomUUID(),
@@ -1498,9 +1443,11 @@ export default function App(): JSX.Element {
       relatedProjectId: project.id,
     });
     setToastMessage(`Proyecto ${sequence} creado`);
-    // Subir el contador hasta este número para que next_sequence nunca genere un duplicado
+    // Subir el contador hasta este folio para que next_sequence no genere duplicados.
+    // Retry incluido: si Hostinger corta la conexión, el segundo intento lo corrige.
     if (apiReady) {
-      apiBumpSequence(Number.parseInt(sequence, 10)).catch(() => undefined);
+      const bump = () => apiBumpSequence(Number.parseInt(sequence, 10));
+      bump().catch(() => setTimeout(() => bump().catch(() => undefined), 2000));
     }
   };
 
@@ -1917,7 +1864,6 @@ export default function App(): JSX.Element {
           onOpenRequest={openRequestById}
           onOpenProject={openProjectById}
           onApproveRequest={handleApproveRequest}
-          onApproveWithSequence={handleApproveWithSequence}
           onRejectRequest={handleRejectRequest}
           onCorrectionRequest={handleCorrectionRequest}
           onReactivateRequest={handleReactivateRequest}
@@ -1982,12 +1928,12 @@ export default function App(): JSX.Element {
         project={selectedProject}
         users={users}
         currentUser={activeUser}
-        canEditProject
+        canEditProject={isAdminArea || selectedProject?.createdBy === activeUser.id || (selectedProject?.participants ?? []).includes(activeUser.id)}
         canManageProjectStatus={isAdminArea}
         canEditBudget={isAdminArea}
         canDeleteProject={activeRole === "system_admin"}
         canManageInvoices={isAdminArea}
-        canAddExpense
+        canAddExpense={isAdminArea || selectedProject?.createdBy === activeUser.id || (selectedProject?.participants ?? []).includes(activeUser.id)}
         onUpdateProject={handleUpdateProject}
         onAddComment={handleAddComment}
         onMessageSent={handleMessageSent}

@@ -283,7 +283,7 @@ export function TopBar({
             <Input
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Buscar en AMPER"
+              placeholder="Buscar en ENERMAN-SYSTEM"
               className="pl-11"
             />
           </div>

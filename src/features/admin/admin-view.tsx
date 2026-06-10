@@ -1,7 +1,7 @@
 import { AlertTriangle, BadgeDollarSign, Check, ChevronDown, DatabaseBackup, Eye, FolderOpenDot, MoreVertical, Plus, RotateCcw, Save, ShieldAlert, Trash2, UploadCloud, UserPlus, UsersRound, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn, formatDate, isNewItem, parseLocalDate } from "@/lib/utils";
-import { downloadBackup, restoreBackup } from "@/lib/api";
+import { downloadBackup, downloadFilesBackup, restoreBackup } from "@/lib/api";
 import { FIXED_CLIENTS } from "@/components/ui/client-input";
 import { SectionTitle } from "@/components/layout/section-title";
 import { Tabs } from "@/components/ui/tabs";
@@ -84,7 +84,6 @@ interface AdminViewProps {
   onOpenRequest: (requestId: string) => void;
   onOpenProject: (projectId: string) => void;
   onApproveRequest?: (requestId: string) => void;
-  onApproveWithSequence?: (requestId: string, sequence: string) => void;
   onRejectRequest?: (requestId: string, reason: string) => void;
   onCorrectionRequest?: (requestId: string, reason: string) => void;
   onReactivateRequest?: (requestId: string) => void;
@@ -126,6 +125,7 @@ function SystemAdminView({
   const TRASH_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
   const [backingUp, setBackingUp] = useState(false);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
+  const [backingUpFiles, setBackingUpFiles] = useState(false);
   const [restoreFile, setRestoreFile] = useState<{ name: string; data: unknown; meta: { timestamp?: string; projects?: number; users?: number; requests?: number } } | null>(null);
   const [restoring, setRestoring] = useState(false);
   // Estado para el panel de gestión de consecutivos
@@ -157,7 +157,7 @@ function SystemAdminView({
       try {
         const data = JSON.parse(String(reader.result)) as Record<string, unknown>;
         if (!data.users || !Array.isArray(data.users)) {
-          setRestoreMsg({ text: "Archivo inválido — no es un backup de AMPER", ok: false });
+          setRestoreMsg({ text: "Archivo inválido — no es un backup de ENERMAN-SYSTEM", ok: false });
           return;
         }
         setRestoreFile({
@@ -247,6 +247,26 @@ function SystemAdminView({
           >
             <DatabaseBackup className="h-4 w-4" />
             {backingUp ? "Generando…" : "Descargar backup"}
+          </button>
+          {/* Botón Backup Archivos */}
+          <button
+            type="button"
+            onClick={async () => {
+              setBackingUpFiles(true);
+              try {
+                await downloadFilesBackup();
+              } catch (err) {
+                setBackupMsg(err instanceof Error ? err.message : "Error al descargar archivos");
+              } finally {
+                setBackingUpFiles(false);
+              }
+            }}
+            disabled={backingUpFiles}
+            title="Descarga un ZIP con todas las fotos, PDFs y documentos subidos"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+          >
+            <FolderOpenDot className="h-4 w-4" />
+            {backingUpFiles ? "Generando…" : "Descargar archivos"}
           </button>
           {/* Botón Exportar CSV */}
           <button
@@ -880,7 +900,6 @@ function LegacyAdminView({
   onOpenRequest,
   onOpenProject,
   onApproveRequest,
-  onApproveWithSequence,
   onRejectRequest,
   onCorrectionRequest,
   onReactivateRequest,
@@ -947,7 +966,6 @@ function LegacyAdminView({
           requests={requests ?? []}
           onOpenRequest={onOpenRequest ?? (() => {})}
           onApproveRequest={onApproveRequest}
-          onApproveWithSequence={onApproveWithSequence}
           onRejectRequest={onRejectRequest}
           onCorrectionRequest={onCorrectionRequest}
         />
@@ -1001,7 +1019,7 @@ function LegacyAdminView({
 // ── ReviewTab ─────────────────────────────────────────────────────────────────
 function ReviewTab({
   reviewRequests, users, projects, requests, onOpenRequest,
-  onApproveRequest, onApproveWithSequence, onRejectRequest, onCorrectionRequest,
+  onApproveRequest, onRejectRequest, onCorrectionRequest,
 }: {
   reviewRequests: RequestItem[];
   users: UserItem[];
@@ -1009,7 +1027,6 @@ function ReviewTab({
   requests: RequestItem[];
   onOpenRequest: (id: string) => void;
   onApproveRequest?: (id: string) => void;
-  onApproveWithSequence?: (id: string, seq: string) => void;
   onRejectRequest?: (id: string, reason: string) => void;
   onCorrectionRequest?: (id: string, reason: string) => void;
 }): JSX.Element {
@@ -1038,7 +1055,6 @@ function ReviewTab({
           request={req}
           onOpen={onOpenRequest}
           onApprove={onApproveRequest}
-          onApproveWithSequence={onApproveWithSequence}
           onReject={onRejectRequest}
           onCorrection={onCorrectionRequest}
           requesterName={usersById[req.createdBy]?.name}
@@ -1146,7 +1162,7 @@ function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `amper-proyectos-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `enerman-proyectos-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

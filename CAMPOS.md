@@ -1,4 +1,4 @@
-# Esquema vivo de campos — Projectra / ENERMAN
+﻿# Esquema vivo de campos — ENERMAN-SYSTEM
 
 > **Cómo usarlo**: cada tabla es una fase del diálogo de proyecto. Las columnas indican quién edita,
 > quién ve, en qué `useEffect` del diálogo se sincroniza, y con qué endpoint de API se guarda.

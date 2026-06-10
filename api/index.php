@@ -262,10 +262,9 @@ function syncProjectRows(PDO $pdo, array $items): void
             ':sort_order' => $i,
         ]);
     }
-    if (!empty($ids)) {
-        $ph = implode(',', array_fill(0, count($ids), '?'));
-        $pdo->prepare("DELETE FROM projects WHERE id NOT IN ({$ph})")->execute($ids);
-    }
+    // save_state NUNCA borra proyectos. El único mecanismo de borrado es delete_project (endpoint atómico).
+    // Cualquier DELETE aquí crea race conditions: save_state puede llegar con estado React viejo
+    // que no incluye un proyecto recién creado por otro usuario, y lo borraría de la BD.
 }
 
 function verifyCredentials(string $email, string $password): ?array
@@ -1122,6 +1121,43 @@ try {
         exit;
     }
 
+    /* ── backup_files — descarga ZIP con todos los archivos subidos (solo gestor) ── */
+    if ($action === 'backup_files') {
+        requireSystemAdmin();
+        $uploadsDir = __DIR__ . '/../uploads/projectra/';
+        if (!is_dir($uploadsDir) || !class_exists('ZipArchive')) {
+            http_response_code(204); exit;
+        }
+        $tmpFile = sys_get_temp_dir() . '/enerman-files-' . date('Ymd-His') . '.zip';
+        $zip = new ZipArchive();
+        if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            http_response_code(500);
+            echo json_encode(['error' => 'No se pudo crear el ZIP.']);
+            exit;
+        }
+        $iter = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($uploadsDir, RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+        $fileCount = 0;
+        foreach ($iter as $file) {
+            if ($file->isFile()) {
+                $localPath = ltrim(str_replace($uploadsDir, '', $file->getPathname()), DIRECTORY_SEPARATOR . '/');
+                $zip->addFile($file->getPathname(), $localPath);
+                $fileCount++;
+            }
+        }
+        $zip->close();
+        if ($fileCount === 0) { @unlink($tmpFile); http_response_code(204); exit; }
+        logActivity('backup', 'files', null, null, ['files' => $fileCount]);
+        $filename = 'enerman-archivos-' . date('Ymd-His') . '.zip';
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . filesize($tmpFile));
+        readfile($tmpFile);
+        @unlink($tmpFile);
+        exit;
+    }
+
     /* ── backup — descarga JSON con todo el estado actual ── */
     if ($action === 'backup') {
         requireAuth();
@@ -1153,7 +1189,7 @@ try {
         logActivity('backup', 'system', null, null, ['generatedBy' => $actor['name'] ?? '']);
         // Devolver como descarga directa
         header('Content-Type: application/json; charset=utf-8');
-        header('Content-Disposition: attachment; filename="amper-backup-' . date('Y-m-d-His') . '.json"');
+        header('Content-Disposition: attachment; filename="enerman-backup-' . date('Y-m-d-His') . '.json"');
         echo json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
@@ -1560,7 +1596,7 @@ try {
         // Ocultar contraseñas del backup por seguridad
         foreach ($export['tables']['app_users'] as &$u) { unset($u['password']); }
         unset($u);
-        $filename = 'amper-backup-' . gmdate('Ymd-His') . '.json';
+        $filename = 'enerman-backup-' . gmdate('Ymd-His') . '.json';
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: no-store');
@@ -1677,6 +1713,8 @@ try {
     /* ── update_project — mutación atómica de un proyecto (reemplaza save_state masivo) ── */
     if ($action === 'update_project') {
         requireAuth();
+        $callerRole = $_SESSION['user_role'] ?? '';
+        $callerId   = $_SESSION['user_id']   ?? '';
         $data      = readJson();
         $projectId = (string)($data['project_id'] ?? '');
         $fields    = $data['fields'] ?? null;
@@ -1688,18 +1726,57 @@ try {
         $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
         $stmt->execute([$projectId]);
         $row = $stmt->fetch();
+
+        // Ingenieros y supervisores solo pueden modificar proyectos donde son creador o participante.
+        // Admins y system_admin pueden modificar cualquier proyecto.
+        if (!in_array($callerRole, ['admin', 'system_admin'], true)) {
+            $source        = $row ? (json_decode($row['payload'], true) ?? []) : $fields;
+            $isCreator     = ($source['createdBy'] ?? '') === $callerId;
+            $isParticipant = in_array($callerId, $source['participants'] ?? [], true);
+            if (!$isCreator && !$isParticipant) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes permiso para modificar este proyecto.'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
+
+        // Extrae el número de folio de un structuredName tipo "0042-Nombre-Cliente".
+        // Retorna null si el nombre no empieza con dígitos (proyecto sin folio aún).
+        $extractFolio = static function (string $sn): ?int {
+            if ($sn === '') return null;
+            $first = explode('-', $sn)[0];
+            return (ctype_digit($first) && (int)$first > 0) ? (int)$first : null;
+        };
+
+        // Verifica que el folio no esté ya asignado a otro proyecto distinto.
+        $assertFolioUnique = static function (int $folio, string $selfId) use ($extractFolio): void {
+            $dup = db()->prepare("SELECT id FROM projects WHERE folio = :f AND id != :id LIMIT 1");
+            $dup->execute([':f' => $folio, ':id' => $selfId]);
+            if ($dup->fetch()) {
+                http_response_code(409);
+                echo json_encode(
+                    ['error' => "El folio {$folio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."],
+                    JSON_UNESCAPED_UNICODE
+                );
+                exit;
+            }
+        };
+
         if (!$row) {
             // El proyecto aún no existe en BD (p.ej. recién creado, pendiente de save_state)
             // Insertar como nuevo para no perder el cambio
             $fields['id'] = $projectId;
+            $newFolio = $extractFolio($fields['structuredName'] ?? '');
+            if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
             $stmt = db()->prepare(
-                "INSERT INTO projects (id, payload, sort_order, updated_at)
-                 VALUES (:id, :payload, 0, NOW())
-                 ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = NOW()"
+                "INSERT INTO projects (id, payload, folio, sort_order, updated_at)
+                 VALUES (:id, :payload, :folio, 0, NOW())
+                 ON DUPLICATE KEY UPDATE payload = VALUES(payload), folio = VALUES(folio), updated_at = NOW()"
             );
             $stmt->execute([
                 ':id'      => $projectId,
                 ':payload' => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ':folio'   => $newFolio,
             ]);
         } else {
             // Fusión quirúrgica: preserva campos que el frontend no envió (archivos, comentarios, etc.)
@@ -1715,8 +1792,14 @@ try {
             foreach ($updated as $key => $val) {
                 if ($val === null) unset($updated[$key]);
             }
-            db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
-               ->execute([':p' => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+            $newFolio = $extractFolio($updated['structuredName'] ?? '');
+            if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
+            db()->prepare("UPDATE projects SET payload = :p, folio = :f, updated_at = NOW() WHERE id = :id")
+               ->execute([
+                   ':p'  => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                   ':f'  => $newFolio,
+                   ':id' => $projectId,
+               ]);
         }
         echo json_encode(['ok' => true]);
         exit;
@@ -2014,10 +2097,17 @@ try {
         db()->exec("UPDATE sequence_counters SET value = LAST_INSERT_ID(value + 1) WHERE name = 'projects'");
         $next = (int) db()->query("SELECT LAST_INSERT_ID()")->fetchColumn();
         if ($next === 0) {
-            // Fallback por si LAST_INSERT_ID no funcionó (edge case en algunas versiones)
-            $cur = getOrInitSequence();
-            $next = $cur + 1;
-            db()->prepare("UPDATE sequence_counters SET value = :v WHERE name = 'projects'")->execute([':v' => $next]);
+            // LAST_INSERT_ID devolvió 0: la fila no existía o el driver no la soporta.
+            // SELECT FOR UPDATE dentro de transacción garantiza que dos conexiones
+            // concurrentes serialicen la lectura y nunca devuelvan el mismo folio.
+            $pdo = db();
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("SELECT value FROM sequence_counters WHERE name = 'projects' FOR UPDATE");
+            $stmt->execute();
+            $row  = $stmt->fetch();
+            $next = ($row !== false ? (int)$row['value'] : 3999) + 1;
+            $pdo->prepare("UPDATE sequence_counters SET value = :v WHERE name = 'projects'")->execute([':v' => $next]);
+            $pdo->commit();
         }
         echo json_encode([
             'ok'       => true,
@@ -2050,12 +2140,31 @@ try {
             echo json_encode(['error' => 'value debe ser un entero entre 1 y 999999.']);
             exit;
         }
+        // Calcular el folio máximo que ya existe en BD para evitar retroceder el contador
+        // y generar duplicados futuros.
+        $maxFolio = 0;
+        foreach (db()->query("SELECT payload FROM projects")->fetchAll() as $pRow) {
+            $p     = json_decode($pRow['payload'], true);
+            $parts = explode('-', $p['structuredName'] ?? '');
+            if (!empty($parts[0]) && ctype_digit($parts[0])) {
+                $maxFolio = max($maxFolio, (int)$parts[0]);
+            }
+        }
+        // $value es el nuevo "current"; el próximo folio asignado será $value + 1.
+        // Si $value < $maxFolio, el próximo folio podría colisionar con uno ya existente.
+        if ($maxFolio > 0 && $value < $maxFolio) {
+            http_response_code(409);
+            echo json_encode([
+                'error' => "No se puede retroceder el contador. El folio más alto en BD es {$maxFolio}. Ingresa un valor ≥ {$maxFolio}.",
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         ensureSequenceTable();
         db()->prepare(
             "INSERT INTO sequence_counters (name, value) VALUES ('projects', :v)
              ON DUPLICATE KEY UPDATE value = :v2"
         )->execute([':v' => $value, ':v2' => $value]);
-        logActivity('updated', 'sequence_counter', 'projects', "Consecutivo ajustado a {$value}", ['new_value' => $value]);
+        logActivity('updated', 'sequence_counter', 'projects', "Consecutivo ajustado a {$value}", ['new_value' => $value, 'max_folio_at_change' => $maxFolio]);
         echo json_encode(['ok' => true, 'value' => $value], JSON_UNESCAPED_UNICODE);
         exit;
     }

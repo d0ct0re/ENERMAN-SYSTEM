@@ -1,6 +1,6 @@
-# Projectra — Sistema de Gestión de Proyectos AMPER/ENERMAN
+# ENERMAN-SYSTEM — Sistema de Gestión de Proyectos
 
-Sistema interno de gestión de proyectos eléctricos. Acceso restringido al equipo AMPER.
+Sistema interno de gestión de proyectos eléctricos. Acceso restringido al equipo ENERMAN.
 
 ## Stack
 
@@ -19,7 +19,7 @@ Sistema interno de gestión de proyectos eléctricos. Acceso restringido al equi
 
 ```bash
 git clone https://github.com/d0ct0re/projectra.git
-cd projectra
+cd enerman-system   # o el nombre de carpeta donde clonaste
 ```
 
 ### 2. Instalar dependencias
@@ -122,4 +122,4 @@ database/
 
 ## Contacto
 
-Acceso y credenciales: contacta al gestor del sistema.
+Acceso y credenciales: contacta al gestor del sistema — ENERMAN SAS DE CV.
