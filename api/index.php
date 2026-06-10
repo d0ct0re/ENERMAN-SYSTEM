@@ -1764,20 +1764,26 @@ try {
 
         if (!$row) {
             // El proyecto aún no existe en BD (p.ej. recién creado, pendiente de save_state)
-            // Insertar como nuevo para no perder el cambio
             $fields['id'] = $projectId;
             $newFolio = $extractFolio($fields['structuredName'] ?? '');
             if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
-            $stmt = db()->prepare(
-                "INSERT INTO projects (id, payload, folio, sort_order, updated_at)
-                 VALUES (:id, :payload, :folio, 0, NOW())
-                 ON DUPLICATE KEY UPDATE payload = VALUES(payload), folio = VALUES(folio), updated_at = NOW()"
-            );
-            $stmt->execute([
-                ':id'      => $projectId,
-                ':payload' => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                ':folio'   => $newFolio,
-            ]);
+            try {
+                db()->prepare(
+                    "INSERT INTO projects (id, payload, folio, sort_order, updated_at)
+                     VALUES (:id, :payload, :folio, 0, NOW())"
+                )->execute([
+                    ':id'      => $projectId,
+                    ':payload' => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    ':folio'   => $newFolio,
+                ]);
+            } catch (\PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    http_response_code(409);
+                    echo json_encode(['error' => "El folio {$newFolio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+                throw $e;
+            }
         } else {
             // Fusión quirúrgica: preserva campos que el frontend no envió (archivos, comentarios, etc.)
             $current = json_decode($row['payload'], true) ?? [];
@@ -1794,12 +1800,21 @@ try {
             }
             $newFolio = $extractFolio($updated['structuredName'] ?? '');
             if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
-            db()->prepare("UPDATE projects SET payload = :p, folio = :f, updated_at = NOW() WHERE id = :id")
-               ->execute([
-                   ':p'  => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                   ':f'  => $newFolio,
-                   ':id' => $projectId,
-               ]);
+            try {
+                db()->prepare("UPDATE projects SET payload = :p, folio = :f, updated_at = NOW() WHERE id = :id")
+                   ->execute([
+                       ':p'  => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                       ':f'  => $newFolio,
+                       ':id' => $projectId,
+                   ]);
+            } catch (\PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    http_response_code(409);
+                    echo json_encode(['error' => "El folio {$newFolio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."], JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+                throw $e;
+            }
         }
         echo json_encode(['ok' => true]);
         exit;
@@ -2097,17 +2112,25 @@ try {
         db()->exec("UPDATE sequence_counters SET value = LAST_INSERT_ID(value + 1) WHERE name = 'projects'");
         $next = (int) db()->query("SELECT LAST_INSERT_ID()")->fetchColumn();
         if ($next === 0) {
-            // LAST_INSERT_ID devolvió 0: la fila no existía o el driver no la soporta.
-            // SELECT FOR UPDATE dentro de transacción garantiza que dos conexiones
-            // concurrentes serialicen la lectura y nunca devuelvan el mismo folio.
+            // LAST_INSERT_ID devolvió 0: driver no lo soporta o hubo concurrencia extrema.
+            // SELECT FOR UPDATE serializa dos conexiones concurrentes para que nunca devuelvan el mismo folio.
             $pdo = db();
-            $pdo->beginTransaction();
-            $stmt = $pdo->prepare("SELECT value FROM sequence_counters WHERE name = 'projects' FOR UPDATE");
-            $stmt->execute();
-            $row  = $stmt->fetch();
-            $next = ($row !== false ? (int)$row['value'] : 3999) + 1;
-            $pdo->prepare("UPDATE sequence_counters SET value = :v WHERE name = 'projects'")->execute([':v' => $next]);
-            $pdo->commit();
+            try {
+                $pdo->beginTransaction();
+                $stmt = $pdo->prepare("SELECT value FROM sequence_counters WHERE name = 'projects' FOR UPDATE");
+                $stmt->execute();
+                $row  = $stmt->fetch();
+                $next = ($row !== false ? (int)$row['value'] : 3999) + 1;
+                // INSERT ... ON DUPLICATE KEY UPDATE garantiza persistencia aunque la fila no exista.
+                $pdo->prepare(
+                    "INSERT INTO sequence_counters (name, value) VALUES ('projects', :v)
+                     ON DUPLICATE KEY UPDATE value = :v2"
+                )->execute([':v' => $next, ':v2' => $next]);
+                $pdo->commit();
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $e;
+            }
         }
         echo json_encode([
             'ok'       => true,
@@ -2140,16 +2163,8 @@ try {
             echo json_encode(['error' => 'value debe ser un entero entre 1 y 999999.']);
             exit;
         }
-        // Calcular el folio máximo que ya existe en BD para evitar retroceder el contador
-        // y generar duplicados futuros.
-        $maxFolio = 0;
-        foreach (db()->query("SELECT payload FROM projects")->fetchAll() as $pRow) {
-            $p     = json_decode($pRow['payload'], true);
-            $parts = explode('-', $p['structuredName'] ?? '');
-            if (!empty($parts[0]) && ctype_digit($parts[0])) {
-                $maxFolio = max($maxFolio, (int)$parts[0]);
-            }
-        }
+        // Folio máximo usando la columna indexada — O(1) en lugar de escanear todos los payloads.
+        $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
         // $value es el nuevo "current"; el próximo folio asignado será $value + 1.
         // Si $value < $maxFolio, el próximo folio podría colisionar con uno ya existente.
         if ($maxFolio > 0 && $value < $maxFolio) {
