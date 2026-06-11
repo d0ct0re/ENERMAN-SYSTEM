@@ -261,6 +261,13 @@ export async function markNotificationRead(id: string): Promise<void> {
   });
 }
 
+export async function updateNotifPrefs(opts: { dismissedDateKeys?: string[]; readDateKeys?: string[] }): Promise<void> {
+  await apiRequest<{ ok: true }>("update_notif_prefs", {
+    method: "POST",
+    body: JSON.stringify(opts),
+  });
+}
+
 export async function markAllNotificationsRead(): Promise<void> {
   await apiRequest<{ ok: true }>("mark_all_notifications_read", {
     method: "POST",

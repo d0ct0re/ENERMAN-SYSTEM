@@ -584,6 +584,14 @@ try {
         $state     = getUserNotifState($bootstrapUserId);
         $dismissed = array_flip($state['dismissedIds']);
         $readSet   = array_flip($state['readIds']);
+        // Leer prefs del registro de usuario (fuente autoritativa)
+        $stmtUser = db()->prepare("SELECT payload FROM app_users WHERE id = :id");
+        $stmtUser->execute([':id' => $bootstrapUserId]);
+        $currentUserData     = json_decode($stmtUser->fetchColumn() ?: '{}', true);
+        $userDismissedKeys   = (array)($currentUserData['dismissedNotifKeys'] ?? []);
+        $userReadKeys        = (array)($currentUserData['readNotifKeys'] ?? []);
+        $allDismissedDateKeys = array_values(array_unique(array_merge($state['dismissedDateKeys'], $userDismissedKeys)));
+        $allReadDateKeys      = array_values(array_unique(array_merge($state['readDateKeys'],      $userReadKeys)));
         $allNotifs = tableRows('notifications');
         $regularNotifs = [];
         foreach ($allNotifs as $n) {
@@ -601,8 +609,8 @@ try {
             'projects'          => tableRows('projects'),
             'requests'          => tableRows('requests'),
             'notifications'     => $regularNotifs,
-            'dismissedDateKeys' => $state['dismissedDateKeys'],
-            'readDateKeys'      => $state['readDateKeys'],
+            'dismissedDateKeys' => $allDismissedDateKeys,
+            'readDateKeys'      => $allReadDateKeys,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
@@ -1274,13 +1282,18 @@ try {
         }
 
         $existingUsers = tableRows('app_users');
-        $pwMap   = [];
-        $roleMap = [];
+        $pwMap        = [];
+        $roleMap      = [];
+        $notifPrefsMap = [];
         foreach ($existingUsers as $eu) {
             $eid = $eu['id'] ?? null;
             if (!$eid) continue;
             if (isset($eu['password']))  $pwMap[$eid]   = $eu['password'];
             if (isset($eu['role']))      $roleMap[$eid]  = ['role' => $eu['role'], 'roleLabel' => $eu['roleLabel'] ?? ''];
+            $notifPrefsMap[$eid] = [
+                'dismissedNotifKeys' => (array)($eu['dismissedNotifKeys'] ?? []),
+                'readNotifKeys'      => (array)($eu['readNotifKeys'] ?? []),
+            ];
         }
         $usersToSave = $data['users'];
         foreach ($usersToSave as &$u) {
@@ -1294,6 +1307,17 @@ try {
             if ($uid && isset($roleMap[$uid])) {
                 $u['role']      = $roleMap[$uid]['role'];
                 $u['roleLabel'] = $roleMap[$uid]['roleLabel'];
+            }
+            // Fusionar prefs de notificación: BD + cliente → nunca perder claves ya guardadas
+            if ($uid && isset($notifPrefsMap[$uid])) {
+                $u['dismissedNotifKeys'] = array_values(array_unique(array_merge(
+                    $notifPrefsMap[$uid]['dismissedNotifKeys'],
+                    (array)($u['dismissedNotifKeys'] ?? [])
+                )));
+                $u['readNotifKeys'] = array_values(array_unique(array_merge(
+                    $notifPrefsMap[$uid]['readNotifKeys'],
+                    (array)($u['readNotifKeys'] ?? [])
+                )));
             }
         }
         unset($u);
@@ -2116,6 +2140,35 @@ try {
         $payload['updatedAt'] = gmdate('c');
         db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
            ->execute([':p' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    /* ── update_notif_prefs — guarda dismissed/read keys de fecha en el registro del usuario ── */
+    if ($action === 'update_notif_prefs') {
+        requireAuth();
+        $userId = $_SESSION['user_id'] ?? '';
+        $data   = readJson();
+        $newDismissed = array_filter((array)($data['dismissedDateKeys'] ?? []), 'is_string');
+        $newRead      = array_filter((array)($data['readDateKeys']      ?? []), 'is_string');
+        if ($userId && (!empty($newDismissed) || !empty($newRead))) {
+            $pdo = db();
+            $stmt = $pdo->prepare("SELECT payload FROM app_users WHERE id = :id");
+            $stmt->execute([':id' => $userId]);
+            $currentData = json_decode($stmt->fetchColumn() ?: '{}', true);
+            if (!empty($newDismissed)) {
+                $currentData['dismissedNotifKeys'] = array_values(array_unique(array_merge(
+                    (array)($currentData['dismissedNotifKeys'] ?? []), $newDismissed
+                )));
+            }
+            if (!empty($newRead)) {
+                $currentData['readNotifKeys'] = array_values(array_unique(array_merge(
+                    (array)($currentData['readNotifKeys'] ?? []), $newRead
+                )));
+            }
+            $pdo->prepare("UPDATE app_users SET payload = :p, updated_at = NOW() WHERE id = :id")
+                ->execute([':p' => json_encode($currentData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $userId]);
+        }
         echo json_encode(['ok' => true]);
         exit;
     }

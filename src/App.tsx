@@ -14,7 +14,7 @@ import { users as usersSeed } from "@/data/users";
 import { AdminView } from "@/features/admin/admin-view";
 import { EngineerView, EngineerTab } from "@/features/engineer/engineer-view";
 import { SupervisorView, SupervisorTab } from "@/features/supervisor/supervisor-view";
-import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead as apiMarkNotificationRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
+import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead as apiMarkNotificationRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateNotifPrefs as apiUpdateNotifPrefs, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
 
 // ── Caché local: guarda el último estado conocido en localStorage ──────────────
 const CACHE_KEY = "amper-state-v1";
@@ -628,12 +628,13 @@ export default function App(): JSX.Element {
         saveLocalSet(READ_DATE_KEYS_KEY, next);
         return next;
       });
+      if (apiReady) apiUpdateNotifPrefs({ readDateKeys: [baseKey] }).catch(() => undefined);
     } else {
       setNotifications((current) =>
         current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
       );
+      if (apiReady) apiMarkNotificationRead(notificationId).catch(() => undefined);
     }
-    if (apiReady) apiMarkNotificationRead(notificationId).catch(() => undefined);
   };
 
   const handleCreateRequest = (payload: Omit<RequestItem, "id" | "createdAt" | "createdBy" | "status">): void => {
@@ -1851,12 +1852,17 @@ export default function App(): JSX.Element {
           setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
           // Marcar como leídas también las notificaciones de fecha visibles
           const next = new Set(readDateKeys);
+          const newDateKeys: string[] = [];
           dueImportantDateNotifications.forEach((n) => {
-            next.add(n.id.replace(/-\d{4}-\d{2}-\d{2}$/, ""));
+            const k = n.id.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+            if (!next.has(k)) { next.add(k); newDateKeys.push(k); }
           });
           setReadDateKeys(next);
           saveLocalSet(READ_DATE_KEYS_KEY, next);
-          if (apiReady) apiMarkAllNotificationsRead().catch(() => undefined);
+          if (apiReady) {
+            apiMarkAllNotificationsRead().catch(() => undefined);
+            if (newDateKeys.length > 0) apiUpdateNotifPrefs({ readDateKeys: newDateKeys }).catch(() => undefined);
+          }
         }}
         onMarkRead={handleMarkRead}
         onDeleteNotification={(id) => {
@@ -1866,6 +1872,7 @@ export default function App(): JSX.Element {
             next.add(baseKey);
             setDismissedDateKeys(next);
             saveLocalSet(DISMISSED_DATE_KEYS_KEY, next);
+            if (apiReady) apiUpdateNotifPrefs({ dismissedDateKeys: [baseKey] }).catch(() => undefined);
           }
           // Registrar antes de limpiar: evita que el polling la re-agregue en los próximos 4s
           deletedNotificationIds.current.add(id);
