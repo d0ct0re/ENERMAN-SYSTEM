@@ -20,6 +20,19 @@ import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddP
 const CACHE_KEY = "amper-state-v1";
 const CACHE_TTL = 48 * 60 * 60 * 1000; // 48 horas
 
+// ── Notificaciones de fecha: dismissed y leídas se guardan en localStorage ────
+// Las notificaciones de fecha son efímeras (no se persisten en BD).
+// La clave base es: important-date-{projectId}-{itemId}
+const DISMISSED_DATE_KEYS_KEY = "amper-dismissed-date-notifs";
+const READ_DATE_KEYS_KEY      = "amper-read-date-notifs";
+const loadLocalSet = (key: string): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]); }
+  catch { return new Set(); }
+};
+const saveLocalSet = (key: string, set: Set<string>): void => {
+  try { localStorage.setItem(key, JSON.stringify([...set])); } catch { }
+};
+
 function saveStateCache(payload: import("@/lib/api").AppStatePayload): void {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), payload }));
@@ -38,8 +51,8 @@ function loadStateCache(): { ts: number; payload: import("@/lib/api").AppStatePa
 import { realtime } from "@/lib/realtime";
 import { buildStructuredName, formatLocalDateKey } from "@/lib/utils";
 import { ActivityLogItem, NotificationItem, ProjectItem, RequestItem, RoleKey, UserItem } from "@/types";
-const splashLogoUrl = "/amper-logo.jpeg";
-const wordmarkLogoUrl = "/amper-logo-wordmark.jpg";
+const splashLogoUrl = "/logo%20entrada.png";
+const wordmarkLogoUrl = "/logo.png";
 
 type AdminTab = "review" | "allprojects" | "active" | "completed" | "cancelled" | "unpaid" | "rejected" | "correction" | "calendar" | "users" | "projects" | "requests" | "activity" | "cobros";
 
@@ -75,6 +88,8 @@ export default function App(): JSX.Element {
   const [isOffline, setIsOffline] = useState(false);
   const [offlineSince, setOfflineSince] = useState<Date | null>(null);
   const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
+  const [dismissedDateKeys, setDismissedDateKeys] = useState<Set<string>>(() => loadLocalSet(DISMISSED_DATE_KEYS_KEY));
+  const [readDateKeys, setReadDateKeys] = useState<Set<string>>(() => loadLocalSet(READ_DATE_KEYS_KEY));
   // Contador de consecutivos — estado para el panel del gestor
   const [sequenceInfo, setSequenceInfo] = useState<{ current: number; next: number; display: string } | null>(null);
   // Timestamp de la última mutación local (global). Protege allIds-filtering durante grace period.
@@ -92,6 +107,8 @@ export default function App(): JSX.Element {
   const permanentlyDeletedProjectIds = useRef(new Set<string>());
   /** IDs de solicitudes eliminadas permanentemente en esta sesión. Auto-limpia a los 60s. */
   const permanentlyDeletedRequestIds = useRef(new Set<string>());
+  /** IDs de notificaciones eliminadas localmente. Evita que el polling las re-agregue antes de que el DELETE llegue al servidor. Auto-limpia a los 30s. */
+  const deletedNotificationIds = useRef(new Set<string>());
   /**
    * IDs de proyectos movidos a la papelera con su timestamp de deletedAt.
    * Protege contra la race condition post-grace: si apiUpdateProject tarda >8s,
@@ -149,55 +166,47 @@ export default function App(): JSX.Element {
     const todayTime = new Date(`${today}T00:00:00`).getTime();
     const daysUntil = (date?: string): number | null => {
       if (!date) return null;
-      const dateTime = new Date(`${date}T00:00:00`).getTime();
-      if (!Number.isFinite(dateTime)) return null;
-      return Math.round((dateTime - todayTime) / 86400000);
+      const t = new Date(`${date}T00:00:00`).getTime();
+      return Number.isFinite(t) ? Math.round((t - todayTime) / 86400000) : null;
     };
     const isNear = (date?: string): boolean => {
-      const diff = daysUntil(date);
-      return diff !== null && diff >= 0 && diff <= 3;
+      const d = daysUntil(date);
+      return d !== null && d >= 0 && d <= 3;
     };
     const dateLabel = (date: string): string => {
-      const diff = daysUntil(date);
-      if (diff === 0) return "hoy";
-      if (diff === 1) return "mañana";
-      return `en ${diff} días`;
+      const d = daysUntil(date);
+      if (d === 0) return "hoy";
+      if (d === 1) return "mañana";
+      return `en ${d} días`;
     };
-
     return projects.flatMap((project) => {
-      const projectDates = [
+      if (project.deletedAt) return [];
+      const dates = [
         ...(project.commitmentDate ? [{ id: "commitment", title: "Fecha compromiso", date: project.commitmentDate }] : []),
         ...(project.endDate ? [{ id: "end", title: "Fecha final", date: project.endDate }] : []),
         ...(project.importantDates ?? []).map((item) => ({ id: item.id, title: item.title, date: item.date })),
       ];
-
-      return projectDates
-        .filter((item) => isNear(item.date))
-        .map((item) => {
-          const involvedEngineerIds = new Set([project.createdBy, ...project.participants]);
-          const userIds = users
-            .filter(
-              (user) =>
-                user.role === "admin" ||
-                user.role === "system_admin" ||
-                user.role === "supervisor" ||
-                (user.role === "engineer" && involvedEngineerIds.has(user.id)),
-            )
-            .map((user) => user.id);
-
-          return {
-            id: `important-date-${project.id}-${item.id}`,
-            role: "engineer" as const,
-            userIds,
-            title: `${item.title} ${dateLabel(item.date)}`,
-            description: `${project.structuredName}: ${item.title} ${dateLabel(item.date)}.`,
-            createdAt: new Date().toISOString(),
-            isRead: false,
-            relatedProjectId: project.id,
-          };
-        });
+      return dates.flatMap((item) => {
+        if (!isNear(item.date)) return [];
+        const baseKey = `important-date-${project.id}-${item.id}`;
+        if (dismissedDateKeys.has(baseKey)) return [];
+        const involvedEngineerIds = new Set([project.createdBy, ...project.participants]);
+        const userIds = users
+          .filter((u) => u.role === "admin" || u.role === "system_admin" || u.role === "supervisor" || (u.role === "engineer" && involvedEngineerIds.has(u.id)))
+          .map((u) => u.id);
+        return [{
+          id: `${baseKey}-${today}`,
+          role: "engineer" as const,
+          userIds,
+          title: `${item.title} ${dateLabel(item.date)}`,
+          description: `${project.structuredName}: ${item.title} ${dateLabel(item.date)}.`,
+          createdAt: new Date().toISOString(),
+          isRead: readDateKeys.has(baseKey),
+          relatedProjectId: project.id,
+        }];
+      });
     });
-  }, [projects, users]);
+  }, [projects, users, dismissedDateKeys, readDateKeys]);
 
   const allNotifications = [...notifications, ...dueImportantDateNotifications];
   const visibleNotifications = allNotifications.filter((notification) =>
@@ -420,7 +429,7 @@ export default function App(): JSX.Element {
       const typed = newNotifs as unknown as NotificationItem[];
       setNotifications(prev => {
         const existingIds = new Set(prev.map(n => n.id));
-        const fresh = typed.filter(n => !existingIds.has(n.id));
+        const fresh = typed.filter(n => !existingIds.has(n.id) && !deletedNotificationIds.current.has(n.id));
         return fresh.length > 0 ? [...fresh, ...prev] : prev;
       });
     });
@@ -588,6 +597,14 @@ export default function App(): JSX.Element {
   };
 
   const handleMarkRead = (notificationId: string): void => {
+    if (notificationId.startsWith("important-date-")) {
+      const baseKey = notificationId.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+      const next = new Set(readDateKeys);
+      next.add(baseKey);
+      setReadDateKeys(next);
+      saveLocalSet(READ_DATE_KEYS_KEY, next);
+      return;
+    }
     setNotifications((current) =>
       current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
     );
@@ -1806,10 +1823,28 @@ export default function App(): JSX.Element {
         notifications={visibleNotifications}
         onMarkAllRead={() => {
           setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+          // Marcar como leídas también las notificaciones de fecha visibles
+          const next = new Set(readDateKeys);
+          dueImportantDateNotifications.forEach((n) => {
+            next.add(n.id.replace(/-\d{4}-\d{2}-\d{2}$/, ""));
+          });
+          setReadDateKeys(next);
+          saveLocalSet(READ_DATE_KEYS_KEY, next);
           if (apiReady) apiMarkAllNotificationsRead().catch(() => undefined);
         }}
         onMarkRead={handleMarkRead}
         onDeleteNotification={(id) => {
+          if (id.startsWith("important-date-")) {
+            const baseKey = id.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+            const next = new Set(dismissedDateKeys);
+            next.add(baseKey);
+            setDismissedDateKeys(next);
+            saveLocalSet(DISMISSED_DATE_KEYS_KEY, next);
+          }
+          // Registrar antes de limpiar: evita que el polling la re-agregue en los próximos 4s
+          deletedNotificationIds.current.add(id);
+          window.setTimeout(() => { deletedNotificationIds.current.delete(id); }, 30_000);
+          // Siempre limpiar del estado local y de BD (puede haber quedado persistida por versión anterior)
           setNotifications((prev) => prev.filter((n) => n.id !== id));
           if (apiReady) apiDeleteNotification(id).catch(() => undefined);
         }}
