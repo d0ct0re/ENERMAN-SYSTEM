@@ -6,6 +6,7 @@ export interface AppStatePayload {
   requests: RequestItem[];
   notifications: NotificationItem[];
   dismissedDateKeys?: string[];
+  readDateKeys?: string[];
 }
 
 export class SessionRequiredError extends Error {
@@ -248,6 +249,13 @@ export async function createNotification(notification: NotificationItem): Promis
 
 export async function deleteNotification(id: string): Promise<void> {
   await apiRequest<{ ok: true }>("delete_notification", {
+    method: "POST",
+    body: JSON.stringify({ id }),
+  });
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await apiRequest<{ ok: true }>("mark_notification_read", {
     method: "POST",
     body: JSON.stringify({ id }),
   });

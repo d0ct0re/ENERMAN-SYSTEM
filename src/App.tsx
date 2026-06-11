@@ -14,7 +14,7 @@ import { users as usersSeed } from "@/data/users";
 import { AdminView } from "@/features/admin/admin-view";
 import { EngineerView, EngineerTab } from "@/features/engineer/engineer-view";
 import { SupervisorView, SupervisorTab } from "@/features/supervisor/supervisor-view";
-import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
+import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead as apiMarkNotificationRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
 
 // ── Caché local: guarda el último estado conocido en localStorage ──────────────
 const CACHE_KEY = "amper-state-v1";
@@ -249,6 +249,15 @@ export default function App(): JSX.Element {
             const merged = new Set(prev);
             payload.dismissedDateKeys!.forEach(k => merged.add(k));
             saveLocalSet(DISMISSED_DATE_KEYS_KEY, merged);
+            return merged;
+          });
+        }
+        // Merge read date keys del servidor con los de localStorage
+        if (payload.readDateKeys && payload.readDateKeys.length > 0) {
+          setReadDateKeys(prev => {
+            const merged = new Set(prev);
+            payload.readDateKeys!.forEach(k => merged.add(k));
+            saveLocalSet(READ_DATE_KEYS_KEY, merged);
             return merged;
           });
         }
@@ -613,15 +622,18 @@ export default function App(): JSX.Element {
   const handleMarkRead = (notificationId: string): void => {
     if (notificationId.startsWith("important-date-")) {
       const baseKey = notificationId.replace(/-\d{4}-\d{2}-\d{2}$/, "");
-      const next = new Set(readDateKeys);
-      next.add(baseKey);
-      setReadDateKeys(next);
-      saveLocalSet(READ_DATE_KEYS_KEY, next);
-      return;
+      setReadDateKeys(prev => {
+        const next = new Set(prev);
+        next.add(baseKey);
+        saveLocalSet(READ_DATE_KEYS_KEY, next);
+        return next;
+      });
+    } else {
+      setNotifications((current) =>
+        current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
+      );
     }
-    setNotifications((current) =>
-      current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
-    );
+    if (apiReady) apiMarkNotificationRead(notificationId).catch(() => undefined);
   };
 
   const handleCreateRequest = (payload: Omit<RequestItem, "id" | "createdAt" | "createdBy" | "status">): void => {
