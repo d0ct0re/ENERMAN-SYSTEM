@@ -28,9 +28,12 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
+          protocol: ftps
+          port: 21
           local-dir: ./dist/
-          server-dir: /
-          dangerous-clean-slate: true
+          server-dir: /public_html/
+          exclude: |
+            **/api/**
 
       - name: Subir API (api/index.php) a Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -38,5 +41,7 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
+          protocol: ftps
+          port: 21
           local-dir: ./api/
-          server-dir: /api/
+          server-dir: /public_html/api/
