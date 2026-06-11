@@ -243,6 +243,15 @@ export default function App(): JSX.Element {
         setProjects(payload.projects);
         setRequests(payload.requests);
         setNotifications(payload.notifications);
+        // Merge dismissed date keys del servidor con los de localStorage
+        if (payload.dismissedDateKeys && payload.dismissedDateKeys.length > 0) {
+          setDismissedDateKeys(prev => {
+            const merged = new Set(prev);
+            payload.dismissedDateKeys!.forEach(k => merged.add(k));
+            saveLocalSet(DISMISSED_DATE_KEYS_KEY, merged);
+            return merged;
+          });
+        }
         setApiReady(true);
         // Guardar en caché local — "generador de emergencia" cuando el servidor no responde
         saveStateCache(payload);

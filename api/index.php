@@ -548,12 +548,26 @@ try {
             echo json_encode(['ok' => false, 'error' => 'session_required']);
             exit;
         }
+        $bootstrapUserId = $_SESSION['user_id'] ?? '';
         session_write_close(); // solo lectura — liberar lock de sesión antes de las queries
+        $allNotifs = tableRows('notifications');
+        $regularNotifs = [];
+        $dismissedDateKeys = [];
+        foreach ($allNotifs as $n) {
+            if (!empty($n['isDismissedDateKey'])) {
+                if (($n['userId'] ?? '') === $bootstrapUserId && !empty($n['baseKey'])) {
+                    $dismissedDateKeys[] = $n['baseKey'];
+                }
+            } else {
+                $regularNotifs[] = $n;
+            }
+        }
         echo json_encode([
-            'users'         => tableRowsUsers(),
-            'projects'      => tableRows('projects'),
-            'requests'      => tableRows('requests'),
-            'notifications' => tableRows('notifications'),
+            'users'             => tableRowsUsers(),
+            'projects'          => tableRows('projects'),
+            'requests'          => tableRows('requests'),
+            'notifications'     => $regularNotifs,
+            'dismissedDateKeys' => $dismissedDateKeys,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
@@ -1668,6 +1682,7 @@ try {
             $stmt->fetchAll()
         );
         $newNotifications = array_values(array_filter($rawNotifs, function (array $n) use ($userId, $userRole): bool {
+            if (!empty($n['isDismissedDateKey'])) return false; // filtrar markers de dismiss
             if (isset($n['userIds']) && is_array($n['userIds'])) {
                 return in_array($userId, $n['userIds'], true);
             }
@@ -2066,14 +2081,37 @@ try {
     /* ── delete_notification ── */
     if ($action === 'delete_notification') {
         requireAuth();
-        $data = readJson();
-        $id   = trim($data['id'] ?? '');
+        $data   = readJson();
+        $id     = trim($data['id'] ?? '');
+        $userId = $_SESSION['user_id'] ?? '';
         if (!$id) {
             http_response_code(400);
             echo json_encode(['error' => 'id requerido.']);
             exit;
         }
-        db()->prepare("DELETE FROM notifications WHERE id = :id")->execute([':id' => $id]);
+        $pdo = db();
+        // Notificaciones de fecha: no están en BD, persistir dismiss como marker por usuario
+        if (str_starts_with($id, 'important-date-') && $userId) {
+            $baseKey  = preg_replace('/-\d{4}-\d{2}-\d{2}$/', '', $id);
+            $markerId = 'dismissed-date-' . $userId . '-' . md5($baseKey);
+            $payload  = json_encode([
+                'id'                 => $markerId,
+                'isDismissedDateKey' => true,
+                'userId'             => $userId,
+                'baseKey'            => $baseKey,
+                'userIds'            => [$userId],
+                'role'               => 'engineer',
+                'isRead'             => true,
+                'title'              => '',
+                'description'        => '',
+                'createdAt'          => date('c'),
+            ]);
+            $pdo->prepare(
+                "INSERT INTO notifications (id, payload, sort_order) VALUES (:id, :p, 0)
+                 ON DUPLICATE KEY UPDATE payload = :p2"
+            )->execute([':id' => $markerId, ':p' => $payload, ':p2' => $payload]);
+        }
+        $pdo->prepare("DELETE FROM notifications WHERE id = :id")->execute([':id' => $id]);
         echo json_encode(['ok' => true]);
         exit;
     }

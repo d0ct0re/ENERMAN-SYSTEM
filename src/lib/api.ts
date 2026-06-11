@@ -5,6 +5,7 @@ export interface AppStatePayload {
   projects: ProjectItem[];
   requests: RequestItem[];
   notifications: NotificationItem[];
+  dismissedDateKeys?: string[];
 }
 
 export class SessionRequiredError extends Error {
