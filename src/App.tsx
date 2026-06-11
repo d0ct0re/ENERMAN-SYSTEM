@@ -209,9 +209,14 @@ export default function App(): JSX.Element {
   }, [projects, users, dismissedDateKeys, readDateKeys]);
 
   const allNotifications = [...notifications, ...dueImportantDateNotifications];
-  const visibleNotifications = allNotifications.filter((notification) =>
-    notification.userIds ? notification.userIds.includes(activeUser.id) : notification.role === activeRole,
-  );
+  const visibleNotifications = allNotifications.filter((notification) => {
+    // Si es una notificación de fecha guardada en BD, aplicar el mismo filtro de dismiss que las computadas
+    if (notification.id.startsWith("important-date-")) {
+      const baseKey = notification.id.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+      if (dismissedDateKeys.has(baseKey)) return false;
+    }
+    return notification.userIds ? notification.userIds.includes(activeUser.id) : notification.role === activeRole;
+  });
   const adminReviewRequests = filteredRequests.filter((request) => request.status === "under-review");
   const adminRejectedRequests = filteredRequests.filter((request) => request.status === "rejected");
   const adminCorrectionRequests = filteredRequests.filter((request) => request.status === "needs-correction");
