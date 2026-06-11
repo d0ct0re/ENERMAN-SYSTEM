@@ -22,30 +22,37 @@ jobs:
       - name: Build de producción
         run: npm run build
 
+      - name: Instalar lftp
+        run: sudo apt-get install -y lftp
+
       - name: Subir frontend (dist/) a Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          protocol: ftp
-          port: 21
-          local-dir: ./dist/
-          server-dir: /public_html/
-          exclude: |
-            **/api/**
-          timeout: 60000
-          dangerous-clean-slate: false
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: |
+          lftp -u "$FTP_USER","$FTP_PASS" "ftp://$FTP_HOST" <<EOF
+          set ftp:passive-mode true
+          set net:timeout 60
+          set net:max-retries 5
+          set net:reconnect-interval-base 5
+          set ssl:verify-certificate false
+          mirror -R --exclude=api/ --delete dist/ /public_html/
+          quit
+          EOF
 
       - name: Subir API (api/index.php) a Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          protocol: ftp
-          port: 21
-          local-dir: ./api/
-          server-dir: /public_html/api/
-          timeout: 60000
-          dangerous-clean-slate: false
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: |
+          lftp -u "$FTP_USER","$FTP_PASS" "ftp://$FTP_HOST" <<EOF
+          set ftp:passive-mode true
+          set net:timeout 60
+          set net:max-retries 5
+          set net:reconnect-interval-base 5
+          set ssl:verify-certificate false
+          mirror -R --delete api/ /public_html/api/
+          quit
+          EOF
