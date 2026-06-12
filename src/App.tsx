@@ -640,6 +640,13 @@ export default function App(): JSX.Element {
       setNotifications((current) =>
         current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
       );
+      // Tercera capa: persistir readNotifIds vía save_state.
+      setUsers(prev => prev.map(u => {
+        if (u.id !== activeUser.id) return u;
+        const ids = new Set(u.readNotifIds ?? []);
+        ids.add(notificationId);
+        return { ...u, readNotifIds: [...ids] };
+      }));
       if (apiReady) apiMarkNotificationRead(notificationId).catch(() => undefined);
     }
   };
@@ -1897,6 +1904,14 @@ export default function App(): JSX.Element {
               return { ...u, dismissedNotifKeys: [...keys] };
             }));
             if (apiReady) apiUpdateNotifPrefs({ dismissedDateKeys: [baseKey] }).catch(() => undefined);
+          } else {
+            // Notificación regular (UUID): tercera capa vía save_state.
+            setUsers(prev => prev.map(u => {
+              if (u.id !== activeUser.id) return u;
+              const ids = new Set(u.dismissedNotifIds ?? []);
+              ids.add(id);
+              return { ...u, dismissedNotifIds: [...ids] };
+            }));
           }
           // Registrar antes de limpiar: evita que el polling la re-agregue en los próximos 4s
           deletedNotificationIds.current.add(id);

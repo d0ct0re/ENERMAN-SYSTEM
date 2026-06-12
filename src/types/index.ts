@@ -141,6 +141,8 @@ export interface UserItem {
   updatedAt?: string;
   dismissedNotifKeys?: string[];
   readNotifKeys?: string[];
+  dismissedNotifIds?: string[];
+  readNotifIds?: string[];
 }
 
 export interface NotificationItem {

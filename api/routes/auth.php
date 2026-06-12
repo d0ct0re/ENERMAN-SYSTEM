@@ -39,6 +39,16 @@ if ($action === 'bootstrap') {
     $userReadKeys        = (array)($currentUserData['readNotifKeys'] ?? []);
     $allDismissedDateKeys = array_values(array_unique(array_merge($state['dismissedDateKeys'], $userDismissedKeys)));
     $allReadDateKeys      = array_values(array_unique(array_merge($state['readDateKeys'],      $userReadKeys)));
+    // IDs de notificaciones regulares descartadas/leídas — guardados en user payload como respaldo
+    $userDismissedIds = (array)($currentUserData['dismissedNotifIds'] ?? []);
+    $userReadIds      = (array)($currentUserData['readNotifIds']      ?? []);
+    // Combinar con los markers de la tabla de notificaciones
+    if (!empty($userDismissedIds)) {
+        $dismissed = array_merge($dismissed, array_flip($userDismissedIds));
+    }
+    if (!empty($userReadIds)) {
+        $readSet = array_merge($readSet, array_flip($userReadIds));
+    }
     $allNotifs = tableRows('notifications');
     $regularNotifs = [];
     foreach ($allNotifs as $n) {

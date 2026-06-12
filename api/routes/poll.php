@@ -67,6 +67,19 @@ if ($action === 'poll') {
     $pollState    = getUserNotifState($userId);
     $pollDismissed = array_flip($pollState['dismissedIds']);
     $pollReadSet   = array_flip($pollState['readIds']);
+    // Respaldo: IDs descartados/leídos guardados en el payload del usuario.
+    // Fallback para cuando apiDeleteNotification o apiMarkNotificationRead fallaron silenciosamente.
+    $stmtPollUser = db()->prepare("SELECT payload FROM app_users WHERE id = :id");
+    $stmtPollUser->execute([':id' => $userId]);
+    $pollUserData = json_decode($stmtPollUser->fetchColumn() ?: '{}', true);
+    $pollUserDismissedIds = (array)($pollUserData['dismissedNotifIds'] ?? []);
+    $pollUserReadIds      = (array)($pollUserData['readNotifIds']      ?? []);
+    if (!empty($pollUserDismissedIds)) {
+        $pollDismissed = array_merge($pollDismissed, array_flip($pollUserDismissedIds));
+    }
+    if (!empty($pollUserReadIds)) {
+        $pollReadSet = array_merge($pollReadSet, array_flip($pollUserReadIds));
+    }
     $newNotifications = array_values(array_filter($rawNotifs, function (array $n) use ($userId, $userRole, $pollDismissed, $pollReadSet): bool {
         if (!empty($n['isDismissMarker']) || !empty($n['isDismissedDateKey']) || !empty($n['isReadMarker'])) return false;
         $nid = $n['id'] ?? '';

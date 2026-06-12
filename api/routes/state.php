@@ -42,6 +42,8 @@ if ($action === 'save_state') {
         $notifPrefsMap[$eid] = [
             'dismissedNotifKeys' => (array)($eu['dismissedNotifKeys'] ?? []),
             'readNotifKeys'      => (array)($eu['readNotifKeys'] ?? []),
+            'dismissedNotifIds'  => (array)($eu['dismissedNotifIds']  ?? []),
+            'readNotifIds'       => (array)($eu['readNotifIds']       ?? []),
         ];
     }
     $usersToSave = $data['users'];
@@ -66,6 +68,14 @@ if ($action === 'save_state') {
             $u['readNotifKeys'] = array_values(array_unique(array_merge(
                 $notifPrefsMap[$uid]['readNotifKeys'],
                 (array)($u['readNotifKeys'] ?? [])
+            )));
+            $u['dismissedNotifIds'] = array_values(array_unique(array_merge(
+                $notifPrefsMap[$uid]['dismissedNotifIds'],
+                (array)($u['dismissedNotifIds'] ?? [])
+            )));
+            $u['readNotifIds'] = array_values(array_unique(array_merge(
+                $notifPrefsMap[$uid]['readNotifIds'],
+                (array)($u['readNotifIds'] ?? [])
             )));
         }
     }
