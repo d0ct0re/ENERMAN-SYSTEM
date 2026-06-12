@@ -628,6 +628,13 @@ export default function App(): JSX.Element {
         saveLocalSet(READ_DATE_KEYS_KEY, next);
         return next;
       });
+      // Tercera capa: actualizar el objeto del usuario para que save_state persista el key.
+      setUsers(prev => prev.map(u => {
+        if (u.id !== activeUser.id) return u;
+        const keys = new Set(u.readNotifKeys ?? []);
+        keys.add(baseKey);
+        return { ...u, readNotifKeys: [...keys] };
+      }));
       if (apiReady) apiUpdateNotifPrefs({ readDateKeys: [baseKey] }).catch(() => undefined);
     } else {
       setNotifications((current) =>
@@ -1859,6 +1866,15 @@ export default function App(): JSX.Element {
           });
           setReadDateKeys(next);
           saveLocalSet(READ_DATE_KEYS_KEY, next);
+          if (newDateKeys.length > 0) {
+            // Tercera capa: persistir vía save_state actualizando el usuario en state.
+            setUsers(prev => prev.map(u => {
+              if (u.id !== activeUser.id) return u;
+              const keys = new Set(u.readNotifKeys ?? []);
+              newDateKeys.forEach(k => keys.add(k));
+              return { ...u, readNotifKeys: [...keys] };
+            }));
+          }
           if (apiReady) {
             apiMarkAllNotificationsRead().catch(() => undefined);
             if (newDateKeys.length > 0) apiUpdateNotifPrefs({ readDateKeys: newDateKeys }).catch(() => undefined);
@@ -1872,6 +1888,14 @@ export default function App(): JSX.Element {
             next.add(baseKey);
             setDismissedDateKeys(next);
             saveLocalSet(DISMISSED_DATE_KEYS_KEY, next);
+            // Tercera capa: actualizar el objeto del usuario en `users` para que
+            // save_state persista el key aunque apiUpdateNotifPrefs falle.
+            setUsers(prev => prev.map(u => {
+              if (u.id !== activeUser.id) return u;
+              const keys = new Set(u.dismissedNotifKeys ?? []);
+              keys.add(baseKey);
+              return { ...u, dismissedNotifKeys: [...keys] };
+            }));
             if (apiReady) apiUpdateNotifPrefs({ dismissedDateKeys: [baseKey] }).catch(() => undefined);
           }
           // Registrar antes de limpiar: evita que el polling la re-agregue en los próximos 4s

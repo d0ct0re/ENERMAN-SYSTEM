@@ -139,6 +139,8 @@ export interface UserItem {
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  dismissedNotifKeys?: string[];
+  readNotifKeys?: string[];
 }
 
 export interface NotificationItem {
