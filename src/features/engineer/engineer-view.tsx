@@ -186,7 +186,7 @@ export function EngineerView({
             correctionRequests.map((req) => (
               <div
                 key={req.id}
-                className="cursor-pointer rounded-[20px] border border-info/25 bg-[#0c1f2e] p-4 space-y-2 transition hover:border-info/50 hover:bg-[#0d2535]"
+                className="cursor-pointer rounded-[20px] border border-info/25 bg-info/10 p-4 space-y-2 transition hover:border-info/50 hover:bg-info/15"
                 onClick={() => setCorrectionDialogReq(req)}
               >
                 <div className="flex flex-wrap items-center gap-2">
