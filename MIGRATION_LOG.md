@@ -114,7 +114,7 @@ lotes (cada uno es su propio commit, actualiza esta sección al aterrizar):
 |---|---|---|
 | Fix inicial | App.tsx, admin-view.tsx, priority-badge.tsx, status-badge.tsx, admin-review-card.tsx, project-card.tsx, project-calendar.tsx, project-detail-dialog.tsx, top-bar.tsx, engineer-view.tsx, supervisor-view.tsx | AdminTab unificado, clases rotas corregidas, colisión de tokens `text-secondary` vs `secondary` corregida (ver "Bug encontrado y corregido" arriba, en Paso 1). App.tsx 100% migrado. |
 | A | App.tsx | ✅ completo |
-| B | admin-view.tsx + admin-review-card.tsx | pendiente (hex restante: `#555555`, `#166534`, `#0EA5E9`/`#0c1f2e`, `#52525B`, `text-zinc-500`) |
+| B | admin-view.tsx + admin-review-card.tsx | ✅ completo — `#555555`/`#52525B`/`text-zinc-500` → `ink-tertiary`; `#166534` (verde) → `success`; `#0EA5E9`/`#0c1f2e` (azul) → `info` |
 | C | engineer-view.tsx | pendiente (`#0c1f2e`, `#0d2535`) |
 | D | project-detail-dialog.tsx | pendiente (el más grande) |
 | E | project-card.tsx, top-bar.tsx, project-calendar.tsx | pendiente |

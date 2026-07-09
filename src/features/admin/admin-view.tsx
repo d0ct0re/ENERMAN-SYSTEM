@@ -354,7 +354,7 @@ function SystemAdminView({
               {sequenceInfo ? sequenceInfo.display : "—"}
             </p>
           </div>
-          <div className="text-xs text-[#555555] leading-relaxed">
+          <div className="text-xs text-ink-tertiary leading-relaxed">
             <p>El servidor asigna este número de forma atómica.</p>
             <p>Nunca se repite, aunque dos admins aprueben al mismo tiempo.</p>
           </div>
@@ -367,7 +367,7 @@ function SystemAdminView({
             placeholder={sequenceInfo ? String(sequenceInfo.next) : "4000"}
             value={seqInput}
             onChange={(e) => setSeqInput(e.target.value.replace(/\D/g, ""))}
-            className="w-32 rounded-xl border border-border-default bg-surface-elevated px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-accent/50 focus:outline-none"
+            className="w-32 rounded-xl border border-border-default bg-surface-elevated px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-ink-tertiary focus:border-accent/50 focus:outline-none"
           />
           <button
             type="button"
@@ -671,7 +671,7 @@ function ProjectsManager({
           <div className="flex items-center gap-2">
             <Trash2 className="h-4 w-4 text-danger" />
             <p className="text-sm font-bold text-danger">Papelera — {trashedProjects.length} proyecto{trashedProjects.length !== 1 ? "s" : ""}</p>
-            <p className="text-xs text-[#555555]">Se eliminan automáticamente después de 4 horas</p>
+            <p className="text-xs text-ink-tertiary">Se eliminan automáticamente después de 4 horas</p>
           </div>
           {trashedProjects.map((project) => {
             const deletedMs = project.deletedAt ? Date.now() - new Date(project.deletedAt).getTime() : 0;
@@ -687,8 +687,8 @@ function ProjectsManager({
                       <span className="rounded bg-border-default px-2 py-0.5 text-xs font-black text-muted-foreground">#{getProjectSequence(project)}</span>
                       <p className="truncate text-sm font-semibold text-ink-secondary">{project.baseName}</p>
                     </div>
-                    <p className="mt-0.5 text-xs text-[#555555]">{project.client} · {project.department}</p>
-                    <p className="mt-1 text-xs text-[#555555]">⏱ {timeLabel}</p>
+                    <p className="mt-0.5 text-xs text-ink-tertiary">{project.client} · {project.department}</p>
+                    <p className="mt-1 text-xs text-ink-tertiary">⏱ {timeLabel}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <button
@@ -819,7 +819,7 @@ function RequestsManager({
                   <button
                     type="button"
                     onClick={() => onApproveRequest(request.id)}
-                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-[#166534]/40"
+                    className="flex items-center gap-1.5 rounded-xl bg-success/20 px-3 py-1.5 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-success/40"
                   >
                     <Check className="h-3.5 w-3.5" />
                     Aprobar
@@ -998,7 +998,7 @@ function LegacyAdminView({
             </div>
           ) : (
             (correctionRequests ?? []).map((req) => (
-              <div key={req.id} className="rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2">
+              <div key={req.id} className="rounded-[20px] border border-info/25 bg-info/10 p-4 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-info">
@@ -1574,7 +1574,7 @@ function CancelledTab({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-border-default px-3 py-1 text-[10px] font-bold text-zinc-500">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-border-default px-3 py-1 text-[10px] font-bold text-ink-tertiary">
                       Cancelado
                     </span>
                     <span className="text-xs text-muted-foreground">{new Date(req.createdAt).toLocaleDateString("es-MX")}</span>
@@ -1820,7 +1820,7 @@ const INVOICE_STATUS_COLOR_MAP: Record<InvoiceStatus, string> = {
   "en-portal": "bg-brand/20 text-brand",
   "enviada": "bg-accent/15 text-accent",
   "pagada": "bg-success/15 text-success",
-  "cancelada": "bg-border-default text-zinc-500",
+  "cancelada": "bg-border-default text-ink-tertiary",
 };
 
 function getInvoiceDaysSince(invoice: InvoiceItem): number {
@@ -1875,7 +1875,7 @@ function CobrosTab({
     return (
       <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
         <p className="text-sm font-semibold text-muted-foreground">Sin facturas registradas</p>
-        <p className="mt-2 text-xs text-[#555555]">Las facturas se agregan desde la pestaña F4 de cada proyecto</p>
+        <p className="mt-2 text-xs text-ink-tertiary">Las facturas se agregan desde la pestaña F4 de cada proyecto</p>
       </div>
     );
   }
@@ -1967,7 +1967,7 @@ function CobrosTab({
                           </span>
                         ) : null}
                         {inv.fechaSolicitud ? (
-                          <span className="text-[10px] text-[#52525B]">
+                          <span className="text-[10px] text-ink-tertiary">
                             {parseLocalDate(inv.fechaSolicitud).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
                           </span>
                         ) : null}
@@ -1976,7 +1976,7 @@ function CobrosTab({
                             Pago: {parseLocalDate(inv.fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
                           </span>
                         ) : isActive && days > 0 ? (
-                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-brand" : "text-[#555555]"}`}>
+                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-brand" : "text-ink-tertiary"}`}>
                             {days}d
                           </span>
                         ) : null}

@@ -91,7 +91,7 @@ export function AdminReviewCard({
 
       {/* Approve confirm */}
       {mode === "approving" ? (
-        <div className="space-y-2.5 rounded-2xl border border-success/20 bg-[#0D2417] p-3" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-2.5 rounded-2xl border border-success/20 bg-success/10 p-3" onClick={(e) => e.stopPropagation()}>
           <p className="text-xs font-bold text-success">Confirmar aprobación</p>
           <p className="text-xs text-muted-foreground">
             El servidor asignará el siguiente consecutivo disponible de forma atómica.
@@ -106,7 +106,7 @@ export function AdminReviewCard({
             <button
               type="button"
               onClick={handleConfirmApprove}
-              className="flex-1 rounded-xl bg-[#166534]/30 py-2 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-[#166534]/50"
+              className="flex-1 rounded-xl bg-success/30 py-2 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-success/50"
             >
               Confirmar aprobación
             </button>
@@ -159,7 +159,7 @@ export function AdminReviewCard({
             value={correctionReason}
             onChange={(e) => setCorrectionReason(e.target.value)}
             placeholder="Indica qué debe corregir el ingeniero..."
-            className="w-full resize-none rounded-xl border border-info/30 bg-[#0c1f2e] px-3 py-2 text-sm text-foreground outline-none focus:border-info/60"
+            className="w-full resize-none rounded-xl border border-info/30 bg-info/10 px-3 py-2 text-sm text-foreground outline-none focus:border-info/60"
             rows={2}
             autoFocus
           />
@@ -192,7 +192,7 @@ export function AdminReviewCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setMode("approving"); }}
-                className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-[#166534]/40"
+                className="flex items-center gap-1.5 rounded-xl bg-success/20 px-3 py-1.5 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-success/40"
               >
                 <Check className="h-3.5 w-3.5" />
                 Aprobar
