@@ -104,6 +104,28 @@ Ninguna. Este paso es solo CSS/config.
 
 ---
 
-## PASO 2 — En progreso: priority-badge.tsx → status-badge.tsx → admin-review-card.tsx
+## PASO 2 — Estado real (corregido 2026-07-09)
 
-_(pendiente)_
+Este log estaba desactualizado: decía "en progreso" en 3 archivos cuando en realidad ya se
+habían tocado ~30. Se reconstruyó el estado real auditando `git diff` completo. Estructura de
+lotes (cada uno es su propio commit, actualiza esta sección al aterrizar):
+
+| Lote | Archivos | Estado |
+|---|---|---|
+| Fix inicial | App.tsx, admin-view.tsx, priority-badge.tsx, status-badge.tsx, admin-review-card.tsx, project-card.tsx, project-calendar.tsx, project-detail-dialog.tsx, top-bar.tsx, engineer-view.tsx, supervisor-view.tsx | AdminTab unificado, clases rotas corregidas, colisión de tokens `text-secondary` vs `secondary` corregida (ver "Bug encontrado y corregido" arriba, en Paso 1). App.tsx 100% migrado. |
+| A | App.tsx | ✅ completo |
+| B | admin-view.tsx + admin-review-card.tsx | pendiente (hex restante: `#555555`, `#166534`, `#0EA5E9`/`#0c1f2e`, `#52525B`, `text-zinc-500`) |
+| C | engineer-view.tsx | pendiente (`#0c1f2e`, `#0d2535`) |
+| D | project-detail-dialog.tsx | pendiente (el más grande) |
+| E | project-card.tsx, top-bar.tsx, project-calendar.tsx | pendiente |
+| F | type-selector.tsx, lugar-input.tsx, tabs.tsx, input.tsx, textarea.tsx | pendiente |
+| G | components/gastos/GastosProyecto.tsx | pendiente (no tocado aún, ~47 hex) |
+| H | components/error-boundary.tsx | pendiente |
+
+### ⚙️ Guardarraíl agregado: `npm run check:colors`
+
+Script en `scripts/check-colors.mjs` (sin dependencias nuevas, ver Fase 2 del plan de migración).
+Detecta hex literales, clases `gray/zinc/neutral` crudas de Tailwind, y el patrón de clase rota
+`bg-text-*`/`text-text-*` (doble prefijo). Se corre manualmente como parte del checklist de cada
+lote — no está atado a un git hook. Excepción documentada: `src/lib/engineer-groups.ts` (colores
+categóricos fijos por equipo, no adaptan a claro/oscuro).
