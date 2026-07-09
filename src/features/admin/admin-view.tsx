@@ -16,13 +16,15 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { ActivityLogItem, InvoiceItem, InvoiceStatus, PROJECT_TYPE_LABELS, TIPO_PAGO_LABELS, ProjectItem, ProjectStatus, ProjectType, RequestItem, RequestStatus, RoleKey, TipoPago, UserItem } from "@/types";
 
-type AdminTab =
+export type AdminTab =
   | "review"
   | "active"
   | "allprojects"
   | "completed"
   | "cancelled"
   | "unpaid"
+  | "partial"
+  | "paid"
   | "rejected"
   | "correction"
   | "calendar"
@@ -213,13 +215,13 @@ function SystemAdminView({
             type="button"
             onClick={() => { void handleBackup(); }}
             disabled={backingUp}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[#3F3F46] bg-[#27272A] px-4 py-2.5 text-sm font-bold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl border border-border-default bg-surface-elevated px-4 py-2.5 text-sm font-bold text-ink-secondary transition hover:border-accent/40 hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
             <DatabaseBackup className="h-4 w-4" />
             {backingUp ? "Generando…" : "Backup"}
           </button>
           {backupMsg ? (
-            <span className={`text-xs font-semibold ${backupMsg.startsWith("Error") ? "text-danger" : "text-[#4ADE80]"}`}>
+            <span className={`text-xs font-semibold ${backupMsg.startsWith("Error") ? "text-danger" : "text-success"}`}>
               {backupMsg}
             </span>
           ) : null}
@@ -233,8 +235,8 @@ function SystemAdminView({
       </div>
 
       {/* ── Panel Backup / Restauración ── */}
-      <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-4">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+      <div className="rounded-2xl border border-border-default bg-surface p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
           Seguridad de datos — Backup y Restauración
         </p>
         <div className="flex flex-wrap gap-2">
@@ -243,7 +245,7 @@ function SystemAdminView({
             type="button"
             onClick={() => { void handleBackup(); }}
             disabled={backingUp}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-elevated px-4 py-2 text-sm font-semibold text-ink-secondary transition hover:border-accent/40 hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
             <DatabaseBackup className="h-4 w-4" />
             {backingUp ? "Generando…" : "Descargar backup"}
@@ -263,7 +265,7 @@ function SystemAdminView({
             }}
             disabled={backingUpFiles}
             title="Descarga un ZIP con todas las fotos, PDFs y documentos subidos"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-elevated px-4 py-2 text-sm font-semibold text-ink-secondary transition hover:border-accent/40 hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
             <FolderOpenDot className="h-4 w-4" />
             {backingUpFiles ? "Generando…" : "Descargar archivos"}
@@ -273,7 +275,7 @@ function SystemAdminView({
             type="button"
             onClick={() => exportProjectsCSV(activeProjects, users)}
             title={`Exportar ${activeProjects.length} proyecto(s) a CSV`}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-elevated px-4 py-2 text-sm font-semibold text-ink-secondary transition hover:border-accent/40 hover:bg-muted hover:text-foreground"
           >
             <Save className="h-4 w-4" />
             Exportar CSV
@@ -282,7 +284,7 @@ function SystemAdminView({
           <button
             type="button"
             onClick={() => restoreInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-[#F5A524]/40 hover:bg-[#313136] hover:text-[#F5A524]"
+            className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-elevated px-4 py-2 text-sm font-semibold text-ink-secondary transition hover:border-brand/40 hover:bg-muted hover:text-brand"
           >
             <UploadCloud className="h-4 w-4" />
             Restaurar desde backup
@@ -292,23 +294,23 @@ function SystemAdminView({
 
         {/* Mensajes de backup */}
         {backupMsg ? (
-          <p className="mt-2 text-xs font-semibold text-[#4ADE80]">{backupMsg}</p>
+          <p className="mt-2 text-xs font-semibold text-success">{backupMsg}</p>
         ) : null}
 
         {/* Panel de confirmación de restauración */}
         {restoreFile ? (
-          <div className="mt-3 rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/5 p-3">
-            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#F5A524]">Confirmar restauración</p>
+          <div className="mt-3 rounded-xl border border-brand/30 bg-brand/5 p-3">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-brand">Confirmar restauración</p>
             <p className="text-sm font-semibold text-foreground">{restoreFile.name}</p>
             {restoreFile.meta.timestamp ? (
-              <p className="text-xs text-[#888888]">Fecha del backup: {new Date(restoreFile.meta.timestamp).toLocaleString("es-MX")}</p>
+              <p className="text-xs text-muted-foreground">Fecha del backup: {new Date(restoreFile.meta.timestamp).toLocaleString("es-MX")}</p>
             ) : null}
-            <div className="mt-1.5 flex gap-3 text-xs text-[#A1A1AA]">
+            <div className="mt-1.5 flex gap-3 text-xs text-ink-secondary">
               <span>{restoreFile.meta.projects} proyectos</span>
               <span>{restoreFile.meta.users} usuarios</span>
               <span>{restoreFile.meta.requests} solicitudes</span>
             </div>
-            <p className="mt-2 text-xs font-medium text-[#F5A524]/80">
+            <p className="mt-2 text-xs font-medium text-brand/80">
               Esto sobreescribirá todos los datos actuales. El sistema se guarda antes de restaurar.
             </p>
             <div className="mt-3 flex gap-2">
@@ -316,7 +318,7 @@ function SystemAdminView({
                 type="button"
                 onClick={() => { void handleRestore(); }}
                 disabled={restoring}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#F5A524]/20 px-4 py-2 text-sm font-bold text-[#F5A524] ring-1 ring-[#F5A524]/30 transition hover:bg-[#F5A524]/30 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand/20 px-4 py-2 text-sm font-bold text-brand ring-1 ring-brand/30 transition hover:bg-brand/30 disabled:opacity-50"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 {restoring ? "Restaurando…" : "Sí, restaurar"}
@@ -324,7 +326,7 @@ function SystemAdminView({
               <button
                 type="button"
                 onClick={() => { setRestoreFile(null); setRestoreMsg(null); }}
-                className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-semibold text-[#888888] transition hover:text-foreground"
+                className="rounded-xl border border-border-default px-4 py-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
               >
                 Cancelar
               </button>
@@ -334,15 +336,15 @@ function SystemAdminView({
 
         {/* Mensajes de restauración */}
         {restoreMsg ? (
-          <p className={`mt-2 text-xs font-semibold ${restoreMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+          <p className={`mt-2 text-xs font-semibold ${restoreMsg.ok ? "text-success" : "text-danger"}`}>
             {restoreMsg.text}
           </p>
         ) : null}
       </div>
 
       {/* ── Panel Gestión de Consecutivos ── */}
-      <div className="rounded-2xl border border-accent/20 bg-[#1E1E20] p-4">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+      <div className="rounded-2xl border border-accent/20 bg-surface p-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
           Folio de proyectos — control del consecutivo
         </p>
         <div className="mb-3 flex items-center gap-3">
@@ -357,7 +359,7 @@ function SystemAdminView({
             <p>Nunca se repite, aunque dos admins aprueben al mismo tiempo.</p>
           </div>
         </div>
-        <p className="mb-2 text-xs font-semibold text-[#888888]">Ajustar el siguiente folio manualmente:</p>
+        <p className="mb-2 text-xs font-semibold text-muted-foreground">Ajustar el siguiente folio manualmente:</p>
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -365,7 +367,7 @@ function SystemAdminView({
             placeholder={sequenceInfo ? String(sequenceInfo.next) : "4000"}
             value={seqInput}
             onChange={(e) => setSeqInput(e.target.value.replace(/\D/g, ""))}
-            className="w-32 rounded-xl border border-[#3F3F46] bg-[#27272A] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-accent/50 focus:outline-none"
+            className="w-32 rounded-xl border border-border-default bg-surface-elevated px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-accent/50 focus:outline-none"
           />
           <button
             type="button"
@@ -391,7 +393,7 @@ function SystemAdminView({
           </button>
         </div>
         {seqMsg ? (
-          <p className={`mt-2 text-xs font-semibold ${seqMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+          <p className={`mt-2 text-xs font-semibold ${seqMsg.ok ? "text-success" : "text-danger"}`}>
             {seqMsg.text}
           </p>
         ) : null}
@@ -454,13 +456,13 @@ function SystemAdminView({
 function SummaryCard({ title, value, tone }: { title: string; value: number | string; tone: "accent" | "warning" | "secondary" | "danger" }): JSX.Element {
   const toneClass = {
     accent: "border-accent/20 text-accent",
-    warning: "border-warning/20 text-[#F5A524]",
+    warning: "border-warning/20 text-brand",
     secondary: "border-secondary/20 text-secondary",
     danger: "border-danger/20 text-danger",
   }[tone];
 
   return (
-    <Card className={`border bg-[#27272A] ${toneClass}`}>
+    <Card className={`border bg-surface-elevated ${toneClass}`}>
       <p className="text-xs font-bold uppercase tracking-[0.18em]">{title}</p>
       <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">{value}</p>
     </Card>
@@ -554,18 +556,18 @@ function ProjectsManager({
           <Input value={draft.totalContratado} onChange={(event) => setDraft((c) => ({ ...c, totalContratado: event.target.value }))} type="number" placeholder="Monto" />
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             {(Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][]).map(([code, label]) => (
               <option key={code} value={code}>{code} — {label}</option>
             ))}
           </select>
-          <select value={draft.assignedEngineerId} onChange={(event) => setDraft((c) => ({ ...c, assignedEngineerId: event.target.value }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.assignedEngineerId} onChange={(event) => setDraft((c) => ({ ...c, assignedEngineerId: event.target.value }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             <option value="">Sin ingeniero asignado</option>
             {engineerUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
           </select>
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-4">
-          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as ProjectStatus }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as ProjectStatus }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             <option value="en-programacion">En programación</option>
             <option value="en-concurso">En concurso</option>
             <option value="in-progress">En proceso</option>
@@ -578,17 +580,17 @@ function ProjectsManager({
             <option value="completed">Terminado</option>
             <option value="cancelled">Cancelado</option>
           </select>
-          <select value={draft.tipoPago} onChange={(event) => setDraft((c) => ({ ...c, tipoPago: event.target.value as TipoPago }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.tipoPago} onChange={(event) => setDraft((c) => ({ ...c, tipoPago: event.target.value as TipoPago }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             {(Object.entries(TIPO_PAGO_LABELS) as [TipoPago, string][]).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
-          <select value={draft.paymentStatus} onChange={(event) => setDraft((c) => ({ ...c, paymentStatus: event.target.value as ProjectItem["paymentStatus"] }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.paymentStatus} onChange={(event) => setDraft((c) => ({ ...c, paymentStatus: event.target.value as ProjectItem["paymentStatus"] }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             <option value="unpaid">No pagado</option>
             <option value="partial">Pago parcial</option>
             <option value="paid">Pagado</option>
           </select>
-          <select value={draft.priority} onChange={(event) => setDraft((c) => ({ ...c, priority: event.target.value as ProjectItem["priority"] }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.priority} onChange={(event) => setDraft((c) => ({ ...c, priority: event.target.value as ProjectItem["priority"] }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             <option value="low">Baja</option>
             <option value="medium">Media</option>
             <option value="high">Alta</option>
@@ -606,7 +608,7 @@ function ProjectsManager({
       </Card>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-[#888888]">{sortedProjects.length} proyectos activos</span>
+        <span className="text-sm text-muted-foreground">{sortedProjects.length} proyectos activos</span>
         <Button variant="outline" onClick={() => setDirection((current) => (current === "asc" ? "desc" : "asc"))}>
           Orden {direction === "asc" ? "ascendente" : "descendente"}
         </Button>
@@ -618,19 +620,19 @@ function ProjectsManager({
             (user) => user.role === "engineer" && (user.id === project.createdBy || project.participants.includes(user.id)),
           );
           return (
-            <Card key={project.id} className="border-[#3F3F46] bg-[#27272A]">
+            <Card key={project.id} className="border-border-default bg-surface-elevated">
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-accent px-3 py-1 text-xs font-black text-[#111111]">#{getProjectSequence(project)}</span>
+                    <span className="rounded bg-accent px-3 py-1 text-xs font-black text-brand-fg">#{getProjectSequence(project)}</span>
                     <StatusBadge kind="project" value={project.status} />
                     <StatusBadge kind="payment" value={project.paymentStatus} />
                     <PriorityBadge priority={project.priority} />
-                    {!assignedEngineer ? <span className="rounded-full bg-[#F5A524]/15 px-3 py-1 text-xs font-bold text-[#F5A524] ring-1 ring-[#F5A524]/25">Sin ingeniero</span> : null}
+                    {!assignedEngineer ? <span className="rounded-full bg-brand/15 px-3 py-1 text-xs font-bold text-brand ring-1 ring-brand/25">Sin ingeniero</span> : null}
                   </div>
                   <p className="mt-2 truncate text-lg font-semibold text-foreground">{project.baseName}</p>
-                  <p className="mt-1 text-sm text-[#888888]">{project.client} · {project.department} · {project.structuredName}</p>
-                  <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2">
+                  <p className="mt-1 text-sm text-muted-foreground">{project.client} · {project.department} · {project.structuredName}</p>
+                  <div className="mt-3 grid gap-2 text-xs text-ink-secondary sm:grid-cols-2">
                     <span>Ingeniero: {assignedEngineer?.name ?? "Pendiente asignar"}</span>
                     <span>Creado: {formatCompactDate(project.createdAt)}</span>
                     <span>Compromiso: {project.commitmentDate ? formatCompactDate(project.commitmentDate) : "Pendiente"}</span>
@@ -644,7 +646,7 @@ function ProjectsManager({
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                     {openMenuId === project.id ? (
-                      <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                      <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-border-default bg-surface p-1.5 shadow-xl">
                         <button
                           type="button"
                           className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
@@ -682,8 +684,8 @@ function ProjectsManager({
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-[#3F3F46] px-2 py-0.5 text-xs font-black text-[#888888]">#{getProjectSequence(project)}</span>
-                      <p className="truncate text-sm font-semibold text-[#A1A1AA]">{project.baseName}</p>
+                      <span className="rounded bg-border-default px-2 py-0.5 text-xs font-black text-muted-foreground">#{getProjectSequence(project)}</span>
+                      <p className="truncate text-sm font-semibold text-ink-secondary">{project.baseName}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-[#555555]">{project.client} · {project.department}</p>
                     <p className="mt-1 text-xs text-[#555555]">⏱ {timeLabel}</p>
@@ -692,7 +694,7 @@ function ProjectsManager({
                     <button
                       type="button"
                       onClick={() => onRestoreProject?.(project.id)}
-                      className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#A1A1AA] transition hover:border-accent/40 hover:text-accent"
+                      className="rounded-xl border border-border-default px-3 py-1.5 text-xs font-bold text-ink-secondary transition hover:border-accent/40 hover:text-accent"
                     >
                       Restaurar
                     </button>
@@ -762,7 +764,7 @@ function RequestsManager({
   return (
     <div className="space-y-4">
       <Card className="border-warning/15 bg-warning/[0.05]">
-        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#F5A524]">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-brand">
           <Plus className="h-4 w-4" />
           Alta manual de solicitud
         </div>
@@ -770,19 +772,19 @@ function RequestsManager({
           <Input value={draft.baseName} onChange={(event) => setDraft((c) => ({ ...c, baseName: event.target.value }))} placeholder="Nombre de solicitud" />
           <Input value={draft.client} onChange={(event) => setDraft((c) => ({ ...c, client: event.target.value }))} placeholder="Cliente" />
           <Input value={draft.department} onChange={(event) => setDraft((c) => ({ ...c, department: event.target.value }))} placeholder="Departamento" />
-          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             {(Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][]).map(([code, label]) => (
               <option key={code} value={code}>{code} — {label}</option>
             ))}
           </select>
-          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as RequestStatus }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as RequestStatus }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
             <option value="under-review">Por revisar</option>
             <option value="needs-correction">Correccion</option>
             <option value="approved">Aprobada</option>
             <option value="rejected">Rechazada</option>
           </select>
         </div>
-        <select value={draft.createdBy} onChange={(event) => setDraft((c) => ({ ...c, createdBy: event.target.value }))} className="mt-3 h-12 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+        <select value={draft.createdBy} onChange={(event) => setDraft((c) => ({ ...c, createdBy: event.target.value }))} className="mt-3 h-12 w-full rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
           {users.filter((user) => user.isActive !== false).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
         </select>
         <Textarea value={draft.description} onChange={(event) => setDraft((c) => ({ ...c, description: event.target.value }))} placeholder="Descripcion o seguimiento solicitado" className="mt-3" />
@@ -796,16 +798,16 @@ function RequestsManager({
 
       <div className="space-y-3">
         {requests.map((request) => (
-          <Card key={request.id} className="border-[#3F3F46] bg-[#27272A]">
+          <Card key={request.id} className="border-border-default bg-surface-elevated">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge kind="request" value={request.status} />
-                  <span className="text-xs font-semibold text-[#888888]">{new Date(request.createdAt).toLocaleDateString("es-MX")}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{new Date(request.createdAt).toLocaleDateString("es-MX")}</span>
                 </div>
                 <p className="mt-2 text-base font-semibold text-foreground">{request.baseName}</p>
-                <p className="mt-1 text-sm text-[#888888]">{request.client} · {request.department} · {request.structuredName}</p>
-                <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2 lg:grid-cols-4">
+                <p className="mt-1 text-sm text-muted-foreground">{request.client} · {request.department} · {request.structuredName}</p>
+                <div className="mt-3 grid gap-2 text-xs text-ink-secondary sm:grid-cols-2 lg:grid-cols-4">
                   <span>Solicitó: {users.find((user) => user.id === request.createdBy)?.name ?? request.createdBy}</span>
                   <span>Tipo: {request.type}</span>
                   <span>Vínculo: {request.linkedProjectId ? "Proyecto aprobado" : request.duplicateOfProjectId ? "Posible duplicado" : "Sin vínculo"}</span>
@@ -817,7 +819,7 @@ function RequestsManager({
                   <button
                     type="button"
                     onClick={() => onApproveRequest(request.id)}
-                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/20 transition hover:bg-[#166534]/40"
+                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-[#166534]/40"
                   >
                     <Check className="h-3.5 w-3.5" />
                     Aprobar
@@ -840,7 +842,7 @@ function RequestsManager({
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder="Motivo..."
-                      className="h-9 rounded-xl border border-[#3F3F46] bg-[#1F1F22] px-3 text-sm text-foreground outline-none focus:border-danger/50"
+                      className="h-9 rounded-xl border border-border-default bg-bg-input px-3 text-sm text-foreground outline-none focus:border-danger/50"
                       autoFocus
                     />
                     <button
@@ -852,7 +854,7 @@ function RequestsManager({
                     <button
                       type="button"
                       onClick={() => setRejectingId(null)}
-                      className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:text-white"
+                      className="rounded-xl border border-border-default px-3 py-1.5 text-sm font-bold text-muted-foreground transition hover:text-foreground"
                     >Cancelar</button>
                   </div>
                 ) : null}
@@ -862,7 +864,7 @@ function RequestsManager({
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                   {openMenuReqId === request.id ? (
-                    <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                    <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-border-default bg-surface p-1.5 shadow-xl">
                       <button
                         type="button"
                         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
@@ -906,10 +908,15 @@ function LegacyAdminView({
 }: AdminViewProps): JSX.Element {
   const CLOSED_STATUSES_ADMIN = ["completed", "cancelled", "no-autorizado", "cierre-por-sistema"];
   const allNonDeletedProjects = [...activeProjects, ...completedProjects, ...cancelledProjects];
+  // "Terminado" = trabajo cerrado (sin condición de pago — el pago lo manejan las bandejas de abajo)
   const terminatedProjects = allNonDeletedProjects.filter((p) => CLOSED_STATUSES_ADMIN.includes(p.status));
-  const onlyActiveProjects = allNonDeletedProjects.filter((p) => !CLOSED_STATUSES_ADMIN.includes(p.status));
+  const onlyActiveProjects  = allNonDeletedProjects.filter((p) => !CLOSED_STATUSES_ADMIN.includes(p.status));
+  // Bandejas de pago — mutuamente excluyentes, se mueven solos al cambiar paymentStatus en F2
+  const unpaidProjects  = allNonDeletedProjects.filter((p) => p.paymentStatus === "unpaid");
+  const partialProjects = allNonDeletedProjects.filter((p) => p.paymentStatus === "partial");
+  const paidProjects2   = allNonDeletedProjects.filter((p) => p.paymentStatus === "paid");
 
-  const adminProjectTab: AdminTab = tab === "active" || tab === "completed" || tab === "review" || tab === "cobros" || tab === "correction" || tab === "calendar" ? tab : "allprojects";
+  const adminProjectTab: AdminTab = tab === "active" || tab === "completed" || tab === "unpaid" || tab === "partial" || tab === "paid" || tab === "review" || tab === "cobros" || tab === "correction" || tab === "calendar" ? tab : "allprojects";
 
   const cobrosProjects = allNonDeletedProjects.filter((p) => (p.invoices?.length ?? 0) > 0);
   const activeInvoiceCount = cobrosProjects.reduce(
@@ -918,10 +925,10 @@ function LegacyAdminView({
   );
 
   const summaryCards = [
-    { title: "Por revisar", value: reviewRequests.length, icon: ShieldAlert, bg: "bg-[#27272A]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
-    { title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot, bg: "bg-[#27272A]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
-    { title: "Pagados", value: paidProjects.length, icon: BadgeDollarSign, bg: "bg-[#27272A]", border: "border-[#4ADE80]/20", iconBg: "bg-[#4ADE80]/15 text-[#4ADE80]", labelColor: "text-[#4ADE80]", accent: "bg-[#4ADE80]" },
-    { title: "Rechazadas", value: rejectedRequests.length, icon: AlertTriangle, bg: "bg-[#27272A]", border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
+    { title: "Por revisar",       value: reviewRequests.length,     icon: ShieldAlert,     bg: "bg-surface-elevated", border: "border-brand/20", iconBg: "bg-brand/15 text-brand", labelColor: "text-brand",  accent: "bg-warning",     tab: null },
+    { title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot,   bg: "bg-surface-elevated", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary",  labelColor: "text-secondary",  accent: "bg-secondary",   tab: null },
+    { title: "Pagados",           value: paidProjects2.length,      icon: BadgeDollarSign, bg: "bg-surface-elevated", border: "border-success/20", iconBg: "bg-success/15 text-success", labelColor: "text-success",  accent: "bg-success",   tab: null },
+    { title: "Rechazadas",        value: rejectedRequests.length,   icon: AlertTriangle,   bg: "bg-surface-elevated", border: "border-border-default",    iconBg: "bg-border-default text-muted-foreground",    labelColor: "text-muted-foreground",  accent: "bg-border-strong",   tab: null },
   ];
 
   return (
@@ -946,18 +953,24 @@ function LegacyAdminView({
         onValueChange={onTabChange}
         options={[
           { key: "allprojects", label: "Todos los proyectos", count: allNonDeletedProjects.length },
-          { key: "active", label: "Activos", count: onlyActiveProjects.length },
-          { key: "completed", label: "Terminados", count: terminatedProjects.length },
-          { key: "cobros", label: "Cobros", count: activeInvoiceCount },
-          { key: "review", label: "Solicitudes", count: reviewRequests.length },
-          { key: "correction", label: "En corrección", count: correctionRequests?.length ?? 0 },
-          { key: "calendar", label: "Calendario", count: allNonDeletedProjects.reduce((n, p) => n + (p.endDate ? 1 : 0) + (p.commitmentDate ? 1 : 0) + (p.startDate ? 1 : 0) + (p.fechaSolicitud ? 1 : 0) + (p.importantDates?.length ?? 0), 0) },
+          { key: "active",      label: "Activos",             count: onlyActiveProjects.length },
+          { key: "completed",   label: "Terminados",           count: terminatedProjects.length },
+          { key: "unpaid",      label: "No pagados",          count: unpaidProjects.length },
+          { key: "partial",     label: "Pago parcial",        count: partialProjects.length },
+          { key: "paid",        label: "Pagados",             count: paidProjects2.length },
+          { key: "cobros",      label: "Cobros",              count: activeInvoiceCount },
+          { key: "review",      label: "Solicitudes",         count: reviewRequests.length },
+          { key: "correction",  label: "En corrección",       count: correctionRequests?.length ?? 0 },
+          { key: "calendar",    label: "Calendario",          count: allNonDeletedProjects.reduce((n, p) => n + (p.endDate ? 1 : 0) + (p.commitmentDate ? 1 : 0) + (p.startDate ? 1 : 0) + (p.fechaSolicitud ? 1 : 0) + (p.importantDates?.length ?? 0), 0) },
         ]}
       />
       {adminProjectTab === "allprojects" ? <ProjectsFilterTab projects={allNonDeletedProjects} users={users} onOpenProject={onOpenProject} /> : null}
-      {adminProjectTab === "active" ? <ProjectsFilterTab projects={onlyActiveProjects} users={users} onOpenProject={onOpenProject} /> : null}
-      {adminProjectTab === "completed" ? <ProjectsFilterTab projects={terminatedProjects} users={users} onOpenProject={onOpenProject} /> : null}
-      {adminProjectTab === "cobros" ? <CobrosTab projects={allNonDeletedProjects} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "active"      ? <ProjectsFilterTab projects={onlyActiveProjects}    users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "completed"   ? <ProjectsFilterTab projects={terminatedProjects}    users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "unpaid"      ? <ProjectsFilterTab projects={unpaidProjects}         users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "partial"     ? <ProjectsFilterTab projects={partialProjects}        users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "paid"        ? <ProjectsFilterTab projects={paidProjects2}          users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "cobros"      ? <CobrosTab projects={allNonDeletedProjects} onOpenProject={onOpenProject} /> : null}
       {adminProjectTab === "review" ? (
         <ReviewTab
           reviewRequests={reviewRequests}
@@ -980,31 +993,31 @@ function LegacyAdminView({
       {adminProjectTab === "correction" ? (
         <div className="space-y-3">
           {(correctionRequests ?? []).length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">Sin solicitudes en corrección</p>
+            <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+              <p className="text-sm font-semibold text-muted-foreground">Sin solicitudes en corrección</p>
             </div>
           ) : (
             (correctionRequests ?? []).map((req) => (
               <div key={req.id} className="rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge kind="request" value={req.status} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-info">
                     {req.client} · {req.department}
                   </span>
-                  <span className="ml-auto text-xs text-[#888888]">
+                  <span className="ml-auto text-xs text-muted-foreground">
                     {formatDate(req.createdAt)}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                <p className="text-xs text-muted-foreground">{req.structuredName || "Sin folio"}</p>
                 {req.correctionReason ? (
-                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
-                    <span className="font-bold text-[#0EA5E9]">Corrección solicitada: </span>
+                  <div className="rounded-xl border border-info/15 bg-info/5 px-3 py-2 text-xs text-ink-secondary">
+                    <span className="font-bold text-info">Corrección solicitada: </span>
                     {req.correctionReason}
                   </div>
                 ) : null}
-                <p className="text-xs text-[#888888]">
-                  <span className="font-semibold text-[#A1A1AA]">Solicitado por:</span>{" "}
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-ink-secondary">Solicitado por:</span>{" "}
                   {users.find((u) => u.id === req.createdBy)?.name ?? "—"}
                 </p>
               </div>
@@ -1041,8 +1054,8 @@ function ReviewTab({
 
   if (reviewRequests.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">No hay solicitudes por revisar</p>
+      <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+        <p className="text-sm font-semibold text-muted-foreground">No hay solicitudes por revisar</p>
       </div>
     );
   }
@@ -1268,7 +1281,7 @@ function ProjectsFilterTab({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-3">
+      <div className="rounded-[24px] border border-border-default bg-surface-elevated p-4 space-y-3">
         {/* Búsqueda + CSV */}
         <div className="flex gap-2">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, cliente, folio, depto., OC, descripción…" className="h-10 flex-1" />
@@ -1276,7 +1289,7 @@ function ProjectsFilterTab({
             type="button"
             onClick={() => exportProjectsCSV(filtered, users)}
             title={`Exportar ${filtered.length} proyecto(s) a CSV`}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-2 text-xs font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#3F3F46] hover:text-foreground shrink-0"
+            className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-muted px-3 py-2 text-xs font-semibold text-ink-secondary transition hover:border-accent/40 hover:bg-border-default hover:text-foreground shrink-0"
           >
             <Save className="h-4 w-4" />
             CSV
@@ -1292,8 +1305,8 @@ function ProjectsFilterTab({
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-bold transition",
                 yearF === y
-                  ? "bg-accent text-[#111111]"
-                  : "bg-[#3F3F46] text-[#A1A1AA] hover:bg-[#52525B] hover:text-foreground",
+                  ? "bg-accent text-brand-fg"
+                  : "bg-border-default text-ink-secondary hover:bg-border-strong hover:text-foreground",
               )}
             >{y}</button>
           ))}
@@ -1313,7 +1326,7 @@ function ProjectsFilterTab({
           <CompactSelect label="Ordenar" options={sortOptions} value={sortF} onChange={setSortF} />
         </div>
         {/* Contador siempre visible */}
-        <p className="text-xs text-[#888888]">
+        <p className="text-xs text-muted-foreground">
           Mostrando {filtered.length} de {projects.length} proyecto{projects.length !== 1 ? "s" : ""}
           {hasFilters && (
             <button type="button" onClick={clearFilters} className="ml-3 text-accent hover:underline">Limpiar filtros</button>
@@ -1330,8 +1343,8 @@ function ProjectsFilterTab({
           ))}
         </div>
       ) : (
-        <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-14 text-center">
-          <p className="text-sm font-semibold text-[#888888]">Ningún proyecto coincide con los filtros</p>
+        <div className="rounded-[28px] border border-dashed border-border-default py-14 text-center">
+          <p className="text-sm font-semibold text-muted-foreground">Ningún proyecto coincide con los filtros</p>
         </div>
       )}
     </div>
@@ -1360,16 +1373,16 @@ function CompactSelect({ label, options, value, onChange }: { label: string; opt
         className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors ${
           isActive
             ? "border-accent/40 bg-accent/10"
-            : "border-[#3F3F46] bg-[#313136] hover:border-white/20"
+            : "border-border-default bg-muted hover:border-white/20"
         }`}
       >
-        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-[#888888]"}`}>{label}</span>
+        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-muted-foreground"}`}>{label}</span>
         <span className={`max-w-[120px] truncate text-xs font-semibold ${isActive ? "text-accent" : "text-foreground"}`}>{value}</span>
-        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-[#888888]"}`} />
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-muted-foreground"}`} />
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-border-default bg-surface p-1.5 shadow-xl">
           {options.map((opt) => (
             <button
               key={opt}
@@ -1378,7 +1391,7 @@ function CompactSelect({ label, options, value, onChange }: { label: string; opt
               className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
                 opt === value
                   ? "bg-accent/15 text-accent"
-                  : "text-[#A1A1AA] hover:bg-[#313136] hover:text-foreground"
+                  : "text-ink-secondary hover:bg-muted hover:text-foreground"
               }`}
             >
               {opt}
@@ -1411,8 +1424,8 @@ function UnpaidTab({
 
   if (sorted.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">Sin proyectos no pagados</p>
+      <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+        <p className="text-sm font-semibold text-muted-foreground">Sin proyectos no pagados</p>
       </div>
     );
   }
@@ -1427,33 +1440,33 @@ function UnpaidTab({
         return (
           <Card
             key={project.id}
-            className="cursor-pointer border-[#3F3F46] bg-[#27272A] transition-all hover:border-white/15 hover:shadow-card-hover"
+            className="cursor-pointer border-border-default bg-surface-elevated transition-all hover:border-white/15 hover:shadow-card-hover"
             onClick={() => onOpenProject(project.id)}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{project.client} · {project.department}</p>
                 <h3 className="mt-1 truncate text-base font-bold text-foreground">{project.baseName}</h3>
-                <p className="text-xs text-[#888888]">{project.structuredName}</p>
+                <p className="text-xs text-muted-foreground">{project.structuredName}</p>
               </div>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">Contratado</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Contratado</p>
                   <p className="text-sm font-bold text-foreground tabular-nums">{mxn(base)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">Abonado</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Abonado</p>
                   <p className="text-sm font-bold text-foreground tabular-nums">{mxn(abonoTotal)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-danger">Por cobrar</p>
-                  <p className={`text-base font-black tabular-nums ${isOverdue ? "text-danger" : "text-[#F5A524]"}`}>{mxn(porCobrar)}</p>
+                  <p className={`text-base font-black tabular-nums ${isOverdue ? "text-danger" : "text-brand"}`}>{mxn(porCobrar)}</p>
                   {isOverdue ? <p className="text-[10px] font-bold text-danger">Vencido</p> : null}
                 </div>
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onOpenProject(project.id); }}
-                  className="shrink-0 rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#888888] transition hover:border-accent/40 hover:text-accent"
+                  className="shrink-0 rounded-xl border border-border-default px-3 py-1.5 text-xs font-bold text-muted-foreground transition hover:border-accent/40 hover:text-accent"
                 >
                   Ver F4 →
                 </button>
@@ -1479,8 +1492,8 @@ function RejectedTab({
 
   if (requests.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">Sin solicitudes rechazadas</p>
+      <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+        <p className="text-sm font-semibold text-muted-foreground">Sin solicitudes rechazadas</p>
       </div>
     );
   }
@@ -1488,16 +1501,16 @@ function RejectedTab({
   return (
     <div className="space-y-3">
       {requests.map((req) => (
-        <Card key={req.id} className="border-[#3F3F46] bg-[#27272A]">
+        <Card key={req.id} className="border-border-default bg-surface-elevated">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
               <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
-              <p className="text-xs text-[#888888]">
+              <p className="text-xs text-muted-foreground">
                 Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}
               </p>
               {req.rejectionReason ? (
-                <div className="mt-2 rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                <div className="mt-2 rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-ink-secondary">
                   <span className="font-bold text-danger">Motivo: </span>{req.rejectionReason}
                 </div>
               ) : null}
@@ -1507,7 +1520,7 @@ function RejectedTab({
                 <button
                   type="button"
                   onClick={() => onReactivateRequest(req.id)}
-                  className="rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/10 px-3 py-1.5 text-sm font-bold text-[#F5A524] transition hover:bg-[#F5A524]/20"
+                  className="rounded-xl border border-brand/30 bg-brand/10 px-3 py-1.5 text-sm font-bold text-brand transition hover:bg-brand/20"
                 >
                   Reactivar
                 </button>
@@ -1515,7 +1528,7 @@ function RejectedTab({
               <button
                 type="button"
                 onClick={() => onOpenRequest(req.id)}
-                className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:border-white/20 hover:text-white"
+                className="rounded-xl border border-border-default px-3 py-1.5 text-sm font-bold text-muted-foreground transition hover:border-white/20 hover:text-foreground"
               >
                 Ver detalle
               </button>
@@ -1545,7 +1558,7 @@ function CancelledTab({
       {/* Proyectos cancelados */}
       {projects.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#888888]">Proyectos cancelados · {projects.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Proyectos cancelados · {projects.length}</p>
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
           ))}
@@ -1555,23 +1568,23 @@ function CancelledTab({
       {/* Solicitudes rechazadas */}
       {rejectedRequests.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#888888]">Solicitudes no autorizadas · {rejectedRequests.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Solicitudes no autorizadas · {rejectedRequests.length}</p>
           {rejectedRequests.map((req) => (
-            <Card key={req.id} className="border-[#3F3F46] bg-[#27272A]">
+            <Card key={req.id} className="border-border-default bg-surface-elevated">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3F3F46] px-3 py-1 text-[10px] font-bold text-[#71717A]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-border-default px-3 py-1 text-[10px] font-bold text-zinc-500">
                       Cancelado
                     </span>
-                    <span className="text-xs text-[#888888]">{new Date(req.createdAt).toLocaleDateString("es-MX")}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(req.createdAt).toLocaleDateString("es-MX")}</span>
                   </div>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
                   <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
-                  <p className="text-xs text-[#888888]">Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}</p>
+                  <p className="text-xs text-muted-foreground">Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}</p>
                   {req.rejectionReason ? (
-                    <div className="mt-2 rounded-xl border border-[#3F3F46] bg-[#1E1E20] px-3 py-2 text-xs text-[#A1A1AA]">
-                      <span className="font-bold text-[#888888]">Motivo: </span>{req.rejectionReason}
+                    <div className="mt-2 rounded-xl border border-border-default bg-surface px-3 py-2 text-xs text-ink-secondary">
+                      <span className="font-bold text-muted-foreground">Motivo: </span>{req.rejectionReason}
                     </div>
                   ) : null}
                 </div>
@@ -1580,7 +1593,7 @@ function CancelledTab({
                     <button
                       type="button"
                       onClick={() => onReactivateRequest(req.id)}
-                      className="rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/10 px-3 py-1.5 text-sm font-bold text-[#F5A524] transition hover:bg-[#F5A524]/20"
+                      className="rounded-xl border border-brand/30 bg-brand/10 px-3 py-1.5 text-sm font-bold text-brand transition hover:bg-brand/20"
                     >
                       Reactivar
                     </button>
@@ -1588,7 +1601,7 @@ function CancelledTab({
                   <button
                     type="button"
                     onClick={() => onOpenRequest(req.id)}
-                    className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:border-white/20 hover:text-white"
+                    className="rounded-xl border border-border-default px-3 py-1.5 text-sm font-bold text-muted-foreground transition hover:border-white/20 hover:text-foreground"
                   >
                     Ver detalle
                   </button>
@@ -1600,8 +1613,8 @@ function CancelledTab({
       ) : null}
 
       {projects.length === 0 && rejectedRequests.length === 0 ? (
-        <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-          <p className="text-sm font-semibold text-[#888888]">Sin proyectos o solicitudes canceladas</p>
+        <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+          <p className="text-sm font-semibold text-muted-foreground">Sin proyectos o solicitudes canceladas</p>
         </div>
       ) : null}
     </div>
@@ -1639,7 +1652,7 @@ function UsersAdminPanel({
 
   return (
     <div className="space-y-4">
-      {!canManageUsers ? <Card className="border-warning/20 bg-warning/10 text-sm font-medium text-[#F5A524]">Solo el rol Gestor del sistema puede crear, editar o eliminar perfiles.</Card> : (
+      {!canManageUsers ? <Card className="border-warning/20 bg-warning/10 text-sm font-medium text-brand">Solo el rol Gestor del sistema puede crear, editar o eliminar perfiles.</Card> : (
         <Card className="border-accent/15 bg-accent/[0.05]">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-accent"><UserPlus className="h-4 w-4" />Alta de integrante</div>
           <div className="grid gap-3 lg:grid-cols-[0.75fr_0.75fr_1fr_0.8fr_0.8fr_0.8fr_auto]">
@@ -1648,7 +1661,7 @@ function UsersAdminPanel({
             <Input value={draft.email} onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))} placeholder="Correo" />
             <Input value={draft.password} onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))} type="password" placeholder="Contrasena" />
             <Input value={draft.department} onChange={(event) => setDraft((current) => ({ ...current, department: event.target.value }))} placeholder="Departamento" />
-            <select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as RoleKey }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+            <select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as RoleKey }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none">
               {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
             </select>
             <Button onClick={handleCreate} disabled={!draft.firstName.trim() || !draft.lastName.trim() || !draft.email.trim() || !draft.password.trim()}><UserPlus className="h-4 w-4" />Crear</Button>
@@ -1659,17 +1672,17 @@ function UsersAdminPanel({
         {users.map((user) => {
           const value = editableFor(user);
           return (
-            <Card key={user.id} className="border-[#3F3F46] bg-[#27272A]">
+            <Card key={user.id} className="border-border-default bg-surface-elevated">
               <div className="grid gap-3 lg:grid-cols-[0.95fr_0.85fr_1.1fr_0.85fr_0.85fr_0.8fr_auto_auto] lg:items-center">
-                <div className="flex items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-black text-[#111111]">{user.avatar}</div><Input value={value.firstName ?? ""} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, firstName: event.target.value } }))} /></div>
+                <div className="flex items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-black text-brand-fg">{user.avatar}</div><Input value={value.firstName ?? ""} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, firstName: event.target.value } }))} /></div>
                 <Input value={value.lastName ?? ""} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, lastName: event.target.value } }))} />
                 <Input value={value.email} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, email: event.target.value } }))} />
                 <Input value={value.password ?? ""} disabled={!canManageUsers} type="password" placeholder="Contrasena" onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, password: event.target.value } }))} />
                 <Input value={value.department} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, department: event.target.value } }))} />
-                <select value={value.role} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, role: event.target.value as RoleKey } }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none disabled:opacity-70">
+                <select value={value.role} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, role: event.target.value as RoleKey } }))} className="h-12 rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none disabled:opacity-70">
                   {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
-                <button type="button" disabled={!canManageUsers} onClick={() => setEditing((current) => ({ ...current, [user.id]: { ...value, isActive: !value.isActive } }))} className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition disabled:opacity-70 ${value.isActive ? "border-success/30 bg-success/10 text-success" : "border-[#3F3F46] bg-[#313136] text-[#888888]"}`}><UsersRound className="h-4 w-4" />{value.isActive ? "Activo" : "Inactivo"}</button>
+                <button type="button" disabled={!canManageUsers} onClick={() => setEditing((current) => ({ ...current, [user.id]: { ...value, isActive: !value.isActive } }))} className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition disabled:opacity-70 ${value.isActive ? "border-success/30 bg-success/10 text-success" : "border-border-default bg-muted text-muted-foreground"}`}><UsersRound className="h-4 w-4" />{value.isActive ? "Activo" : "Inactivo"}</button>
                 <div className="flex gap-2"><Button size="icon" variant="outline" disabled={!canManageUsers} onClick={() => onUpdateUser(user.id, value)}><Save className="h-4 w-4" /></Button><Button size="icon" variant="danger" disabled={!canManageUsers} onClick={() => onDeleteUser(user.id)}><Trash2 className="h-4 w-4" /></Button></div>
               </div>
             </Card>
@@ -1692,7 +1705,7 @@ function ActivityPanel({ activityLogs }: { activityLogs: ActivityLogItem[] }): J
 
   if (activityLogs.length === 0) {
     return (
-      <Card className="border-[#3F3F46] bg-[#27272A] text-sm text-[#A1A1AA]">
+      <Card className="border-border-default bg-surface-elevated text-sm text-secondary">
         Todavia no hay actividad registrada. Los nuevos movimientos empezaran a aparecer aqui cuando la API actualizada este subida.
       </Card>
     );
@@ -1701,23 +1714,23 @@ function ActivityPanel({ activityLogs }: { activityLogs: ActivityLogItem[] }): J
   return (
     <div className="space-y-3">
       {activityLogs.map((item) => (
-        <Card key={item.id} className="border-[#3F3F46] bg-[#27272A]">
+        <Card key={item.id} className="border-border-default bg-surface-elevated">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_0.7fr_0.7fr] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded bg-secondary/15 px-3 py-1 text-xs font-bold text-secondary">
                   {actionLabels[item.action] ?? item.action}
                 </span>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#888888]">{item.entity_type}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{item.entity_type}</span>
               </div>
               <p className="mt-2 truncate text-base font-semibold text-foreground">{item.entity_name ?? item.entity_id ?? "Sistema"}</p>
-              <p className="mt-1 text-sm text-[#888888]">{item.user_name ?? "Sistema"} · {item.user_role ?? "sin rol"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{item.user_name ?? "Sistema"} · {item.user_role ?? "sin rol"}</p>
             </div>
-            <div className="text-sm text-[#A1A1AA]">
+            <div className="text-sm text-ink-secondary">
               <p>{formatCompactDate(item.created_at)}</p>
-              <p className="mt-1 truncate text-xs text-[#888888]">{item.ip_address ?? "Sin IP"}</p>
+              <p className="mt-1 truncate text-xs text-muted-foreground">{item.ip_address ?? "Sin IP"}</p>
             </div>
-            <div className="rounded border border-[#3F3F46] bg-[#1F1F22] p-3 text-xs leading-5 text-[#A1A1AA]">
+            <div className="rounded border border-border-default bg-bg-input p-3 text-xs leading-5 text-ink-secondary">
               {formatActivityDetails(item.details)}
             </div>
           </div>
@@ -1771,7 +1784,7 @@ function getProjectFinancials(project: ProjectItem): {
   }
 
   if (ratio >= 0.75) {
-    return { spent, remaining, billed, paid, ratio, margin, label: "Vigilar utilidad", barClass: "bg-[#F5A524]", textClass: "text-[#F5A524]" };
+    return { spent, remaining, billed, paid, ratio, margin, label: "Vigilar utilidad", barClass: "bg-brand", textClass: "text-brand" };
   }
 
   return { spent, remaining, billed, paid, ratio, margin, label: "Margen disponible estable", barClass: "bg-accent", textClass: "text-accent" };
@@ -1802,12 +1815,12 @@ const INVOICE_STATUS_LABELS_MAP: Record<InvoiceStatus, string> = {
 };
 
 const INVOICE_STATUS_COLOR_MAP: Record<InvoiceStatus, string> = {
-  "solicitada": "bg-[#F5A524]/15 text-[#F5A524]",
+  "solicitada": "bg-brand/15 text-brand",
   "recibida": "bg-secondary/15 text-secondary",
-  "en-portal": "bg-[#F5A524]/20 text-[#F5A524]",
+  "en-portal": "bg-brand/20 text-brand",
   "enviada": "bg-accent/15 text-accent",
-  "pagada": "bg-[#4ADE80]/15 text-[#4ADE80]",
-  "cancelada": "bg-[#3F3F46] text-[#71717A]",
+  "pagada": "bg-success/15 text-success",
+  "cancelada": "bg-border-default text-zinc-500",
 };
 
 function getInvoiceDaysSince(invoice: InvoiceItem): number {
@@ -1860,8 +1873,8 @@ function CobrosTab({
 
   if (withInvoices.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">Sin facturas registradas</p>
+      <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+        <p className="text-sm font-semibold text-muted-foreground">Sin facturas registradas</p>
         <p className="mt-2 text-xs text-[#555555]">Las facturas se agregan desde la pestaña F4 de cada proyecto</p>
       </div>
     );
@@ -1886,14 +1899,14 @@ function CobrosTab({
 
           const cardBorder =
             maxStuckDays > 14 ? "border-danger/35" :
-            maxStuckDays > 7 ? "border-[#F5A524]/35" :
-            activeInvs.length === 0 ? "border-[#4ADE80]/15" :
-            "border-[#3F3F46]";
+            maxStuckDays > 7 ? "border-brand/35" :
+            activeInvs.length === 0 ? "border-success/15" :
+            "border-border-default";
 
           const cardBg =
             maxStuckDays > 14 ? "bg-danger/[0.04]" :
-            maxStuckDays > 7 ? "bg-[#F5A524]/[0.04]" :
-            "bg-[#27272A]";
+            maxStuckDays > 7 ? "bg-brand/[0.04]" :
+            "bg-surface-elevated";
 
           return (
             <Card key={project.id} className={`${cardBorder} ${cardBg}`}>
@@ -1902,7 +1915,7 @@ function CobrosTab({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-accent px-2.5 py-0.5 text-[10px] font-black text-[#111111]">
+                      <span className="rounded bg-accent px-2.5 py-0.5 text-[10px] font-black text-brand-fg">
                         #{getProjectSequence(project)}
                       </span>
                       {maxStuckDays > 14 ? (
@@ -1910,23 +1923,23 @@ function CobrosTab({
                           ⚠ {maxStuckDays}d estancada
                         </span>
                       ) : maxStuckDays > 7 ? (
-                        <span className="rounded-full bg-[#F5A524]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#F5A524]">
+                        <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-[10px] font-bold text-brand">
                           {maxStuckDays}d sin avanzar
                         </span>
                       ) : null}
                       {activeInvs.length === 0 && invs.length > 0 ? (
-                        <span className="rounded-full bg-[#4ADE80]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#4ADE80]">
+                        <span className="rounded-full bg-success/15 px-2.5 py-0.5 text-[10px] font-bold text-success">
                           ✓ Todo cobrado
                         </span>
                       ) : null}
                     </div>
                     <p className="mt-1 truncate text-sm font-semibold text-foreground">{project.baseName}</p>
-                    <p className="text-xs text-[#888888]">{project.client} · {project.department}</p>
+                    <p className="text-xs text-muted-foreground">{project.client} · {project.department}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => onOpenProject(project.id)}
-                    className="shrink-0 rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#888888] transition hover:border-accent/40 hover:text-accent"
+                    className="shrink-0 rounded-xl border border-border-default px-3 py-1.5 text-xs font-bold text-muted-foreground transition hover:border-accent/40 hover:text-accent"
                   >
                     Ver →
                   </button>
@@ -1940,16 +1953,16 @@ function CobrosTab({
                     return (
                       <div
                         key={inv.id}
-                        className="flex flex-wrap items-center gap-2 rounded-xl bg-[#1E1E20] px-3 py-2 text-xs"
+                        className="flex flex-wrap items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs"
                       >
-                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${INVOICE_STATUS_COLOR_MAP[inv.status] ?? "bg-[#3F3F46] text-[#888888]"}`}>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${INVOICE_STATUS_COLOR_MAP[inv.status] ?? "bg-border-default text-muted-foreground"}`}>
                           {INVOICE_STATUS_LABELS_MAP[inv.status] ?? inv.status}
                         </span>
                         {inv.oc ? <span className="font-semibold text-foreground">OC {inv.oc}</span> : null}
                         <span className="font-bold text-foreground tabular-nums">{mxn(inv.subtotal)}</span>
-                        {inv.facturarA ? <span className="text-[#888888]">→ {inv.facturarA}</span> : null}
+                        {inv.facturarA ? <span className="text-muted-foreground">→ {inv.facturarA}</span> : null}
                         {inv.mdp ? (
-                          <span className="rounded bg-[#3F3F46] px-1.5 py-0.5 font-mono text-[9px] text-[#888888]">
+                          <span className="rounded bg-border-default px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
                             {inv.mdp}
                           </span>
                         ) : null}
@@ -1959,11 +1972,11 @@ function CobrosTab({
                           </span>
                         ) : null}
                         {inv.fechaPago ? (
-                          <span className="ml-auto text-[10px] font-semibold text-[#4ADE80]">
+                          <span className="ml-auto text-[10px] font-semibold text-success">
                             Pago: {parseLocalDate(inv.fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
                           </span>
                         ) : isActive && days > 0 ? (
-                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-[#F5A524]" : "text-[#555555]"}`}>
+                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-brand" : "text-[#555555]"}`}>
                             {days}d
                           </span>
                         ) : null}

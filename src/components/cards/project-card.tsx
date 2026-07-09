@@ -25,7 +25,6 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
   const showNew = showNewBadge && isNewItem(project.createdAt);
   const consecutivo = project.structuredName.split("-")[0];
 
-  // F1-F4 phase completion indicators
   const phases = [
     { label: "F1", done: true },
     { label: "F2", done: !!(project.startDate || project.endDate || project.fotos || project.reporte) },
@@ -41,22 +40,22 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
       <div className="flex items-start justify-between gap-3 lg:min-w-0">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] font-black text-[#888888]">#{consecutivo}</span>
+            <span className="font-mono text-[10px] font-black text-muted-foreground">#{consecutivo}</span>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
               {project.client} · {project.department}
             </span>
-            <span className="rounded-md bg-[#3F3F46]/80 px-1.5 py-0.5 text-[10px] font-bold text-[#A1A1AA]">
+            <span className="rounded-md bg-border-default/80 px-1.5 py-0.5 text-[10px] font-bold text-ink-secondary">
               {project.type} · {PROJECT_TYPE_LABELS[project.type]}
             </span>
           </div>
           <div>
             <h3 className="line-clamp-2 text-[17px] font-bold leading-snug text-foreground lg:truncate">{project.baseName}</h3>
-            <p className="mt-0.5 text-xs text-[#888888]">{project.structuredName}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{project.structuredName}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <PriorityBadge priority={project.priority} />
             {assignedEngineerName ? (
-              <div className="flex items-center gap-1.5 text-xs text-[#888888]">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <User className="h-3 w-3 shrink-0" />
                 {assignedEngineerName}
               </div>
@@ -70,7 +69,7 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
                 className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                   ph.done
                     ? "bg-accent/15 text-accent"
-                    : "bg-[#3F3F46]/60 text-[#52525B]"
+                    : "bg-border-default/60 text-[#52525B]"
                 }`}
               >
                 {ph.label}
@@ -95,9 +94,9 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
           <span
             title="Más de 14 días sin movimiento"
             aria-label="Más de 14 días sin movimiento"
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#F5A524]/15 px-3 py-1 text-xs font-semibold text-[#F5A524] ring-1 ring-[#F5A524]/25"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand/15 px-3 py-1 text-xs font-semibold text-brand ring-1 ring-brand/25"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-[#F5A524]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-brand" />
             Sin actividad
           </span>
         ) : null}
@@ -105,12 +104,12 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
 
       <div className="mt-auto flex flex-col gap-4 border-t border-white/[0.07] pt-4 sm:flex-row sm:items-end sm:justify-between lg:mt-0 lg:border-t-0 lg:pt-0">
         <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#888888]">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             <CalendarClock className="h-3.5 w-3.5" />
             Compromiso
           </div>
           <p className="text-sm font-bold text-foreground">{formatOptionalDate(project.commitmentDate)}</p>
-          <p className="text-xs text-[#888888]">Agregado: {formatDate(project.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">Agregado: {formatDate(project.createdAt)}</p>
         </div>
         <Button
           variant="outline"
@@ -128,4 +127,3 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
     </Card>
   );
 }
-

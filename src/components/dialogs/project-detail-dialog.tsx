@@ -23,9 +23,9 @@ type MainTab = "info" | "chat" | "archivos";
 type InfoTab = "f1" | "f2" | "f3" | "f4";
 
 // ── Estilos base ──────────────────────────────────────────────
-const INP = "h-11 w-full rounded-xl border border-white/[0.07] bg-[#1F1F22] px-3 text-sm font-semibold text-foreground outline-none transition focus:border-[#60A5FA]/50 focus:ring-2 focus:ring-[#60A5FA]/10 disabled:cursor-not-allowed disabled:opacity-50";
-const INP_RO = "h-11 w-full rounded-xl border border-white/[0.04] bg-[#17171A] px-3 text-sm font-semibold text-[#71717A] outline-none cursor-not-allowed";
-const LBL = "text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]";
+const INP = "h-11 w-full rounded-xl border border-white/[0.07] bg-bg-input px-3 text-sm font-semibold text-foreground outline-none transition focus:border-[#60A5FA]/50 focus:ring-2 focus:ring-[#60A5FA]/10 disabled:cursor-not-allowed disabled:opacity-50";
+const INP_RO = "h-11 w-full rounded-xl border border-white/[0.04] bg-[#17171A] px-3 text-sm font-semibold text-zinc-500 outline-none cursor-not-allowed";
+const LBL = "text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground";
 
 // Contenedor de campo normal (azul — ambos pueden editar)
 const FLD = "space-y-1.5";
@@ -43,7 +43,7 @@ function LabelAdmin({ text }: { text: string }): JSX.Element {
 function LabelAuto({ text }: { text: string }): JSX.Element {
   return (
     <span className={LBL}>
-      {text}<span className="text-[#4ADE80]/90"> · AUTO</span>
+      {text}<span className="text-success/90"> · AUTO</span>
     </span>
   );
 }
@@ -86,7 +86,7 @@ function DatePickerMX({ value, onChange }: { value: string; onChange: (v: string
   return (
     <div className="relative">
       <div className={`${INP} flex items-center pointer-events-none select-none`} aria-hidden>
-        {display || <span className="text-[#71717A]">DD/MM/AAAA</span>}
+        {display || <span className="text-zinc-500">DD/MM/AAAA</span>}
       </div>
       <input
         type="date"
@@ -822,7 +822,7 @@ export function ProjectDetailDialog({
         type="button"
         onClick={onClick}
         disabled={saving}
-        className="mt-1 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] py-3.5 text-sm font-bold text-foreground transition hover:bg-[#3F3F46] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-1 w-full rounded-2xl border border-border-default bg-muted py-3.5 text-sm font-bold text-foreground transition hover:bg-border-default hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving ? "Guardando..." : label}
       </button>
@@ -849,12 +849,12 @@ export function ProjectDetailDialog({
               <button
                 type="button"
                 onClick={() => setShowDeleteMenu((c) => !c)}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#3F3F46] text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-border-default text-muted-foreground transition hover:bg-border-default hover:text-foreground"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
               {showDeleteMenu ? (
-                <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[172px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[172px] rounded-2xl border border-border-default bg-surface p-1.5 shadow-xl">
                   <button
                     type="button"
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-danger/10"
@@ -868,7 +868,7 @@ export function ProjectDetailDialog({
             </div>
           ) : null}
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#3F3F46]">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-default">
           <div
             className="h-full rounded-full bg-accent transition-all duration-700"
             style={{ width: `${progress}%` }}
@@ -892,7 +892,7 @@ export function ProjectDetailDialog({
         <div className="mt-4 space-y-4">
           {/* F-sub-tabs */}
           <div
-            className="grid gap-1 rounded-2xl bg-[#1E1E20] p-1"
+            className="grid gap-1 rounded-2xl bg-surface p-1"
             style={{ gridTemplateColumns: `repeat(${infoTabs.length}, 1fr)` }}
           >
             {infoTabs.map((tab) => (
@@ -901,13 +901,13 @@ export function ProjectDetailDialog({
                 type="button"
                 onClick={() => setInfoTab(tab.key)}
                 className={`flex flex-col items-center rounded-xl px-1 py-2.5 text-center transition-all duration-200 ${
-                  infoTab === tab.key ? "bg-[#313136] shadow-sm" : "hover:bg-[#27272A]"
+                  infoTab === tab.key ? "bg-muted shadow-sm" : "hover:bg-surface-elevated"
                 }`}
               >
-                <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${infoTab === tab.key ? "text-[#888888]" : "text-[#52525B]"}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${infoTab === tab.key ? "text-muted-foreground" : "text-[#52525B]"}`}>
                   {tab.label}
                 </span>
-                <span className={`text-sm font-bold ${infoTab === tab.key ? "text-foreground" : "text-[#71717A]"}`}>
+                <span className={`text-sm font-bold ${infoTab === tab.key ? "text-foreground" : "text-zinc-500"}`}>
                   {tab.sublabel}
                 </span>
               </button>
@@ -916,11 +916,11 @@ export function ProjectDetailDialog({
 
           {/* Leyenda y barra de código (comunes a todos los sub-tabs) */}
           {infoTab === "f1" ? (
-            <p className="border-l-2 border-[#3F3F46] pl-3 text-xs text-[#555555]">
+            <p className="border-l-2 border-border-default pl-3 text-xs text-[#555555]">
               Ingeniero o Admin · <span className="text-[#60A5FA]/70">Campos azules = ambos</span> · <span className="text-orange-400/70">Campos naranja = solo Admin</span>
             </p>
           ) : infoTab === "f2" ? (
-            <p className="border-l-2 border-[#3F3F46] pl-3 text-xs text-[#555555]">
+            <p className="border-l-2 border-border-default pl-3 text-xs text-[#555555]">
               Ingeniero · Llena durante y después del trabajo en campo
             </p>
           ) : infoTab === "f3" ? (
@@ -952,7 +952,7 @@ export function ProjectDetailDialog({
                     {(project.fechaSolicitud ?? project.createdAt) ? (
                       <>
                         <span className="text-[#3F3F46]">·</span>
-                        <span className="text-xs font-semibold text-[#888888]">
+                        <span className="text-xs font-semibold text-muted-foreground">
                           {parseLocalDate(project.fechaSolicitud ?? project.createdAt!).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
                         </span>
                       </>
@@ -1066,7 +1066,7 @@ export function ProjectDetailDialog({
               {/* 9 · Ubicación */}
               <div>
                 <p className={`${LBL} mb-2`}>9 · Ubicación del trabajo</p>
-                <div className="grid gap-2.5 rounded-2xl bg-[#1E1E20] p-3 sm:grid-cols-2">
+                <div className="grid gap-2.5 rounded-2xl bg-surface p-3 sm:grid-cols-2">
                   {ubicacionFields.map(({ key, label, placeholder }) => (
                     <div key={key} className={FLD}>
                       <label className={LBL}>{label}</label>
@@ -1128,9 +1128,9 @@ export function ProjectDetailDialog({
               ) : null}
 
               {/* 13 · Fechas importantes */}
-              <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+              <div className="rounded-2xl border border-border-default bg-surface p-3">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                     13 · Fechas importantes
                   </p>
                   {onAddProjectImportantDate ? (
@@ -1146,7 +1146,7 @@ export function ProjectDetailDialog({
                 </div>
 
                 {showDateForm && onAddProjectImportantDate ? (
-                  <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                  <div className="mb-3 space-y-2.5 rounded-xl border border-border-default bg-surface-elevated p-3">
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className={FLD}>
                         <label className={LBL}>Título</label>
@@ -1182,12 +1182,12 @@ export function ProjectDetailDialog({
                       const isOverdue = daysLeft < 0;
                       const isNear = daysLeft >= 0 && daysLeft <= 3;
                       return (
-                        <div key={d.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${isOverdue ? "bg-danger/10 ring-1 ring-danger/20" : isNear ? "bg-[#F5A524]/10 ring-1 ring-[#F5A524]/20" : "bg-[#27272A]"}`}>
+                        <div key={d.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${isOverdue ? "bg-danger/10 ring-1 ring-danger/20" : isNear ? "bg-brand/10 ring-1 ring-brand/20" : "bg-surface-elevated"}`}>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">{d.title}</p>
-                            <p className="text-xs text-[#71717A]">{d.date}</p>
+                            <p className="text-xs text-zinc-500">{d.date}</p>
                           </div>
-                          <span className={`ml-3 shrink-0 text-xs font-bold tabular-nums ${isOverdue ? "text-danger" : isNear ? "text-[#F5A524]" : "text-[#52525B]"}`}>
+                          <span className={`ml-3 shrink-0 text-xs font-bold tabular-nums ${isOverdue ? "text-danger" : isNear ? "text-brand" : "text-[#52525B]"}`}>
                             {isOverdue ? `${Math.abs(daysLeft)}d atrás` : daysLeft === 0 ? "hoy" : `en ${daysLeft}d`}
                           </span>
                         </div>
@@ -1227,7 +1227,18 @@ export function ProjectDetailDialog({
                 </div>
                 <div className={FLD}>
                   <label className={LBL}>Estado pago</label>
-                  <select className={INP} value={f2PaymentStatus} onChange={(e) => setF2PaymentStatus(e.target.value as PaymentStatus)} disabled={!canEditProject}>
+                  <select
+                    className={INP}
+                    value={f2PaymentStatus}
+                    disabled={!canEditProject}
+                    onChange={(e) => {
+                      const next = e.target.value as PaymentStatus;
+                      setF2PaymentStatus(next);
+                      if (project && next !== project.paymentStatus) {
+                        onUpdateProject(project.id, { paymentStatus: next });
+                      }
+                    }}
+                  >
                     <option value="">— Sin definir</option>
                     <option value="unpaid">No pagado</option>
                     <option value="partial">Pago parcial</option>
@@ -1274,8 +1285,8 @@ export function ProjectDetailDialog({
                   <label className={LBL}>Fotos de evidencia</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2FotosStatus === "no" && <span>No</span>}
-                    {f2FotosStatus === "en-revision" && <span className="text-[#F5A524]">En revisión</span>}
-                    {f2FotosStatus === "si" && <span className="text-[#4ADE80]">Si</span>}
+                    {f2FotosStatus === "en-revision" && <span className="text-brand">En revisión</span>}
+                    {f2FotosStatus === "si" && <span className="text-success">Si</span>}
                     {f2FotosStatus === "rechazado" && <span className="text-danger">Rechazado</span>}
                   </div>
                 </div>
@@ -1283,8 +1294,8 @@ export function ProjectDetailDialog({
                   <label className={LBL}>Reporte generado</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2ReporteFileStatus === "no" && <span>No</span>}
-                    {f2ReporteFileStatus === "en-revision" && <span className="text-[#F5A524]">En revisión</span>}
-                    {f2ReporteFileStatus === "si" && <span className="text-[#4ADE80]">Si</span>}
+                    {f2ReporteFileStatus === "en-revision" && <span className="text-brand">En revisión</span>}
+                    {f2ReporteFileStatus === "si" && <span className="text-success">Si</span>}
                     {f2ReporteFileStatus === "rechazado" && <span className="text-danger">Rechazado</span>}
                   </div>
                 </div>
@@ -1322,17 +1333,17 @@ export function ProjectDetailDialog({
             <div className="space-y-4">
               {/* Summary cards */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Total S/IVA</p>
+                <div className="rounded-2xl bg-surface p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Total S/IVA</p>
                   <p className="text-base font-black tabular-nums text-foreground">{mxn(parseFloat(f3TotalSinIva) || 0)}</p>
                 </div>
-                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Ganancia</p>
+                <div className="rounded-2xl bg-surface p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Ganancia</p>
                   <p className={`text-base font-black tabular-nums ${ganancia >= 0 ? "text-accent" : "text-danger"}`}>{mxn(ganancia)}</p>
                 </div>
-                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Por cobrar</p>
-                  <p className={`text-base font-black tabular-nums ${porCobrar <= 0 ? "text-accent" : "text-[#F5A524]"}`}>{mxn(porCobrar)}</p>
+                <div className="rounded-2xl bg-surface p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Por cobrar</p>
+                  <p className={`text-base font-black tabular-nums ${porCobrar <= 0 ? "text-accent" : "text-brand"}`}>{mxn(porCobrar)}</p>
                 </div>
               </div>
 
@@ -1366,8 +1377,8 @@ export function ProjectDetailDialog({
               </div>
 
               {/* Desglose de costos */}
-              <div className="rounded-2xl bg-[#1E1E20] p-3">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+              <div className="rounded-2xl bg-surface p-3">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                   Desglose de costos
                 </p>
                 <div className="grid gap-2.5 sm:grid-cols-2">
@@ -1388,15 +1399,15 @@ export function ProjectDetailDialog({
 
                 {/* Calculados automáticos */}
                 <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                  <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
+                  <div className="rounded-xl border border-success/20 bg-[#0D2417] p-3">
                     <LabelAuto text="Ganancia" />
-                    <p className={`mt-1 text-base font-black tabular-nums ${ganancia >= 0 ? "text-[#4ADE80]" : "text-[#F87171]"}`}>
+                    <p className={`mt-1 text-base font-black tabular-nums ${ganancia >= 0 ? "text-success" : "text-danger"}`}>
                       {mxn(ganancia)}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
+                  <div className="rounded-xl border border-success/20 bg-[#0D2417] p-3">
                     <LabelAuto text="Por cobrar" />
-                    <p className={`mt-1 text-base font-black tabular-nums ${porCobrar <= 0 ? "text-[#4ADE80]" : "text-foreground"}`}>
+                    <p className={`mt-1 text-base font-black tabular-nums ${porCobrar <= 0 ? "text-success" : "text-foreground"}`}>
                       {mxn(porCobrar)}
                     </p>
                   </div>
@@ -1416,9 +1427,9 @@ export function ProjectDetailDialog({
               </div>
 
               {/* ── Gastos de campo ── */}
-              <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+              <div className="rounded-2xl border border-border-default bg-surface p-3">
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                     Gastos de campo
                     {(project.expenses ?? []).length > 0 && (
                       <span className="ml-2 font-black tabular-nums text-accent">
@@ -1439,7 +1450,7 @@ export function ProjectDetailDialog({
                 </div>
 
                 {showExpenseForm && onAddExpense ? (
-                  <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                  <div className="mb-3 space-y-2.5 rounded-xl border border-border-default bg-surface-elevated p-3">
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className={FLD}>
                         <label className={LBL}>Título</label>
@@ -1503,10 +1514,10 @@ export function ProjectDetailDialog({
                 ) : (
                   <div className="space-y-1.5">
                     {[...(project.expenses ?? [])].reverse().map((exp) => (
-                      <div key={exp.id} className="flex items-center justify-between rounded-xl bg-[#27272A] px-3 py-2">
+                      <div key={exp.id} className="flex items-center justify-between rounded-xl bg-surface-elevated px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">{exp.titulo}</p>
-                          <p className="text-xs text-[#71717A]">{exp.categoria} · {exp.fecha}</p>
+                          <p className="text-xs text-zinc-500">{exp.categoria} · {exp.fecha}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2 pl-3">
                           <span className="text-sm font-bold tabular-nums text-accent">{mxn(exp.monto)}</span>
@@ -1535,17 +1546,17 @@ export function ProjectDetailDialog({
             <div className="space-y-4">
               {/* Summary */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Total</p>
+                <div className="rounded-2xl bg-surface p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Total</p>
                   <p className="text-base font-black tabular-nums text-foreground">{mxn(project.totalSinIva)}</p>
                 </div>
-                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Abono total</p>
+                <div className="rounded-2xl bg-surface p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Abono total</p>
                   <p className="text-base font-black tabular-nums text-accent">{mxn(abonoTotal)}</p>
                 </div>
-                <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Por cobrar</p>
-                  <p className={`text-base font-black tabular-nums ${porCobrar <= 0 ? "text-accent" : "text-[#F5A524]"}`}>{mxn(porCobrar)}</p>
+                <div className="rounded-2xl bg-surface p-3 text-center">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Por cobrar</p>
+                  <p className={`text-base font-black tabular-nums ${porCobrar <= 0 ? "text-accent" : "text-brand"}`}>{mxn(porCobrar)}</p>
                 </div>
               </div>
 
@@ -1560,22 +1571,22 @@ export function ProjectDetailDialog({
                     <div
                       key={pago.id}
                       className={`rounded-2xl border p-4 transition-colors ${
-                        isRealizado ? "border-[#4ADE80]/30 bg-[#0D2417]" : "border-[#3F3F46] bg-[#1E1E20]"
+                        isRealizado ? "border-[#4ADE80]/30 bg-[#0D2417]" : "border-border-default bg-surface"
                       }`}
                     >
                       {/* Header */}
                       <div className="mb-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                             Pago {pago.numeroPago}
                           </span>
                           {isRealizado ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#4ADE80]/15 px-2 py-0.5 text-[10px] font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/25">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success ring-1 ring-success/25">
                               <Check className="h-2.5 w-2.5" />
                               Realizado
                             </span>
                           ) : (
-                            <span className="rounded-full bg-[#F5A524]/10 px-2 py-0.5 text-[10px] font-bold text-[#F5A524] ring-1 ring-[#F5A524]/20">
+                            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand ring-1 ring-brand/20">
                               Pendiente
                             </span>
                           )}
@@ -1642,8 +1653,8 @@ export function ProjectDetailDialog({
                         onClick={() => togglePagoEstado(pago.id)}
                         className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition ${
                           isRealizado
-                            ? "bg-[#1F2937] text-[#888888] hover:text-[#F87171]"
-                            : "bg-[#166534]/20 text-[#4ADE80] ring-1 ring-[#4ADE80]/20 hover:bg-[#166534]/40"
+                            ? "bg-[#1F2937] text-muted-foreground hover:text-danger"
+                            : "bg-[#166534]/20 text-success ring-1 ring-success/20 hover:bg-[#166534]/40"
                         }`}
                       >
                         {isRealizado ? (
@@ -1667,7 +1678,7 @@ export function ProjectDetailDialog({
               <button
                 type="button"
                 onClick={addPago}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#3F3F46] py-3 text-sm font-semibold text-[#888888] transition hover:border-[#52525B] hover:text-foreground"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border-default py-3 text-sm font-semibold text-muted-foreground transition hover:border-border-strong hover:text-foreground"
               >
                 <Plus className="h-4 w-4" />
                 Agregar pago
@@ -1688,9 +1699,9 @@ export function ProjectDetailDialog({
 
               {/* ── Facturas ── */}
               {(canManageInvoices || (project.invoices ?? []).length > 0) ? (
-                <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+                <div className="rounded-2xl border border-border-default bg-surface p-3">
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Facturas</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Facturas</p>
                     {canManageInvoices && onAddInvoice ? (
                       <button
                         type="button"
@@ -1704,7 +1715,7 @@ export function ProjectDetailDialog({
                   </div>
 
                   {showInvoiceForm && canManageInvoices && onAddInvoice ? (
-                    <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                    <div className="mb-3 space-y-2.5 rounded-xl border border-border-default bg-surface-elevated p-3">
                       <div className="grid gap-2.5 sm:grid-cols-2">
                         <div className={FLD}>
                           <label className={LBL}>OC</label>
@@ -1760,12 +1771,12 @@ export function ProjectDetailDialog({
                     <div className="space-y-2">
                       {(project.invoices ?? []).map((inv) => {
                         const STATUS_COLORS: Record<InvoiceStatus, string> = {
-                          solicitada: "text-[#F5A524] bg-[#F5A524]/10 ring-[#F5A524]/20",
+                          solicitada: "text-brand bg-brand/10 ring-brand/20",
                           recibida:   "text-[#60A5FA] bg-[#60A5FA]/10 ring-[#60A5FA]/20",
                           "en-portal":"text-[#A78BFA] bg-[#A78BFA]/10 ring-[#A78BFA]/20",
                           enviada:    "text-[#34D399] bg-[#34D399]/10 ring-[#34D399]/20",
-                          pagada:     "text-[#4ADE80] bg-[#4ADE80]/10 ring-[#4ADE80]/20",
-                          cancelada:  "text-[#F87171] bg-[#F87171]/10 ring-[#F87171]/20",
+                          pagada:     "text-success bg-success/10 ring-success/20",
+                          cancelada:  "text-danger bg-danger/10 ring-danger/20",
                         };
                         const STATUS_NEXT: Partial<Record<InvoiceStatus, InvoiceStatus>> = {
                           solicitada: "recibida", recibida: "en-portal",
@@ -1776,13 +1787,13 @@ export function ProjectDetailDialog({
                           enviada: "Enviada", pagada: "Pagada", cancelada: "Cancelada",
                         };
                         return (
-                          <div key={inv.id} className="rounded-xl bg-[#27272A] p-3">
+                          <div key={inv.id} className="rounded-xl bg-surface-elevated p-3">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-foreground">OC: {inv.oc}</p>
-                                <p className="text-xs text-[#71717A]">{inv.facturarA} · {mxn(inv.subtotal)}</p>
+                                <p className="text-xs text-zinc-500">{inv.facturarA} · {mxn(inv.subtotal)}</p>
                                 {inv.factura ? <p className="mt-0.5 text-xs text-[#52525B]">Factura: {inv.factura}</p> : null}
-                                {inv.fechaPago ? <p className="mt-0.5 text-xs text-[#4ADE80]">Pagado: {inv.fechaPago}</p> : null}
+                                {inv.fechaPago ? <p className="mt-0.5 text-xs text-success">Pagado: {inv.fechaPago}</p> : null}
                               </div>
                               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${STATUS_COLORS[inv.status]}`}>
                                 {STATUS_LABELS[inv.status]}
@@ -1792,7 +1803,7 @@ export function ProjectDetailDialog({
                               <button
                                 type="button"
                                 onClick={() => onUpdateInvoice(project.id, inv.id, { status: STATUS_NEXT[inv.status]! })}
-                                className="mt-2 w-full rounded-lg bg-white/5 py-1.5 text-xs font-semibold text-[#888888] transition hover:bg-white/10 hover:text-foreground"
+                                className="mt-2 w-full rounded-lg bg-white/5 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
                               >
                                 Avanzar → {STATUS_LABELS[STATUS_NEXT[inv.status]!]}
                               </button>
@@ -1815,7 +1826,7 @@ export function ProjectDetailDialog({
       {mainTab === "chat" ? (
         <div className="mt-5 flex flex-col gap-3">
           {/* ── Historial de mensajes ── */}
-          <div className="flex max-h-[340px] flex-col gap-2 overflow-y-auto rounded-[28px] bg-[#1E1E20] p-4 scroll-smooth">
+          <div className="flex max-h-[340px] flex-col gap-2 overflow-y-auto rounded-[28px] bg-surface p-4 scroll-smooth">
             {chatLoading ? (
               <p className="py-6 text-center text-sm text-[#52525B]">Cargando mensajes…</p>
             ) : chatMessages.length === 0 ? (
@@ -1829,7 +1840,7 @@ export function ProjectDetailDialog({
                   <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                     <div
                       className={`max-w-[80%] rounded-[24px] px-4 py-3 text-sm shadow-soft ${
-                        isMine ? "bg-accent text-[#111111]" : "bg-[#3F3F46] text-foreground"
+                        isMine ? "bg-accent text-brand-fg" : "bg-border-default text-foreground"
                       } ${msg.isPriority ? "ring-2 ring-danger/50" : ""}`}
                     >
                       <div className="mb-1 flex items-center gap-2 text-xs font-semibold opacity-75">
@@ -1854,7 +1865,7 @@ export function ProjectDetailDialog({
           </div>
 
           {/* ── Input de nuevo mensaje ── */}
-          <div className="rounded-[28px] bg-[#27272A] p-4">
+          <div className="rounded-[28px] bg-surface-elevated p-4">
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -1871,7 +1882,7 @@ export function ProjectDetailDialog({
               disabled={chatSending}
             />
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-[#888888] transition-colors hover:text-foreground">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
                 <input
                   type="checkbox"
                   checked={isPriority}
@@ -1884,7 +1895,7 @@ export function ProjectDetailDialog({
                 type="button"
                 onClick={() => { void handleSendChatMessage(); }}
                 disabled={!message.trim() || chatSending}
-                className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-[#111111] transition hover:opacity-90 disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-brand-fg transition hover:opacity-90 disabled:opacity-40"
               >
                 <MessageCircleMore className="h-4 w-4" />
                 {chatSending ? "Enviando…" : "Enviar"}
@@ -2003,22 +2014,22 @@ export function ProjectDetailDialog({
               const fileRef      = getFileRef(section.key);
 
               return (
-                <div key={section.key} className="overflow-hidden rounded-2xl border border-[#3F3F46]">
+                <div key={section.key} className="overflow-hidden rounded-2xl border border-border-default">
                   {/* Header */}
                   <button
                     type="button"
                     onClick={() => setOpenSections(s => ({ ...s, [section.key]: !s[section.key] }))}
-                    className="flex w-full items-center justify-between bg-[#1E1E20] px-4 py-3 transition-colors hover:bg-[#27272A]"
+                    className="flex w-full items-center justify-between bg-surface px-4 py-3 transition-colors hover:bg-surface-elevated"
                   >
                     <div className="flex items-center gap-2.5">
                       {isOpen
                         ? <FolderOpen className="h-4 w-4 text-accent" />
-                        : <Folder className="h-4 w-4 text-[#888888]" />}
-                      <span className={`text-sm font-bold ${isOpen ? "text-foreground" : "text-[#A1A1AA]"}`}>
+                        : <Folder className="h-4 w-4 text-muted-foreground" />}
+                      <span className={`text-sm font-bold ${isOpen ? "text-foreground" : "text-ink-secondary"}`}>
                         {section.label}
                       </span>
                       {sectionFiles.length > 0 ? (
-                        <span className="rounded-full bg-[#313136] px-2 py-0.5 text-xs font-bold text-[#888888]">
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
                           {sectionFiles.length}
                         </span>
                       ) : null}
@@ -2028,7 +2039,7 @@ export function ProjectDetailDialog({
                         <span
                           role="button"
                           tabIndex={0}
-                          className="inline-flex items-center gap-1 rounded-xl border border-[#3F3F46] bg-[#27272A] px-2.5 py-1 text-xs font-semibold text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-xl border border-border-default bg-surface-elevated px-2.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-border-default hover:text-foreground"
                           onClick={(e) => { e.stopPropagation(); setUploadError(null); fileRef.current?.click(); }}
                           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); fileRef.current?.click(); } }}
                         >
@@ -2040,7 +2051,7 @@ export function ProjectDetailDialog({
                         <span
                           role="button"
                           tabIndex={0}
-                          className="inline-flex items-center gap-1 rounded-xl border border-[#3F3F46] bg-[#27272A] px-2.5 py-1 text-xs font-semibold text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+                          className="inline-flex items-center gap-1 rounded-xl border border-border-default bg-surface-elevated px-2.5 py-1 text-xs font-semibold text-muted-foreground transition hover:bg-border-default hover:text-foreground"
                           onClick={(e) => { e.stopPropagation(); setUploadError(null); cameraInputRef.current?.click(); }}
                           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); cameraInputRef.current?.click(); } }}
                         >
@@ -2048,13 +2059,13 @@ export function ProjectDetailDialog({
                           Cámara
                         </span>
                       ) : null}
-                      <ChevronDown className={`h-4 w-4 text-[#888888] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                     </div>
                   </button>
 
                   {/* Body */}
                   {isOpen ? (
-                    <div className="space-y-3 bg-[#27272A]/20 p-4">
+                    <div className="space-y-3 bg-surface-elevated/20 p-4">
                       {/* Banner de estado (todas las secciones) */}
                       {(() => {
                         const st = getSectionStatus(section.key);
@@ -2063,10 +2074,10 @@ export function ProjectDetailDialog({
                         const rejectExtra  = section.key === "fotos" ? { fotos: false } : {};
                         return (
                           <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${
-                            st === "en-revision" ? "border border-[#F5A524]/25 bg-[#F5A524]/10 text-[#F5A524]" :
-                            st === "si"          ? "border border-[#4ADE80]/25 bg-[#4ADE80]/10 text-[#4ADE80]" :
+                            st === "en-revision" ? "border border-[#F5A524]/25 bg-brand/10 text-brand" :
+                            st === "si"          ? "border border-[#4ADE80]/25 bg-success/10 text-success" :
                             st === "rechazado"   ? "border border-danger/25 bg-danger/10 text-danger" :
-                            "border border-[#3F3F46] bg-[#1E1E20] text-[#888888]"
+                            "border border-border-default bg-surface text-muted-foreground"
                           }`}>
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <span>
@@ -2083,7 +2094,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "si");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "si", ...approveExtra });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
+                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-success ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
                                   >
                                     <Check className="h-3.5 w-3.5" /> Aprobar
                                   </button>
@@ -2106,7 +2117,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "en-revision");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "en-revision", ...(section.key === "fotos" ? { fotos: true } : {}) });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-[#F5A524]/10 px-4 py-2 text-sm font-bold text-[#F5A524] ring-1 ring-[#F5A524]/30 transition hover:bg-[#F5A524]/20"
+                                    className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-4 py-2 text-sm font-bold text-brand ring-1 ring-[#F5A524]/30 transition hover:bg-brand/20"
                                   >
                                     <XCircle className="h-3.5 w-3.5" /> Quitar aprobación
                                   </button>
@@ -2129,7 +2140,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "si");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "si", ...approveExtra });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
+                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-success ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
                                   >
                                     <Check className="h-3.5 w-3.5" /> Aprobar
                                   </button>
@@ -2139,7 +2150,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "en-revision");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "en-revision", ...(section.key === "fotos" ? { fotos: true } : {}) });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-[#F5A524]/10 px-4 py-2 text-sm font-bold text-[#F5A524] ring-1 ring-[#F5A524]/30 transition hover:bg-[#F5A524]/20"
+                                    className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-4 py-2 text-sm font-bold text-brand ring-1 ring-[#F5A524]/30 transition hover:bg-brand/20"
                                   >
                                     <XCircle className="h-3.5 w-3.5" /> Poner en revisión
                                   </button>
@@ -2171,7 +2182,7 @@ export function ProjectDetailDialog({
                             await handleUpload(dropped, section.key);
                           }}
                           className={`rounded-xl border-2 border-dashed px-4 py-2.5 transition-all duration-200 ${
-                            isDragging ? "scale-[1.005] border-accent/60 bg-accent/5" : "border-[#3F3F46] bg-[#1E1E20]/50"
+                            isDragging ? "scale-[1.005] border-accent/60 bg-accent/5" : "border-border-default bg-surface/50"
                           }`}
                         >
                           {isUploading ? (
@@ -2180,7 +2191,7 @@ export function ProjectDetailDialog({
                               <p className="text-xs font-semibold text-accent">Subiendo…</p>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2 text-xs text-[#888888]">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <FileUp className={`h-3.5 w-3.5 shrink-0 ${isDragging ? "text-accent" : ""}`} />
                               <span>{isDragging ? "Suelta para subir" : `Arrastra archivos aquí · máx. ${section.maxMB} MB`}</span>
                             </div>
@@ -2197,7 +2208,7 @@ export function ProjectDetailDialog({
                                 key={file.id}
                                 type="button"
                                 onClick={() => openGallery(sectionFiles, file.id)}
-                                className="group relative aspect-square overflow-hidden rounded-2xl bg-[#313136] ring-1 ring-white/5 transition-all duration-200 hover:ring-accent/40 hover:shadow-lg"
+                                className="group relative aspect-square overflow-hidden rounded-2xl bg-muted ring-1 ring-white/5 transition-all duration-200 hover:ring-accent/40 hover:shadow-lg"
                               >
                                 <img
                                   src={resolveImgUrl(file.url ?? '', project.id, file.id)}
@@ -2210,7 +2221,7 @@ export function ProjectDetailDialog({
                                     const parent = img.parentElement;
                                     if (parent && !parent.querySelector(".thumb-fallback")) {
                                       const fb = document.createElement("div");
-                                      fb.className = "thumb-fallback absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#888888]";
+                                      fb.className = "thumb-fallback absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground";
                                       fb.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><span style="font-size:10px">Sin vista</span>';
                                       parent.appendChild(fb);
                                     }
@@ -2248,17 +2259,17 @@ export function ProjectDetailDialog({
                             {sectionFiles.map((file) => {
                               const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(file.name);
                               return (
-                                <div key={file.id} className="flex items-center gap-3 rounded-[18px] bg-[#313136]/50 px-3 py-2.5 transition-colors hover:bg-[#313136]/80">
+                                <div key={file.id} className="flex items-center gap-3 rounded-[18px] bg-muted/50 px-3 py-2.5 transition-colors hover:bg-muted/80">
                                   {isImg && file.url ? (
                                     <img src={resolveImgUrl(file.url, project.id, file.id)} alt={file.name} className="h-10 w-10 shrink-0 rounded-xl object-cover" />
                                   ) : (
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3F3F46] text-[10px] font-black uppercase text-[#A1A1AA]">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-border-default text-[10px] font-black uppercase text-ink-secondary">
                                       {file.name.split(".").pop()}
                                     </div>
                                   )}
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
-                                    <p className="text-xs text-[#888888]">{file.sizeLabel} · {formatDate(file.uploadedAt)}</p>
+                                    <p className="text-xs text-muted-foreground">{file.sizeLabel} · {formatDate(file.uploadedAt)}</p>
                                   </div>
                                   <div className="flex shrink-0 gap-1.5">
                                     {file.url ? (() => {
@@ -2282,11 +2293,11 @@ export function ProjectDetailDialog({
 
                                       return (
                                         <>
-                                          <button type="button" onClick={handleEye} title={isPreviewableImg || isPreviewableDoc ? "Vista previa" : "Abrir archivo"} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#3F3F46] text-[#888888] transition-colors hover:border-accent/40 hover:text-accent">
+                                          <button type="button" onClick={handleEye} title={isPreviewableImg || isPreviewableDoc ? "Vista previa" : "Abrir archivo"} className="flex h-8 w-8 items-center justify-center rounded-xl border border-border-default text-muted-foreground transition-colors hover:border-accent/40 hover:text-accent">
                                             <Eye className="h-3.5 w-3.5" />
                                           </button>
                                           <a href={serveFileUrl(project.id, file.id, true)} download={file.name} target="_blank" rel="noreferrer">
-                                            <button type="button" title="Descargar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#3F3F46] text-[#888888] transition-colors hover:border-accent/40 hover:text-accent">
+                                            <button type="button" title="Descargar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-border-default text-muted-foreground transition-colors hover:border-accent/40 hover:text-accent">
                                               <Download className="h-3.5 w-3.5" />
                                             </button>
                                           </a>
@@ -2360,7 +2371,7 @@ export function ProjectDetailDialog({
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-white leading-tight">{galleryFiles[galleryIndex]?.name}</p>
-                <p className="text-[11px] text-[#888888]">{galleryFiles[galleryIndex]?.sizeLabel} · foto {galleryIndex + 1} de {galleryFiles.length}</p>
+                <p className="text-[11px] text-muted-foreground">{galleryFiles[galleryIndex]?.sizeLabel} · foto {galleryIndex + 1} de {galleryFiles.length}</p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -2379,7 +2390,7 @@ export function ProjectDetailDialog({
               <button
                 type="button"
                 onClick={closeGallery}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-[#A1A1AA] transition hover:bg-white/20 hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-ink-secondary transition hover:bg-white/20 hover:text-foreground"
                 aria-label="Cerrar galería"
               >
                 <X className="h-4 w-4" />
@@ -2402,11 +2413,11 @@ export function ProjectDetailDialog({
             ) : null}
 
             {galleryBroken ? (
-              <div className="flex flex-col items-center gap-4 rounded-2xl bg-[#1E1E20] p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#313136] text-[#52525B]">
+              <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-[#52525B]">
                   <ZoomIn className="h-7 w-7" />
                 </div>
-                <p className="text-sm text-[#888888]">No se puede previsualizar</p>
+                <p className="text-sm text-muted-foreground">No se puede previsualizar</p>
                 {lightboxFile ? (
                   <a
                     href={serveFileUrl(project.id, lightboxFile.id, true)}

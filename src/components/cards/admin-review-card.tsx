@@ -64,26 +64,26 @@ export function AdminReviewCard({
             {request.client} · {request.department}
           </p>
           <h3 className="text-[16px] font-bold leading-snug text-foreground">{request.baseName}</h3>
-          <p className="text-xs text-[#888888]">{request.structuredName || "Sin folio aún"}</p>
+          <p className="text-xs text-muted-foreground">{request.structuredName || "Sin folio aún"}</p>
         </div>
         <StatusBadge kind="request" value={request.status} />
       </div>
 
       {/* Description preview */}
       {request.description ? (
-        <p className="line-clamp-2 text-xs leading-relaxed text-[#A1A1AA]">{request.description}</p>
+        <p className="line-clamp-2 text-xs leading-relaxed text-ink-secondary">{request.description}</p>
       ) : null}
 
       {/* Requester */}
       {requesterName ? (
-        <p className="text-xs text-[#888888]">
-          <span className="font-semibold text-[#A1A1AA]">Solicitado por:</span> {requesterName}
+        <p className="text-xs text-muted-foreground">
+          <span className="font-semibold text-ink-secondary">Solicitado por:</span> {requesterName}
         </p>
       ) : null}
 
       {/* Duplicate warning */}
       {request.duplicateOfProjectId ? (
-        <div className="flex items-center gap-2 rounded-2xl bg-[#F5A524]/15 px-4 py-2.5 text-sm font-semibold text-[#F5A524] ring-1 ring-[#F5A524]/25">
+        <div className="flex items-center gap-2 rounded-2xl bg-brand/15 px-4 py-2.5 text-sm font-semibold text-brand ring-1 ring-brand/25">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Coincidencia con proyecto existente
         </div>
@@ -91,9 +91,9 @@ export function AdminReviewCard({
 
       {/* Approve confirm */}
       {mode === "approving" ? (
-        <div className="space-y-2.5 rounded-2xl border border-[#4ADE80]/20 bg-[#0D2417] p-3" onClick={(e) => e.stopPropagation()}>
-          <p className="text-xs font-bold text-[#4ADE80]">Confirmar aprobación</p>
-          <p className="text-xs text-[#888888]">
+        <div className="space-y-2.5 rounded-2xl border border-success/20 bg-[#0D2417] p-3" onClick={(e) => e.stopPropagation()}>
+          <p className="text-xs font-bold text-success">Confirmar aprobación</p>
+          <p className="text-xs text-muted-foreground">
             El servidor asignará el siguiente consecutivo disponible de forma atómica.
             {suggestedSequence ? (
               <>
@@ -106,14 +106,14 @@ export function AdminReviewCard({
             <button
               type="button"
               onClick={handleConfirmApprove}
-              className="flex-1 rounded-xl bg-[#166534]/30 py-2 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/20 transition hover:bg-[#166534]/50"
+              className="flex-1 rounded-xl bg-[#166534]/30 py-2 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-[#166534]/50"
             >
               Confirmar aprobación
             </button>
             <button
               type="button"
               onClick={() => setMode("idle")}
-              className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-bold text-[#888888] transition hover:text-white"
+              className="rounded-xl border border-border-default px-4 py-2 text-sm font-bold text-muted-foreground transition hover:text-foreground"
             >
               Cancelar
             </button>
@@ -128,7 +128,7 @@ export function AdminReviewCard({
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Motivo del rechazo (obligatorio)..."
-            className="w-full resize-none rounded-xl border border-[#3F3F46] bg-[#1F1F22] px-3 py-2 text-sm text-foreground outline-none focus:border-danger/50"
+            className="w-full resize-none rounded-xl border border-border-default bg-bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-danger/50"
             rows={2}
             autoFocus
           />
@@ -144,7 +144,7 @@ export function AdminReviewCard({
             <button
               type="button"
               onClick={() => { setMode("idle"); setRejectReason(""); }}
-              className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-bold text-[#888888] transition hover:text-white"
+              className="rounded-xl border border-border-default px-4 py-2 text-sm font-bold text-muted-foreground transition hover:text-foreground"
             >
               Cancelar
             </button>
@@ -159,7 +159,7 @@ export function AdminReviewCard({
             value={correctionReason}
             onChange={(e) => setCorrectionReason(e.target.value)}
             placeholder="Indica qué debe corregir el ingeniero..."
-            className="w-full resize-none rounded-xl border border-[#0EA5E9]/30 bg-[#0c1f2e] px-3 py-2 text-sm text-foreground outline-none focus:border-[#0EA5E9]/60"
+            className="w-full resize-none rounded-xl border border-info/30 bg-[#0c1f2e] px-3 py-2 text-sm text-foreground outline-none focus:border-info/60"
             rows={2}
             autoFocus
           />
@@ -168,14 +168,14 @@ export function AdminReviewCard({
               type="button"
               disabled={!correctionReason.trim()}
               onClick={handleConfirmCorrection}
-              className="flex-1 rounded-xl bg-[#0EA5E9]/15 py-2 text-sm font-bold text-[#0EA5E9] ring-1 ring-[#0EA5E9]/25 transition hover:bg-[#0EA5E9]/25 disabled:opacity-40"
+              className="flex-1 rounded-xl bg-info/15 py-2 text-sm font-bold text-info ring-1 ring-info/25 transition hover:bg-info/25 disabled:opacity-40"
             >
               Enviar corrección
             </button>
             <button
               type="button"
               onClick={() => { setMode("idle"); setCorrectionReason(""); }}
-              className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-bold text-[#888888] transition hover:text-white"
+              className="rounded-xl border border-border-default px-4 py-2 text-sm font-bold text-muted-foreground transition hover:text-foreground"
             >
               Cancelar
             </button>
@@ -184,15 +184,15 @@ export function AdminReviewCard({
       ) : null}
 
       {/* Footer */}
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-[#3F3F46] pt-3">
-        <p className="text-xs text-[#888888]">Ingresado: {formatDate(request.createdAt)}</p>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border-default pt-3">
+        <p className="text-xs text-muted-foreground">Ingresado: {formatDate(request.createdAt)}</p>
         {mode === "idle" ? (
           <div className="flex flex-wrap gap-2">
             {isPending && onApprove ? (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setMode("approving"); }}
-                className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-[#4ADE80] ring-1 ring-[#4ADE80]/20 transition hover:bg-[#166534]/40"
+                className="flex items-center gap-1.5 rounded-xl bg-[#166534]/20 px-3 py-1.5 text-sm font-bold text-success ring-1 ring-success/20 transition hover:bg-[#166534]/40"
               >
                 <Check className="h-3.5 w-3.5" />
                 Aprobar
@@ -202,7 +202,7 @@ export function AdminReviewCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setMode("correcting"); }}
-                className="flex items-center gap-1.5 rounded-xl bg-[#0EA5E9]/10 px-3 py-1.5 text-sm font-bold text-[#0EA5E9] ring-1 ring-[#0EA5E9]/20 transition hover:bg-[#0EA5E9]/20"
+                className="flex items-center gap-1.5 rounded-xl bg-info/10 px-3 py-1.5 text-sm font-bold text-info ring-1 ring-info/20 transition hover:bg-info/20"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 Solicitar corrección

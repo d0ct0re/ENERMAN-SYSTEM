@@ -11,26 +11,33 @@ import { notifications as notificationsSeed } from "@/data/notifications";
 import { projects as projectsSeed } from "@/data/projects";
 import { requests as requestsSeed } from "@/data/requests";
 import { users as usersSeed } from "@/data/users";
-import { AdminView } from "@/features/admin/admin-view";
+import { AdminView, AdminTab } from "@/features/admin/admin-view";
 import { EngineerView, EngineerTab } from "@/features/engineer/engineer-view";
 import { SupervisorView, SupervisorTab } from "@/features/supervisor/supervisor-view";
 import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead as apiMarkNotificationRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateNotifPrefs as apiUpdateNotifPrefs, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
+
+// ── localStorage seguro: nunca lanza aunque el navegador lo bloquee ───────────
+// Chrome en modo privado estricto o con cookies bloqueadas lanza SecurityError
+// al ACCEDER a window.localStorage (no solo al usarlo). El wrapper lo captura.
+const ls = {
+  get: (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } },
+  set: (key: string, val: string): void => { try { localStorage.setItem(key, val); } catch {} },
+  remove: (key: string): void => { try { localStorage.removeItem(key); } catch {} },
+};
 
 // ── Caché local: guarda el último estado conocido en localStorage ──────────────
 const CACHE_KEY = "amper-state-v1";
 const CACHE_TTL = 48 * 60 * 60 * 1000; // 48 horas
 
 // ── Notificaciones de fecha: dismissed y leídas se guardan en localStorage ────
-// Las notificaciones de fecha son efímeras (no se persisten en BD).
-// La clave base es: important-date-{projectId}-{itemId}
 const DISMISSED_DATE_KEYS_KEY = "amper-dismissed-date-notifs";
 const READ_DATE_KEYS_KEY      = "amper-read-date-notifs";
 const loadLocalSet = (key: string): Set<string> => {
-  try { return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]); }
+  try { return new Set(JSON.parse(ls.get(key) ?? "[]") as string[]); }
   catch { return new Set(); }
 };
 const saveLocalSet = (key: string, set: Set<string>): void => {
-  try { localStorage.setItem(key, JSON.stringify([...set])); } catch { }
+  ls.set(key, JSON.stringify([...set]));
 };
 
 function saveStateCache(payload: import("@/lib/api").AppStatePayload): void {
@@ -54,17 +61,11 @@ import { ActivityLogItem, NotificationItem, ProjectItem, RequestItem, RoleKey, U
 const splashLogoUrl = "/logo%20entrada.png";
 const wordmarkLogoUrl = "/logo.png";
 
-type AdminTab = "review" | "allprojects" | "active" | "completed" | "cancelled" | "unpaid" | "rejected" | "correction" | "calendar" | "users" | "projects" | "requests" | "activity" | "cobros";
-
-
 export default function App(): JSX.Element {
-  const [activeUserId, setActiveUserId] = useState<string | null>(() => window.localStorage.getItem("projectra-active-user"));
+  const [activeUserId, setActiveUserId] = useState<string | null>(() => ls.get("projectra-active-user"));
   const [signedInUserIds, setSignedInUserIds] = useState<string[]>(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem("projectra-sessions") ?? "[]") as string[];
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(ls.get("projectra-sessions") ?? "[]") as string[]; }
+    catch { return []; }
   });
   const [showLogin, setShowLogin] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -296,12 +297,12 @@ export default function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem("projectra-sessions", JSON.stringify(signedInUserIds));
+    ls.set("projectra-sessions", JSON.stringify(signedInUserIds));
 
     if (activeUserId) {
-      window.localStorage.setItem("projectra-active-user", activeUserId);
+      ls.set("projectra-active-user", activeUserId);
     } else {
-      window.localStorage.removeItem("projectra-active-user");
+      ls.remove("projectra-active-user");
     }
   }, [activeUserId, signedInUserIds]);
 
@@ -1820,17 +1821,17 @@ export default function App(): JSX.Element {
     <div className="dashboard-shell gap-6">
       {/* ── Banner "sin conexión" — generador de emergencia ── */}
       {isOffline && (
-        <div className="fixed inset-x-0 top-0 z-[9999] flex items-center justify-between gap-3 bg-[#1A0A00] px-4 py-2.5 text-sm shadow-lg border-b border-[#F5A524]/30">
+        <div className="fixed inset-x-0 top-0 z-[9999] flex items-center justify-between gap-3 bg-[#1A0A00] px-4 py-2.5 text-sm shadow-lg border-b border-brand/30">
           <div className="flex items-center gap-2.5">
-            <span className="inline-block h-2 w-2 rounded-full bg-[#F5A524] animate-pulse" />
-            <span className="font-semibold text-[#F5A524]">Sistema sin conexión</span>
-            <span className="text-[#A1A1AA]">
+            <span className="inline-block h-2 w-2 rounded-full bg-brand animate-pulse" />
+            <span className="font-semibold text-brand">Sistema sin conexión</span>
+            <span className="text-ink-secondary">
               — mostrando datos guardados
               {cacheTimestamp ? ` del ${new Date(cacheTimestamp).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
               .{" "}Los cambios no se guardarán hasta que el servidor responda.
             </span>
           </div>
-          <span className="shrink-0 text-xs text-[#52525B]">
+          <span className="shrink-0 text-xs text-ink-tertiary">
             {offlineSince ? `Sin conexión desde ${offlineSince.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}` : ""}
           </span>
         </div>
@@ -2063,7 +2064,7 @@ export default function App(): JSX.Element {
       />
 
       {toastMessage ? (
-        <div className="fixed bottom-6 right-6 z-[70] rounded-2xl border border-white/80 bg-primary px-5 py-4 text-sm font-semibold text-white shadow-panel">
+        <div className="fixed bottom-6 right-6 z-[70] rounded-2xl border border-white/80 bg-primary px-5 py-4 text-sm font-semibold text-foreground shadow-panel">
           {toastMessage}
         </div>
       ) : null}
@@ -2164,9 +2165,9 @@ function LoginView({
 
   return (
     <div className="dashboard-shell items-center justify-center">
-      <div className="w-full max-w-5xl overflow-hidden rounded-[32px] border border-[#3F3F46] bg-[#27272A] shadow-panel">
+      <div className="w-full max-w-5xl overflow-hidden rounded-[32px] border border-border-default bg-surface-elevated shadow-panel">
         <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="flex flex-col justify-center bg-[#1E1E20] p-8">
+          <div className="flex flex-col justify-center bg-surface p-8">
             <div className="w-full max-w-[320px] overflow-hidden rounded-[24px] border border-accent/30 bg-black shadow-glow-gold">
               <img
                 src={wordmarkLogoUrl}
@@ -2175,11 +2176,11 @@ function LoginView({
                 draggable={false}
               />
             </div>
-            <h1 className="mt-8 text-3xl font-bold tracking-tight text-white">Bienvenido</h1>
-            <p className="mt-2 text-sm leading-6 text-[#71717A]">
+            <h1 className="mt-8 text-3xl font-bold tracking-tight text-foreground">Bienvenido</h1>
+            <p className="mt-2 text-sm leading-6 text-ink-tertiary">
               Ingresa con tu correo y contraseña institucionales. Si no tienes acceso, contacta al administrador del sistema.
             </p>
-            <p className="mt-4 text-xs text-[#52525B]">ENERMAN — Uso exclusivo personal interno</p>
+            <p className="mt-4 text-xs text-ink-tertiary">ENERMAN — Uso exclusivo personal interno</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5 p-8">
@@ -2189,12 +2190,12 @@ function LoginView({
             </div>
 
             <label className="block space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Correo</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Correo</span>
               <Input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="correo@enerman.com.mx" autoComplete="off" />
             </label>
 
             <label className="block space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Contraseña</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Contraseña</span>
               <div className="relative">
                 <Input
                   ref={passwordRef}
@@ -2208,7 +2209,7 @@ function LoginView({
                 <button
                   type="button"
                   onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#A1A1AA] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-ink-secondary transition hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -2231,7 +2232,7 @@ function LoginView({
             </Button>
 
             {import.meta.env.DEV ? (
-              <div className="rounded-2xl border border-[#3F3F46] bg-[#313136] p-4 text-xs leading-5 text-[#A1A1AA]">
+              <div className="rounded-2xl border border-border-default bg-muted p-4 text-xs leading-5 text-ink-secondary">
                 Cuenta Gestor del sistema inicial: amper.enerman@gmail.com
               </div>
             ) : null}

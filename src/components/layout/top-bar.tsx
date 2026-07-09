@@ -63,7 +63,6 @@ export function TopBar({
     setMobileMenuOpen(false);
   };
 
-  // Cerrar dropdowns al hacer clic fuera
   useEffect(() => {
     const handleClick = (e: MouseEvent): void => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
@@ -97,8 +96,8 @@ export function TopBar({
   }, [accountMenuOpen, mobileMenuOpen]);
 
   const NotifDropdown = (): JSX.Element => (
-    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-96 rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel">
-      <div className="flex items-center justify-between border-b border-[#3F3F46] px-4 py-3">
+    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-96 rounded-[24px] border border-border-default bg-surface shadow-panel">
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
         <p className="text-sm font-bold text-foreground">Notificaciones</p>
         {unreadCount > 0 ? (
           <button
@@ -119,7 +118,7 @@ export function TopBar({
             <div
               key={n.id}
               className={cn(
-                "group flex w-full gap-3 px-4 py-3 transition hover:bg-[#27272A]",
+                "group flex w-full gap-3 px-4 py-3 transition hover:bg-surface-elevated",
                 !n.isRead && "bg-accent/[0.04]",
               )}
             >
@@ -134,13 +133,13 @@ export function TopBar({
               >
                 <span className={cn(
                   "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                  n.isRead ? "bg-[#3F3F46]" : "bg-accent",
+                  n.isRead ? "bg-border-default" : "bg-accent",
                 )} />
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block text-sm leading-snug", !n.isRead ? "font-semibold text-foreground" : "font-medium text-[#A1A1AA]")}>
+                  <span className={cn("block text-sm leading-snug", !n.isRead ? "font-semibold text-foreground" : "font-medium text-ink-secondary")}>
                     {n.title}
                   </span>
-                  <span className="mt-0.5 block text-xs text-[#71717A]">{n.description}</span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">{n.description}</span>
                   <span className="mt-1 block text-[11px] text-[#52525B]">{timeAgo(n.createdAt)}</span>
                 </span>
               </button>
@@ -171,7 +170,7 @@ export function TopBar({
         <div className="flex items-center gap-4">
           <AmperLogo onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
           <div className="hidden lg:block">
-            <p className="text-xs font-medium leading-relaxed text-[#888888]">
+            <p className="text-xs font-medium leading-relaxed text-muted-foreground">
               Gestión centralizada de proyectos, pagos y solicitudes eléctricas
             </p>
           </div>
@@ -180,7 +179,7 @@ export function TopBar({
         {/* Desktop nav */}
         <div className="hidden items-center gap-3 lg:flex">
           <div className="relative w-[300px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888888]" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -194,12 +193,12 @@ export function TopBar({
             <button
               type="button"
               onClick={() => { setNotifOpen((p) => !p); setAccountMenuOpen(false); }}
-              className="relative cursor-pointer rounded-full border border-[#3F3F46] bg-[#27272A] p-3 text-[#888888] shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
+              className="relative cursor-pointer rounded-full border border-border-default bg-surface-elevated p-3 text-muted-foreground shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
               aria-label="Notificaciones"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-foreground">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               ) : null}
@@ -212,19 +211,19 @@ export function TopBar({
             <button
               type="button"
               onClick={() => { setAccountMenuOpen((p) => !p); setNotifOpen(false); }}
-              className="flex cursor-pointer items-center gap-3 rounded-full border border-[#3F3F46] bg-[#27272A] px-3 py-2 shadow-soft transition hover:border-accent/20 hover:bg-[#313136]"
+              className="flex cursor-pointer items-center gap-3 rounded-full border border-border-default bg-surface-elevated px-3 py-2 shadow-soft transition hover:border-accent/20 hover:bg-muted"
             >
               <Avatar initials={activeUser.avatar} className="h-10 w-10 text-xs" />
               <div className="text-left">
                 <p className="text-sm font-semibold text-foreground">{activeUser.name}</p>
-                <p className="text-xs text-[#888888]">{activeUser.roleLabel}</p>
+                <p className="text-xs text-muted-foreground">{activeUser.roleLabel}</p>
               </div>
-              <ChevronDown className="h-4 w-4 text-[#888888]" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
 
             {accountMenuOpen ? (
-              <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-80 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-3 shadow-panel">
-                <div className="mb-2 flex items-center gap-2 px-2 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#888888]">
+              <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-80 rounded-[24px] border border-border-default bg-surface-elevated p-3 shadow-panel">
+                <div className="mb-2 flex items-center gap-2 px-2 py-2 text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
                   <UsersRound className="h-4 w-4" />
                   Cambiar cuenta
                 </div>
@@ -237,14 +236,14 @@ export function TopBar({
                       className={cn(
                         "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
                         account.id === activeUser.id
-                          ? "bg-[#3F3F46] text-foreground"
-                          : "hover:bg-[#313136] text-[#BCBCBC] hover:text-foreground",
+                          ? "bg-border-default text-foreground"
+                          : "hover:bg-muted text-[#BCBCBC] hover:text-foreground",
                       )}
                     >
                       <Avatar initials={account.avatar} className="h-9 w-9 text-xs" />
                       <span>
                         <span className="block text-sm font-semibold">{account.name}</span>
-                        <span className="block text-xs text-[#888888]">{account.roleLabel}</span>
+                        <span className="block text-xs text-muted-foreground">{account.roleLabel}</span>
                       </span>
                     </button>
                   ))}
@@ -277,9 +276,9 @@ export function TopBar({
 
       {/* Mobile menu */}
       {mobileMenuOpen ? (
-        <div className="mt-4 space-y-4 border-t border-[#3F3F46] pt-4 lg:hidden">
+        <div className="mt-4 space-y-4 border-t border-border-default pt-4 lg:hidden">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888888]" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -288,25 +287,25 @@ export function TopBar({
             />
           </div>
 
-          <div className="rounded-2xl border border-[#3F3F46] bg-[#27272A] p-3">
+          <div className="rounded-2xl border border-border-default bg-surface-elevated p-3">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar initials={activeUser.avatar} />
                 <div>
                   <p className="text-sm font-semibold text-foreground">{activeUser.name}</p>
-                  <p className="text-xs text-[#888888]">{activeUser.roleLabel}</p>
+                  <p className="text-xs text-muted-foreground">{activeUser.roleLabel}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => { setNotifOpen((p) => !p); setMobileMenuOpen(false); }}
-                className="flex cursor-pointer items-center gap-2 rounded-full bg-[#313136] px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent/10 hover:text-accent"
+                className="flex cursor-pointer items-center gap-2 rounded-full bg-muted px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent/10 hover:text-accent"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 ? unreadCount : ""}
               </button>
             </div>
-            <div className="space-y-1 border-t border-[#3F3F46] pt-3">
+            <div className="space-y-1 border-t border-border-default pt-3">
               {accounts.map((account) => (
                 <button
                   key={account.id}
@@ -314,13 +313,13 @@ export function TopBar({
                   onClick={() => handleAccountChange(account.id)}
                   className={cn(
                     "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
-                    account.id === activeUser.id ? "bg-[#3F3F46]" : "hover:bg-[#313136]",
+                    account.id === activeUser.id ? "bg-border-default" : "hover:bg-muted",
                   )}
                 >
                   <Avatar initials={account.avatar} className="h-9 w-9 text-xs" />
                   <span>
                     <span className="block text-sm font-semibold text-foreground">{account.name}</span>
-                    <span className="block text-xs text-[#888888]">{account.roleLabel}</span>
+                    <span className="block text-xs text-muted-foreground">{account.roleLabel}</span>
                   </span>
                 </button>
               ))}

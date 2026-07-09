@@ -101,7 +101,7 @@ export function EngineerView({
             <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
           ))}
           {displayed.length === 0 && (
-            <p className="py-10 text-center text-sm text-[#888888]">Sin proyectos</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">Sin proyectos</p>
           )}
         </div>
       ) : null}
@@ -119,8 +119,8 @@ export function EngineerView({
       {tab === "requests" ? (
         <div className="space-y-3">
           {sortedRequests.length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">No has enviado solicitudes</p>
+            <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+              <p className="text-sm font-semibold text-muted-foreground">No has enviado solicitudes</p>
               <button
                 type="button"
                 onClick={onOpenNewRequest}
@@ -133,23 +133,23 @@ export function EngineerView({
             sortedRequests.map((req) => (
               <div
                 key={req.id}
-                className="rounded-[20px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-2"
+                className="rounded-[20px] border border-border-default bg-surface-elevated p-4 space-y-2"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
                     {req.client} · {req.department}
                   </span>
-                  <span className="ml-auto text-xs text-[#888888]">
+                  <span className="ml-auto text-xs text-muted-foreground">
                     {new Date(req.createdAt).toLocaleDateString("es-MX", {
                       day: "2-digit", month: "short", year: "numeric",
                     })}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName}</p>
+                <p className="text-xs text-muted-foreground">{req.structuredName}</p>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-[#A1A1AA]">
+                  <p className="text-xs font-semibold text-ink-secondary">
                     {REQUEST_STATUS_LABELS[req.status] ?? req.status}
                   </p>
                   {req.status === "approved" && req.linkedProjectId ? (
@@ -164,7 +164,7 @@ export function EngineerView({
                   ) : null}
                 </div>
                 {req.rejectionReason ? (
-                  <div className="rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                  <div className="rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-ink-secondary">
                     <span className="font-bold text-danger">Motivo: </span>
                     {req.rejectionReason}
                   </div>
@@ -179,42 +179,39 @@ export function EngineerView({
       {tab === "correction" ? (
         <div className="space-y-3">
           {correctionRequests.length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">Sin solicitudes en corrección</p>
+            <div className="rounded-[28px] border border-dashed border-border-default py-16 text-center">
+              <p className="text-sm font-semibold text-muted-foreground">Sin solicitudes en corrección</p>
             </div>
           ) : (
             correctionRequests.map((req) => (
               <div
                 key={req.id}
-                className="cursor-pointer rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2 transition hover:border-[#0EA5E9]/50 hover:bg-[#0d2535]"
+                className="cursor-pointer rounded-[20px] border border-info/25 bg-[#0c1f2e] p-4 space-y-2 transition hover:border-info/50 hover:bg-[#0d2535]"
                 onClick={() => setCorrectionDialogReq(req)}
               >
-                {/* Header */}
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge kind="request" value={req.status} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-info">
                     {req.client} · {req.department}
                   </span>
-                  <span className="ml-auto text-xs text-[#888888]">
+                  <span className="ml-auto text-xs text-muted-foreground">
                     {new Date(req.createdAt).toLocaleDateString("es-MX", {
                       day: "2-digit", month: "short", year: "numeric",
                     })}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                <p className="text-xs text-muted-foreground">{req.structuredName || "Sin folio"}</p>
 
-                {/* Motivo de corrección */}
                 {req.correctionReason ? (
-                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
-                    <span className="font-bold text-[#0EA5E9]">Corrección requerida: </span>
+                  <div className="rounded-xl border border-info/15 bg-info/5 px-3 py-2 text-xs text-ink-secondary">
+                    <span className="font-bold text-info">Corrección requerida: </span>
                     {req.correctionReason}
                   </div>
                 ) : null}
 
-                {/* CTA */}
                 <div className="flex items-center justify-end pt-1">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-[#0EA5E9]">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-info">
                     <Pencil className="h-3.5 w-3.5" />
                     Abrir y corregir
                   </span>
@@ -225,7 +222,6 @@ export function EngineerView({
         </div>
       ) : null}
 
-      {/* Diálogo de corrección */}
       {correctionDialogReq ? (
         <CorrectionRequestDialog
           open={correctionDialogReq !== null}
@@ -244,7 +240,7 @@ export function EngineerView({
         <button
           type="button"
           onClick={onOpenNewRequest}
-          className="flex h-14 items-center gap-2.5 rounded-full bg-accent px-5 text-sm font-bold text-[#111111] shadow-glow-gold transition hover:bg-accent/90"
+          className="flex h-14 items-center gap-2.5 rounded-full bg-accent px-5 text-sm font-bold text-brand-fg shadow-glow-gold transition hover:bg-accent/90"
         >
           <Plus className="h-5 w-5" />
           Nueva solicitud

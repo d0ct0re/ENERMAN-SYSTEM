@@ -9,17 +9,17 @@ const labels: Record<PriorityLevel, string> = {
 };
 
 const tones: Record<PriorityLevel, string> = {
-  low:      "bg-[#3F3F46] text-[#888888]",
+  low:      "bg-border-default text-muted-foreground",
   medium:   "bg-secondary/15 text-secondary ring-1 ring-secondary/30",
-  high:     "bg-[#F5A524]/15 text-[#F5A524] ring-1 ring-[#F5A524]/30",
-  critical: "bg-[#E24B4A]/15 text-[#E24B4A] ring-1 ring-[#E24B4A]/30 shadow-glow-danger",
+  high:     "bg-brand/15 text-brand ring-1 ring-brand/30",
+  critical: "bg-danger/15 text-danger ring-1 ring-danger/30 shadow-glow-danger",
 };
 
 const dots: Record<PriorityLevel, string> = {
-  low:      "bg-[#71717A]",
+  low:      "bg-ink-tertiary",
   medium:   "bg-secondary",
-  high:     "bg-[#F5A524]",
-  critical: "bg-[#E24B4A] animate-pulse",
+  high:     "bg-brand",
+  critical: "bg-danger animate-pulse",
 };
 
 export function PriorityBadge({ priority }: { priority: PriorityLevel }): JSX.Element {

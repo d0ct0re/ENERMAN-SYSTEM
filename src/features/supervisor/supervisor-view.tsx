@@ -59,8 +59,6 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
   const [yearFilter, setYearFilter] = useState("Todos");
   const [sortFilter, setSortFilter] = useState("Reciente ↓");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
-
-  // Request sort
   const [reqSort, setReqSort] = useState<{ field: string; dir: SortDir }>({ field: "createdAt", dir: "desc" });
 
   const clients = useMemo(() => ["Todos", ...new Set(projects.map((p) => p.client))], [projects]);
@@ -164,23 +162,12 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
   };
 
   const SortTh = ({
-    field,
-    label,
-    current,
-    setter,
-    className,
+    field, label, current, setter, className,
   }: {
-    field: string;
-    label: string;
-    current: { field: string; dir: SortDir };
-    setter: (v: { field: string; dir: SortDir }) => void;
-    className?: string;
+    field: string; label: string; current: { field: string; dir: SortDir }; setter: (v: { field: string; dir: SortDir }) => void; className?: string;
   }) => (
-    <th
-      className={cn("px-6 py-3 text-left select-none", className)}
-      onClick={() => toggleSort(current, field, setter)}
-    >
-      <button type="button" className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#888888] hover:text-accent transition-colors">
+    <th className={cn("px-6 py-3 text-left select-none", className)} onClick={() => toggleSort(current, field, setter)}>
+      <button type="button" className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-accent transition-colors">
         {label}
         {current.field === field ? (
           current.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
@@ -209,12 +196,12 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
       {/* ── Cards de resumen ejecutivo ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: "Por revisar", value: summary.porRevisar, icon: ShieldAlert, border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
-          { title: "Proyectos activos", value: summary.activos, icon: FolderOpenDot, border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
-          { title: "No pagados", value: summary.noPagados, icon: BadgeDollarSign, border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger" },
-          { title: "Rechazadas", value: summary.rechazadas, icon: AlertTriangle, border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
+          { title: "Por revisar",      value: summary.porRevisar, icon: ShieldAlert,       border: "border-brand/20",      iconBg: "bg-brand/15 text-brand",       labelColor: "text-brand",       accent: "bg-brand" },
+          { title: "Proyectos activos",value: summary.activos,    icon: FolderOpenDot,      border: "border-secondary/20",  iconBg: "bg-secondary/15 text-secondary",labelColor: "text-secondary",   accent: "bg-secondary" },
+          { title: "No pagados",       value: summary.noPagados,  icon: BadgeDollarSign,    border: "border-danger/20",     iconBg: "bg-danger/15 text-danger",     labelColor: "text-danger",      accent: "bg-danger" },
+          { title: "Rechazadas",       value: summary.rechazadas, icon: AlertTriangle,      border: "border-border-default",iconBg: "bg-border-default text-muted-foreground", labelColor: "text-muted-foreground",       accent: "bg-border-strong" },
         ].map((card) => (
-          <Card key={card.title} className={`relative overflow-hidden border bg-[#27272A] ${card.border}`}>
+          <Card key={card.title} className={`relative overflow-hidden border bg-surface-elevated ${card.border}`}>
             <div className={`absolute left-0 top-0 h-full w-1 ${card.accent}`} />
             <div className="flex items-start justify-between gap-3 pl-3">
               <div className="flex-1">
@@ -233,70 +220,34 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
         options={[
           { key: "open", label: "No concluidos", count: projects.filter((p) => p.status !== "completed").length },
           { key: "closed", label: "Concluidos", count: projects.filter((p) => p.status === "completed").length },
-          {
-            key: "calendar",
-            label: "Calendario",
-            count: projects.reduce((t, p) => t + (p.commitmentDate ? 1 : 0) + (p.importantDates?.length ?? 0), 0),
-          },
+          { key: "calendar", label: "Calendario", count: projects.reduce((t, p) => t + (p.commitmentDate ? 1 : 0) + (p.importantDates?.length ?? 0), 0) },
           { key: "requests", label: "Solicitudes", count: requests.length },
         ]}
       />
 
-      {/* ── Proyectos (abiertos / cerrados) ── */}
+      {/* ── Proyectos ── */}
       {(tab === "open" || tab === "closed") ? (
         <>
-          {/* Toolbar compacta */}
-          <div className="flex flex-col gap-3 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 shadow-soft sm:p-5">
+          <div className="flex flex-col gap-3 rounded-[24px] border border-border-default bg-surface-elevated p-4 shadow-soft sm:p-5">
             <div className="flex items-center gap-3">
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar proyectos…"
-                className="flex-1 h-10"
-              />
-              {/* Vista toggle */}
-              <div className="flex rounded-xl border border-[#3F3F46] overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("cards")}
-                  className={cn(
-                    "flex items-center px-3 py-2 text-sm transition",
-                    viewMode === "cards" ? "bg-accent text-[#111111]" : "text-[#888888] hover:text-foreground",
-                  )}
-                  aria-label="Vista tarjetas"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("table")}
-                  className={cn(
-                    "flex items-center px-3 py-2 text-sm border-l border-[#3F3F46] transition",
-                    viewMode === "table" ? "bg-accent text-[#111111]" : "text-[#888888] hover:text-foreground",
-                  )}
-                  aria-label="Vista tabla"
-                >
-                  <LayoutList className="h-4 w-4" />
-                </button>
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar proyectos…" className="flex-1 h-10" />
+              <div className="flex rounded-xl border border-border-default overflow-hidden">
+                <button type="button" onClick={() => setViewMode("cards")}
+                  className={cn("flex items-center px-3 py-2 text-sm transition", viewMode === "cards" ? "bg-accent text-brand-fg" : "text-muted-foreground hover:text-foreground")}
+                  aria-label="Vista tarjetas"><LayoutGrid className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setViewMode("table")}
+                  className={cn("flex items-center px-3 py-2 text-sm border-l border-border-default transition", viewMode === "table" ? "bg-accent text-brand-fg" : "text-muted-foreground hover:text-foreground")}
+                  aria-label="Vista tabla"><LayoutList className="h-4 w-4" /></button>
               </div>
             </div>
-            {/* Pills de año */}
             <div className="flex flex-wrap gap-1.5">
               {years.map((y) => (
-                <button
-                  key={y}
-                  type="button"
-                  onClick={() => setYearFilter(y)}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-bold transition",
-                    yearFilter === y
-                      ? "bg-accent text-[#111111]"
-                      : "bg-[#3F3F46] text-[#A1A1AA] hover:bg-[#52525B] hover:text-foreground",
-                  )}
-                >{y}</button>
+                <button key={y} type="button" onClick={() => setYearFilter(y)}
+                  className={cn("rounded-full px-3 py-1 text-xs font-bold transition",
+                    yearFilter === y ? "bg-accent text-brand-fg" : "bg-border-default text-ink-secondary hover:bg-border-strong hover:text-foreground"
+                  )}>{y}</button>
               ))}
             </div>
-            {/* Filtros en línea */}
             <div className="flex flex-wrap gap-2">
               <CompactSelect label="Cliente" options={clients} value={clientFilter} onChange={setClientFilter} />
               <CompactSelect label="Depto." options={departments} value={departmentFilter} onChange={setDepartmentFilter} />
@@ -310,8 +261,7 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
               <CompactSelect label="Fotos" options={fotosOptions} value={fotosFilter} onChange={setFotosFilter} />
               <CompactSelect label="Ordenar" options={sortOptions} value={sortFilter} onChange={setSortFilter} />
             </div>
-            {/* Contador siempre visible */}
-            <p className="text-xs text-[#888888]">
+            <p className="text-xs text-muted-foreground">
               Mostrando {filteredProjects.length} de {projects.filter((p) => tab === "open" ? p.status !== "completed" : p.status === "completed").length} proyecto{projects.length !== 1 ? "s" : ""}
               {hasFilters && (
                 <button type="button" onClick={clearFilters} className="ml-3 text-accent hover:underline">Limpiar filtros</button>
@@ -319,22 +269,21 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
             </p>
           </div>
 
-          {/* Resultados */}
           {viewMode === "cards" ? (
             <div className="space-y-3">
               {filteredProjects.map((project) => (
                 <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
               ))}
               {filteredProjects.length === 0 && (
-                <p className="py-10 text-center text-sm text-[#888888]">Sin proyectos para los filtros seleccionados</p>
+                <p className="py-10 text-center text-sm text-muted-foreground">Sin proyectos para los filtros seleccionados</p>
               )}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-[24px] border border-[#3F3F46] bg-[#27272A] shadow-soft">
+            <div className="overflow-hidden rounded-[24px] border border-border-default bg-surface-elevated shadow-soft">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[#3F3F46] text-xs font-semibold uppercase tracking-[0.14em] text-[#888888]">
+                    <tr className="border-b border-border-default text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       <th className="px-5 py-3 text-left">Folio</th>
                       <th className="px-5 py-3 text-left">Nombre</th>
                       <th className="px-5 py-3 text-left">Cliente</th>
@@ -344,35 +293,25 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
                       <th className="px-5 py-3 text-left">Compromiso</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#3F3F46]">
+                  <tbody className="divide-y divide-border-default">
                     {filteredProjects.map((project) => {
                       const [seq] = project.structuredName?.split("-") ?? ["—"];
                       return (
-                        <tr
-                          key={project.id}
-                          className="cursor-pointer transition hover:bg-[#313136]"
-                          onClick={() => onOpenProject(project.id)}
-                        >
+                        <tr key={project.id} className="cursor-pointer transition hover:bg-muted" onClick={() => onOpenProject(project.id)}>
                           <td className="px-5 py-3 font-mono text-xs text-accent">{seq}</td>
                           <td className="px-5 py-3 font-medium text-foreground max-w-[220px] truncate">{project.baseName}</td>
-                          <td className="px-5 py-3 text-[#A1A1AA] max-w-[120px] truncate">{project.client}</td>
-                          <td className="px-5 py-3 text-[#888888]">{project.type}</td>
+                          <td className="px-5 py-3 text-ink-secondary max-w-[120px] truncate">{project.client}</td>
+                          <td className="px-5 py-3 text-muted-foreground">{project.type}</td>
                           <td className="px-5 py-3"><StatusBadge kind="project" value={project.status} /></td>
                           <td className="px-5 py-3"><StatusBadge kind="payment" value={project.paymentStatus} /></td>
-                          <td className="px-5 py-3 text-[#888888]">
-                            {project.commitmentDate
-                              ? new Date(project.commitmentDate).toLocaleDateString("es-MX")
-                              : "—"}
+                          <td className="px-5 py-3 text-muted-foreground">
+                            {project.commitmentDate ? new Date(project.commitmentDate).toLocaleDateString("es-MX") : "—"}
                           </td>
                         </tr>
                       );
                     })}
                     {filteredProjects.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-10 text-center text-sm text-[#888888]">
-                          Sin resultados
-                        </td>
-                      </tr>
+                      <tr><td colSpan={7} className="px-6 py-10 text-center text-sm text-muted-foreground">Sin resultados</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -386,47 +325,40 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
         <ProjectCalendar projects={projects} onOpenProject={onOpenProject} showSideList />
       ) : null}
 
-      {/* ── Solicitudes con ordenamiento ── */}
+      {/* ── Solicitudes ── */}
       {tab === "requests" ? (
-        <div className="overflow-hidden rounded-[28px] border border-[#3F3F46] bg-[#27272A] shadow-panel">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#3F3F46]">
+        <div className="overflow-hidden rounded-[28px] border border-border-default bg-surface-elevated shadow-panel">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border-default">
             <h3 className="text-sm font-bold text-foreground">Todas las solicitudes</h3>
-            <span className="rounded-full bg-[#3F3F46] px-3 py-1 text-xs font-semibold text-[#A1A1AA]">Solo lectura</span>
+            <span className="rounded-full bg-border-default px-3 py-1 text-xs font-semibold text-ink-secondary">Solo lectura</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#3F3F46]">
+                <tr className="border-b border-border-default">
                   <SortTh field="baseName" label="Proyecto" current={reqSort} setter={setReqSort} />
                   <SortTh field="client" label="Cliente" current={reqSort} setter={setReqSort} />
                   <SortTh field="status" label="Estado" current={reqSort} setter={setReqSort} />
                   <SortTh field="createdAt" label="Fecha" current={reqSort} setter={setReqSort} />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#3F3F46]">
+              <tbody className="divide-y divide-border-default">
                 {sortedRequests.map((req) => (
-                  <tr key={req.id} className="hover:bg-[#313136] transition-colors">
+                  <tr key={req.id} className="hover:bg-muted transition-colors">
                     <td className="px-6 py-3 font-medium text-foreground">{req.baseName}</td>
-                    <td className="px-6 py-3 text-[#A1A1AA]">{req.client}</td>
+                    <td className="px-6 py-3 text-ink-secondary">{req.client}</td>
                     <td className="px-6 py-3"><StatusBadge kind="request" value={req.status} /></td>
-                    <td className="px-6 py-3 text-[#888888]">
-                      {new Date(req.createdAt).toLocaleDateString("es-MX")}
-                    </td>
+                    <td className="px-6 py-3 text-muted-foreground">{new Date(req.createdAt).toLocaleDateString("es-MX")}</td>
                   </tr>
                 ))}
                 {requests.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-sm text-[#888888]">
-                      No hay solicitudes registradas
-                    </td>
-                  </tr>
+                  <tr><td colSpan={4} className="px-6 py-8 text-center text-sm text-muted-foreground">No hay solicitudes registradas</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
       ) : null}
-
     </section>
   );
 }
@@ -451,27 +383,23 @@ function CompactSelect({ label, options, value, onChange }: { label: string; opt
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors ${
-          isActive
-            ? "border-accent/40 bg-accent/10"
-            : "border-[#3F3F46] bg-[#313136] hover:border-white/20"
+          isActive ? "border-accent/40 bg-accent/10" : "border-border-default bg-muted hover:border-white/20"
         }`}
       >
-        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-[#888888]"}`}>{label}</span>
+        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-muted-foreground"}`}>{label}</span>
         <span className={`max-w-[140px] truncate text-xs font-semibold ${isActive ? "text-accent" : "text-foreground"}`}>{value}</span>
-        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-[#888888]"}`} />
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-muted-foreground"}`} />
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-border-default bg-surface p-1.5 shadow-xl">
           {options.map((opt) => (
             <button
               key={opt}
               type="button"
               onClick={() => { onChange(opt); setOpen(false); }}
               className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
-                opt === value
-                  ? "bg-accent/15 text-accent"
-                  : "text-[#A1A1AA] hover:bg-[#313136] hover:text-foreground"
+                opt === value ? "bg-accent/15 text-accent" : "text-ink-secondary hover:bg-muted hover:text-foreground"
               }`}
             >
               {opt}
