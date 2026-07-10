@@ -431,3 +431,39 @@ function getOrInitSequence(): int
         ->execute([':v' => $initial]);
     return $initial;
 }
+
+/**
+ * Migraciones de esquema auto-aplicables.
+ * Usa sequence_counters como registro de migraciones ya ejecutadas (persiste en MySQL).
+ * Cada migración es idempotente — puede correr N veces sin daño.
+ * NUNCA lanzar excepción hacia arriba: las migraciones no deben bloquear el API.
+ */
+function ensureMigrations(): void
+{
+    try {
+        ensureSequenceTable(); // crea sequence_counters si no existe
+
+        // ── Migración 1: activity_logs.details TEXT → MEDIUMTEXT ─────────────────
+        // TEXT aguanta 64 KB. Un proyecto con comentarios, gastos, facturas e historial
+        // puede exceder ese límite cuando se guarda el payload_backup en delete_project.
+        // MEDIUMTEXT aguanta 16 MB — suficiente para cualquier proyecto.
+        $done = db()->prepare("SELECT 1 FROM sequence_counters WHERE name = 'mig_001_details_mediumtext'");
+        $done->execute();
+        if (!$done->fetch()) {
+            $col = db()->query(
+                "SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME   = 'activity_logs'
+                   AND COLUMN_NAME  = 'details'"
+            )->fetch();
+            // Solo altera si la columna existe y no es ya MEDIUMTEXT (evita rebuild innecesario)
+            if ($col && strtoupper($col['COLUMN_TYPE']) !== 'MEDIUMTEXT') {
+                db()->exec("ALTER TABLE activity_logs MODIFY COLUMN details MEDIUMTEXT NULL");
+            }
+            db()->exec("INSERT IGNORE INTO sequence_counters (name, value) VALUES ('mig_001_details_mediumtext', 1)");
+        }
+    } catch (\Throwable $e) {
+        error_log('[AMPR migration] ' . $e->getMessage());
+        // No bloquear el flujo principal si una migración falla
+    }
+}

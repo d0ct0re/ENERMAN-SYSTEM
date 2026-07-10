@@ -11,10 +11,13 @@ if ($action === 'delete_project') {
         echo json_encode(['error' => 'project_id requerido.']);
         exit;
     }
-    // Buscar nombre para log antes de borrar
+    // Buscar payload completo antes de borrar — único momento en que existe
     $project = null;
-    foreach (tableRows('projects') as $candidate) {
-        if (($candidate['id'] ?? '') === $projectId) { $project = $candidate; break; }
+    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    $stmt->execute([$projectId]);
+    $row = $stmt->fetch();
+    if ($row) {
+        $project = json_decode($row['payload'], true);
     }
     // DELETE atómico por id — sin replaceRows para evitar condición de carrera
     $stmt = db()->prepare("DELETE FROM projects WHERE id = :id");
@@ -31,7 +34,13 @@ if ($action === 'delete_project') {
             $updStmt->execute([':p' => json_encode($req, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $row['id']]);
         }
     }
-    logActivity('deleted', 'project', $projectId, $project ? itemName($project) : $projectId, ['source' => 'delete_project']);
+    // Backup completo del payload en activity_logs antes de confirmar el borrado.
+    // Permite recuperación manual si se eliminó por error: buscar action='deleted', entity_type='project', entity_id=<id>
+    // y copiar details.payload_backup de vuelta a la tabla projects.
+    logActivity('deleted', 'project', $projectId, $project ? itemName($project) : $projectId, [
+        'source'         => 'delete_project',
+        'payload_backup' => $project,   // payload completo — comentarios, gastos, facturas, historial
+    ]);
     // Marcar como recién eliminado para que save_state no lo re-inserte si llega tarde
     if (!isset($_SESSION['recently_deleted'])) $_SESSION['recently_deleted'] = [];
     $_SESSION['recently_deleted'][$projectId] = time();

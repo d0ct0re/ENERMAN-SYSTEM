@@ -77,6 +77,21 @@ if ($action === 'activity_logs') {
     exit;
 }
 
+/*
+ * ⚠️  ATENCIÓN — SI AGREGAS UN JOB DE LIMPIEZA DE activity_logs:
+ *
+ * Los registros con action = 'deleted' Y entity_type = 'project' contienen
+ * el payload completo del proyecto en details.payload_backup.
+ * Son el ÚNICO backup de proyectos eliminados — sin ellos, la recuperación
+ * es imposible. Cualquier purga de logs DEBE excluirlos:
+ *
+ *   DELETE FROM activity_logs
+ *   WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)
+ *     AND NOT (action = 'deleted' AND entity_type = 'project');  ← obligatorio
+ *
+ * Los logs de tipo 'updated'/'created' sí se pueden purgar sin problema.
+ */
+
 /* ── cron_backup — backup automático sin sesión, protegido por clave secreta ── */
 if ($action === 'cron_backup') {
     $key = $_GET['key'] ?? '';
