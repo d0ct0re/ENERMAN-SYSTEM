@@ -23,8 +23,8 @@ type MainTab = "info" | "chat" | "archivos";
 type InfoTab = "f1" | "f2" | "f3" | "f4";
 
 // ── Estilos base ──────────────────────────────────────────────
-const INP = "h-11 w-full rounded-xl border border-white/[0.07] bg-bg-input px-3 text-sm font-semibold text-foreground outline-none transition focus:border-[#60A5FA]/50 focus:ring-2 focus:ring-[#60A5FA]/10 disabled:cursor-not-allowed disabled:opacity-50";
-const INP_RO = "h-11 w-full rounded-xl border border-white/[0.04] bg-[#17171A] px-3 text-sm font-semibold text-zinc-500 outline-none cursor-not-allowed";
+const INP = "h-11 w-full rounded-xl border border-white/[0.07] bg-bg-input px-3 text-sm font-semibold text-foreground outline-none transition focus:border-info/50 focus:ring-2 focus:ring-info/10 disabled:cursor-not-allowed disabled:opacity-50";
+const INP_RO = "h-11 w-full rounded-xl border border-white/[0.04] bg-base px-3 text-sm font-semibold text-ink-tertiary outline-none cursor-not-allowed";
 const LBL = "text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground";
 
 // Contenedor de campo normal (azul — ambos pueden editar)
@@ -86,7 +86,7 @@ function DatePickerMX({ value, onChange }: { value: string; onChange: (v: string
   return (
     <div className="relative">
       <div className={`${INP} flex items-center pointer-events-none select-none`} aria-hidden>
-        {display || <span className="text-zinc-500">DD/MM/AAAA</span>}
+        {display || <span className="text-ink-tertiary">DD/MM/AAAA</span>}
       </div>
       <input
         type="date"
@@ -904,10 +904,10 @@ export function ProjectDetailDialog({
                   infoTab === tab.key ? "bg-muted shadow-sm" : "hover:bg-surface-elevated"
                 }`}
               >
-                <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${infoTab === tab.key ? "text-muted-foreground" : "text-[#52525B]"}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${infoTab === tab.key ? "text-muted-foreground" : "text-ink-tertiary"}`}>
                   {tab.label}
                 </span>
-                <span className={`text-sm font-bold ${infoTab === tab.key ? "text-foreground" : "text-zinc-500"}`}>
+                <span className={`text-sm font-bold ${infoTab === tab.key ? "text-foreground" : "text-ink-tertiary"}`}>
                   {tab.sublabel}
                 </span>
               </button>
@@ -916,11 +916,11 @@ export function ProjectDetailDialog({
 
           {/* Leyenda y barra de código (comunes a todos los sub-tabs) */}
           {infoTab === "f1" ? (
-            <p className="border-l-2 border-border-default pl-3 text-xs text-[#555555]">
-              Ingeniero o Admin · <span className="text-[#60A5FA]/70">Campos azules = ambos</span> · <span className="text-orange-400/70">Campos naranja = solo Admin</span>
+            <p className="border-l-2 border-border-default pl-3 text-xs text-ink-tertiary">
+              Ingeniero o Admin · <span className="text-info/70">Campos azules = ambos</span> · <span className="text-orange-400/70">Campos naranja = solo Admin</span>
             </p>
           ) : infoTab === "f2" ? (
-            <p className="border-l-2 border-border-default pl-3 text-xs text-[#555555]">
+            <p className="border-l-2 border-border-default pl-3 text-xs text-ink-tertiary">
               Ingeniero · Llena durante y después del trabajo en campo
             </p>
           ) : infoTab === "f3" ? (
@@ -934,8 +934,8 @@ export function ProjectDetailDialog({
           )}
 
           {/* Barra de código */}
-          <div className="rounded-xl border border-[#1E3A5F]/40 bg-[#1A2235] px-4 py-2.5">
-            <p className="font-mono text-sm font-bold tracking-wide text-[#60A5FA]">
+          <div className="rounded-xl border border-info/40 bg-info/10 px-4 py-2.5">
+            <p className="font-mono text-sm font-bold tracking-wide text-info">
               {project.structuredName}
             </p>
           </div>
@@ -951,7 +951,7 @@ export function ProjectDetailDialog({
                     <span className="font-mono font-black text-foreground">{consecutivo}</span>
                     {(project.fechaSolicitud ?? project.createdAt) ? (
                       <>
-                        <span className="text-[#3F3F46]">·</span>
+                        <span className="text-border-default">·</span>
                         <span className="text-xs font-semibold text-muted-foreground">
                           {parseLocalDate(project.fechaSolicitud ?? project.createdAt!).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
                         </span>
@@ -1174,7 +1174,7 @@ export function ProjectDetailDialog({
                 ) : null}
 
                 {(project.importantDates ?? []).length === 0 ? (
-                  <p className="py-2 text-center text-xs text-[#52525B]">Sin fechas registradas</p>
+                  <p className="py-2 text-center text-xs text-ink-tertiary">Sin fechas registradas</p>
                 ) : (
                   <div className="space-y-1.5">
                     {[...(project.importantDates ?? [])].sort((a, b) => a.date.localeCompare(b.date)).map((d) => {
@@ -1185,9 +1185,9 @@ export function ProjectDetailDialog({
                         <div key={d.id} className={`flex items-center justify-between rounded-xl px-3 py-2 ${isOverdue ? "bg-danger/10 ring-1 ring-danger/20" : isNear ? "bg-brand/10 ring-1 ring-brand/20" : "bg-surface-elevated"}`}>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">{d.title}</p>
-                            <p className="text-xs text-zinc-500">{d.date}</p>
+                            <p className="text-xs text-ink-tertiary">{d.date}</p>
                           </div>
-                          <span className={`ml-3 shrink-0 text-xs font-bold tabular-nums ${isOverdue ? "text-danger" : isNear ? "text-brand" : "text-[#52525B]"}`}>
+                          <span className={`ml-3 shrink-0 text-xs font-bold tabular-nums ${isOverdue ? "text-danger" : isNear ? "text-brand" : "text-ink-tertiary"}`}>
                             {isOverdue ? `${Math.abs(daysLeft)}d atrás` : daysLeft === 0 ? "hoy" : `en ${daysLeft}d`}
                           </span>
                         </div>
@@ -1248,7 +1248,7 @@ export function ProjectDetailDialog({
                 <div className={FLD}>
                   <label className={LBL}>F. Solicitud 🔒</label>
                   <div className={`${INP_RO} flex items-center`}>
-                    {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
+                    {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-ink-tertiary">Sin fecha</span>}
                   </div>
                 </div>
                 <div className={FLD}>
@@ -1257,7 +1257,7 @@ export function ProjectDetailDialog({
                     <DatePickerMX value={f2StartDate} onChange={setF2StartDate} />
                   ) : (
                     <div className={`${INP_RO} flex items-center`}>
-                      {f2StartDate ? fmtHint(f2StartDate) : <span className="text-[#555]">Sin fecha</span>}
+                      {f2StartDate ? fmtHint(f2StartDate) : <span className="text-ink-tertiary">Sin fecha</span>}
                     </div>
                   )}
                 </div>
@@ -1267,7 +1267,7 @@ export function ProjectDetailDialog({
                     <DatePickerMX value={f2EndDate} onChange={setF2EndDate} />
                   ) : (
                     <div className={`${INP_RO} flex items-center`}>
-                      {f2EndDate ? fmtHint(f2EndDate) : <span className="text-[#555]">Sin fecha</span>}
+                      {f2EndDate ? fmtHint(f2EndDate) : <span className="text-ink-tertiary">Sin fecha</span>}
                     </div>
                   )}
                 </div>
@@ -1277,7 +1277,7 @@ export function ProjectDetailDialog({
                     <DatePickerMX value={f2CommitmentDate} onChange={setF2CommitmentDate} />
                   ) : (
                     <div className={`${INP_RO} flex items-center`}>
-                      {f2CommitmentDate ? fmtHint(f2CommitmentDate) : <span className="text-[#555]">Sin fecha</span>}
+                      {f2CommitmentDate ? fmtHint(f2CommitmentDate) : <span className="text-ink-tertiary">Sin fecha</span>}
                     </div>
                   )}
                 </div>
@@ -1399,13 +1399,13 @@ export function ProjectDetailDialog({
 
                 {/* Calculados automáticos */}
                 <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                  <div className="rounded-xl border border-success/20 bg-[#0D2417] p-3">
+                  <div className="rounded-xl border border-success/20 bg-success/10 p-3">
                     <LabelAuto text="Ganancia" />
                     <p className={`mt-1 text-base font-black tabular-nums ${ganancia >= 0 ? "text-success" : "text-danger"}`}>
                       {mxn(ganancia)}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-success/20 bg-[#0D2417] p-3">
+                  <div className="rounded-xl border border-success/20 bg-success/10 p-3">
                     <LabelAuto text="Por cobrar" />
                     <p className={`mt-1 text-base font-black tabular-nums ${porCobrar <= 0 ? "text-success" : "text-foreground"}`}>
                       {mxn(porCobrar)}
@@ -1510,14 +1510,14 @@ export function ProjectDetailDialog({
                 ) : null}
 
                 {(project.expenses ?? []).length === 0 ? (
-                  <p className="py-2 text-center text-xs text-[#52525B]">Sin gastos registrados</p>
+                  <p className="py-2 text-center text-xs text-ink-tertiary">Sin gastos registrados</p>
                 ) : (
                   <div className="space-y-1.5">
                     {[...(project.expenses ?? [])].reverse().map((exp) => (
                       <div key={exp.id} className="flex items-center justify-between rounded-xl bg-surface-elevated px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-foreground">{exp.titulo}</p>
-                          <p className="text-xs text-zinc-500">{exp.categoria} · {exp.fecha}</p>
+                          <p className="text-xs text-ink-tertiary">{exp.categoria} · {exp.fecha}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2 pl-3">
                           <span className="text-sm font-bold tabular-nums text-accent">{mxn(exp.monto)}</span>
@@ -1525,7 +1525,7 @@ export function ProjectDetailDialog({
                             <button
                               type="button"
                               onClick={() => onDeleteExpense(project.id, exp.id)}
-                              className="rounded-lg p-1 text-[#52525B] transition hover:text-danger"
+                              className="rounded-lg p-1 text-ink-tertiary transition hover:text-danger"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -1571,7 +1571,7 @@ export function ProjectDetailDialog({
                     <div
                       key={pago.id}
                       className={`rounded-2xl border p-4 transition-colors ${
-                        isRealizado ? "border-[#4ADE80]/30 bg-[#0D2417]" : "border-border-default bg-surface"
+                        isRealizado ? "border-success/30 bg-success/10" : "border-border-default bg-surface"
                       }`}
                     >
                       {/* Header */}
@@ -1594,7 +1594,7 @@ export function ProjectDetailDialog({
                         {pagoDrafts.length > 1 ? (
                           <button
                             type="button"
-                            className="text-[#52525B] transition-colors hover:text-danger"
+                            className="text-ink-tertiary transition-colors hover:text-danger"
                             onClick={() => removePago(pago.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1653,8 +1653,8 @@ export function ProjectDetailDialog({
                         onClick={() => togglePagoEstado(pago.id)}
                         className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition ${
                           isRealizado
-                            ? "bg-[#1F2937] text-muted-foreground hover:text-danger"
-                            : "bg-[#166534]/20 text-success ring-1 ring-success/20 hover:bg-[#166534]/40"
+                            ? "bg-muted text-muted-foreground hover:text-danger"
+                            : "bg-success/20 text-success ring-1 ring-success/20 hover:bg-success/40"
                         }`}
                       >
                         {isRealizado ? (
@@ -1766,15 +1766,15 @@ export function ProjectDetailDialog({
                   ) : null}
 
                   {(project.invoices ?? []).length === 0 ? (
-                    <p className="py-2 text-center text-xs text-[#52525B]">Sin facturas registradas</p>
+                    <p className="py-2 text-center text-xs text-ink-tertiary">Sin facturas registradas</p>
                   ) : (
                     <div className="space-y-2">
                       {(project.invoices ?? []).map((inv) => {
                         const STATUS_COLORS: Record<InvoiceStatus, string> = {
                           solicitada: "text-brand bg-brand/10 ring-brand/20",
-                          recibida:   "text-[#60A5FA] bg-[#60A5FA]/10 ring-[#60A5FA]/20",
-                          "en-portal":"text-[#A78BFA] bg-[#A78BFA]/10 ring-[#A78BFA]/20",
-                          enviada:    "text-[#34D399] bg-[#34D399]/10 ring-[#34D399]/20",
+                          recibida:   "text-blue-400 bg-blue-400/10 ring-blue-400/20",
+                          "en-portal":"text-violet-400 bg-violet-400/10 ring-violet-400/20",
+                          enviada:    "text-emerald-400 bg-emerald-400/10 ring-emerald-400/20",
                           pagada:     "text-success bg-success/10 ring-success/20",
                           cancelada:  "text-danger bg-danger/10 ring-danger/20",
                         };
@@ -1791,8 +1791,8 @@ export function ProjectDetailDialog({
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-foreground">OC: {inv.oc}</p>
-                                <p className="text-xs text-zinc-500">{inv.facturarA} · {mxn(inv.subtotal)}</p>
-                                {inv.factura ? <p className="mt-0.5 text-xs text-[#52525B]">Factura: {inv.factura}</p> : null}
+                                <p className="text-xs text-ink-tertiary">{inv.facturarA} · {mxn(inv.subtotal)}</p>
+                                {inv.factura ? <p className="mt-0.5 text-xs text-ink-tertiary">Factura: {inv.factura}</p> : null}
                                 {inv.fechaPago ? <p className="mt-0.5 text-xs text-success">Pagado: {inv.fechaPago}</p> : null}
                               </div>
                               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${STATUS_COLORS[inv.status]}`}>
@@ -1828,9 +1828,9 @@ export function ProjectDetailDialog({
           {/* ── Historial de mensajes ── */}
           <div className="flex max-h-[340px] flex-col gap-2 overflow-y-auto rounded-[28px] bg-surface p-4 scroll-smooth">
             {chatLoading ? (
-              <p className="py-6 text-center text-sm text-[#52525B]">Cargando mensajes…</p>
+              <p className="py-6 text-center text-sm text-ink-tertiary">Cargando mensajes…</p>
             ) : chatMessages.length === 0 ? (
-              <p className="py-6 text-center text-sm text-[#52525B]">
+              <p className="py-6 text-center text-sm text-ink-tertiary">
                 Sin mensajes todavía. Sé el primero.
               </p>
             ) : (
@@ -2074,8 +2074,8 @@ export function ProjectDetailDialog({
                         const rejectExtra  = section.key === "fotos" ? { fotos: false } : {};
                         return (
                           <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${
-                            st === "en-revision" ? "border border-[#F5A524]/25 bg-brand/10 text-brand" :
-                            st === "si"          ? "border border-[#4ADE80]/25 bg-success/10 text-success" :
+                            st === "en-revision" ? "border border-brand/25 bg-brand/10 text-brand" :
+                            st === "si"          ? "border border-success/25 bg-success/10 text-success" :
                             st === "rechazado"   ? "border border-danger/25 bg-danger/10 text-danger" :
                             "border border-border-default bg-surface text-muted-foreground"
                           }`}>
@@ -2094,7 +2094,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "si");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "si", ...approveExtra });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-success ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
+                                    className="flex items-center gap-1.5 rounded-xl bg-success/30 px-4 py-2 text-sm font-bold text-success ring-1 ring-success/30 transition hover:bg-success/50"
                                   >
                                     <Check className="h-3.5 w-3.5" /> Aprobar
                                   </button>
@@ -2117,7 +2117,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "en-revision");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "en-revision", ...(section.key === "fotos" ? { fotos: true } : {}) });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-4 py-2 text-sm font-bold text-brand ring-1 ring-[#F5A524]/30 transition hover:bg-brand/20"
+                                    className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-4 py-2 text-sm font-bold text-brand ring-1 ring-brand/30 transition hover:bg-brand/20"
                                   >
                                     <XCircle className="h-3.5 w-3.5" /> Quitar aprobación
                                   </button>
@@ -2140,7 +2140,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "si");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "si", ...approveExtra });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-[#166534]/30 px-4 py-2 text-sm font-bold text-success ring-1 ring-[#4ADE80]/30 transition hover:bg-[#166534]/50"
+                                    className="flex items-center gap-1.5 rounded-xl bg-success/30 px-4 py-2 text-sm font-bold text-success ring-1 ring-success/30 transition hover:bg-success/50"
                                   >
                                     <Check className="h-3.5 w-3.5" /> Aprobar
                                   </button>
@@ -2150,7 +2150,7 @@ export function ProjectDetailDialog({
                                       setSectionStatus(section.key, "en-revision");
                                       onUpdateProject(project.id, { [statusFieldOf(section.key)]: "en-revision", ...(section.key === "fotos" ? { fotos: true } : {}) });
                                     }}
-                                    className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-4 py-2 text-sm font-bold text-brand ring-1 ring-[#F5A524]/30 transition hover:bg-brand/20"
+                                    className="flex items-center gap-1.5 rounded-xl bg-brand/10 px-4 py-2 text-sm font-bold text-brand ring-1 ring-brand/30 transition hover:bg-brand/20"
                                   >
                                     <XCircle className="h-3.5 w-3.5" /> Poner en revisión
                                   </button>
@@ -2323,7 +2323,7 @@ export function ProjectDetailDialog({
                           </div>
                         )
                       ) : (
-                        <p className="py-3 text-center text-xs font-semibold text-[#52525B]">
+                        <p className="py-3 text-center text-xs font-semibold text-ink-tertiary">
                           Sin archivos en esta carpeta
                         </p>
                       )}
@@ -2414,7 +2414,7 @@ export function ProjectDetailDialog({
 
             {galleryBroken ? (
               <div className="flex flex-col items-center gap-4 rounded-2xl bg-surface p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-[#52525B]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-ink-tertiary">
                   <ZoomIn className="h-7 w-7" />
                 </div>
                 <p className="text-sm text-muted-foreground">No se puede previsualizar</p>

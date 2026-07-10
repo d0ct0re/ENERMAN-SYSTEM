@@ -116,7 +116,7 @@ lotes (cada uno es su propio commit, actualiza esta sección al aterrizar):
 | A | App.tsx | ✅ completo |
 | B | admin-view.tsx + admin-review-card.tsx | ✅ completo — `#555555`/`#52525B`/`text-zinc-500` → `ink-tertiary`; `#166534` (verde) → `success`; `#0EA5E9`/`#0c1f2e` (azul) → `info` |
 | C | engineer-view.tsx | ✅ completo — `#0c1f2e`/`#0d2535` (azul de corrección) → `info` |
-| D | project-detail-dialog.tsx | pendiente (el más grande) |
+| D | project-detail-dialog.tsx | ✅ completo — grises (`#52525B`/`#555`/`text-zinc-500`) → `ink-tertiary`; azul de foco/código (`#60A5FA`) → `info`; verdes de aprobación (`#0D2417`/`#166534`/`#4ADE80`) → `success`; ámbar (`#F5A524`, = mismo valor que `--accent`) → `brand`; `#3F3F46` → `border-default`; paleta decorativa de estados de factura (`#60A5FA`/`#A78BFA`/`#34D399`, ya usada así en status-badge.tsx) → `blue-400`/`violet-400`/`emerald-400` con nombre Tailwind en vez de hex |
 | E | project-card.tsx, top-bar.tsx, project-calendar.tsx | pendiente |
 | F | type-selector.tsx, lugar-input.tsx, tabs.tsx, input.tsx, textarea.tsx | pendiente |
 | G | components/gastos/GastosProyecto.tsx | pendiente (no tocado aún, ~47 hex) |
