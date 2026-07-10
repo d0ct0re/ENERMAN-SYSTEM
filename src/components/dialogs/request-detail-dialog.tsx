@@ -130,10 +130,10 @@ export function RequestDetailDialog({
         </div>
 
         {relatedProject ? (
-          <div className="mt-6 space-y-4 border-t border-[#3F3F46] pt-6">
+          <div className="mt-6 space-y-4 border-t border-border-default pt-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Expediente del proyecto relacionado</p>
-              <p className="mt-1 text-sm text-[#888888]">Resumen operativo, financiero y administrativo visible para el Gestor del sistema.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Resumen operativo, financiero y administrativo visible para el Gestor del sistema.</p>
             </div>
             <div className="grid gap-4 lg:grid-cols-4">
               <FieldDisplay label="Proyecto" value={relatedProject.structuredName} />
@@ -172,7 +172,7 @@ export function RequestDetailDialog({
         ) : null}
 
         {canManageActions ? (
-          <div className="mt-6 flex flex-col gap-3 border-t border-[#3F3F46] pt-6 sm:flex-row sm:justify-end">
+          <div className="mt-6 flex flex-col gap-3 border-t border-border-default pt-6 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => setActionMode("approve")}>
               <CheckCircle2 className="h-4 w-4" />
               Aprobar

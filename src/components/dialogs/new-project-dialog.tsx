@@ -115,7 +115,7 @@ export function NewProjectDialog({
         />
       </div>
 
-      <div className="mt-5 rounded-[24px] bg-[#1F1F22] p-4">
+      <div className="mt-5 rounded-[24px] bg-bg-input p-4">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent">
           <FolderPlus className="h-4 w-4" />
           Nombre estructurado

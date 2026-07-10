@@ -11,17 +11,17 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses: Record<ButtonVariant, string> = {
   default:
-    "bg-[#313136] text-white border border-[#3F3F46] shadow-soft hover:bg-[#3F3F46] hover:border-[#52525B] focus-visible:ring-white/15",
+    "bg-muted text-foreground border border-border-default shadow-soft hover:bg-border-default hover:border-border-strong focus-visible:ring-white/15",
   secondary:
-    "bg-secondary text-white shadow-soft hover:bg-secondary/90 focus-visible:ring-secondary/30",
+    "bg-secondary text-foreground shadow-soft hover:bg-secondary/90 focus-visible:ring-secondary/30",
   accent:
-    "bg-accent text-[#111111] font-bold shadow-glow-gold hover:bg-accent/90 focus-visible:ring-accent/30",
+    "bg-accent text-brand-fg font-bold shadow-glow-gold hover:bg-accent/90 focus-visible:ring-accent/30",
   outline:
-    "border border-[#3F3F46] bg-transparent text-foreground hover:border-[#52525B] hover:bg-[#313136] focus-visible:ring-white/15",
+    "border border-border-default bg-transparent text-foreground hover:border-border-strong hover:bg-muted focus-visible:ring-white/15",
   ghost:
-    "bg-transparent text-foreground hover:bg-[#313136] focus-visible:ring-white/15",
+    "bg-transparent text-foreground hover:bg-muted focus-visible:ring-white/15",
   danger:
-    "bg-danger text-white shadow-soft hover:bg-danger/90 focus-visible:ring-danger/20",
+    "bg-danger text-foreground shadow-soft hover:bg-danger/90 focus-visible:ring-danger/20",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

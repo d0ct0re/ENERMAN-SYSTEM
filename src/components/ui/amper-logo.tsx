@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-const logoUrl = "/amper-logo-wordmark.jpg";
+const logoUrl = "/logo.png";
 
 interface AmperLogoProps {
   onClick?: () => void;

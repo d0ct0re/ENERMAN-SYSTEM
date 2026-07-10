@@ -5,7 +5,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return (
     <div
       className={cn(
-        "w-full rounded-[28px] border border-[#3F3F46] bg-[#27272A] p-5 shadow-card sm:p-6",
+        "w-full rounded-[28px] border border-border-default bg-surface-elevated p-5 shadow-card sm:p-6",
         className,
       )}
       {...props}
@@ -21,5 +21,5 @@ export function CardDescription({
   className,
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>): JSX.Element {
-  return <p className={cn("text-sm leading-6 text-muted-foreground", className)} {...props} />;
+  return <p className={cn("text-sm leading-6 text-muted-foreground-foreground", className)} {...props} />;
 }

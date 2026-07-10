@@ -114,7 +114,7 @@ export function NewRequestDialog({
       </div>
 
       {duplicateProject ? (
-        <div className="mt-4 flex items-start gap-3 rounded-[24px] border border-warning/20 bg-warning/10 p-4 text-sm text-[#F5A524]">
+        <div className="mt-4 flex items-start gap-3 rounded-[24px] border border-warning/20 bg-warning/10 p-4 text-sm text-brand">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           Posible duplicado con el proyecto {duplicateProject.structuredName}.
         </div>

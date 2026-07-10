@@ -17,43 +17,43 @@ export function RequestCard({ request, onOpen }: RequestCardProps): JSX.Element 
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">{request.client}</p>
           <h3 className="mt-2 text-lg font-semibold text-foreground">{request.baseName}</h3>
-          <p className="text-sm text-[#888888]">{request.structuredName}</p>
+          <p className="text-sm text-muted-foreground">{request.structuredName}</p>
         </div>
         <StatusBadge kind="request" value={request.status} />
       </div>
 
-      <p className="text-sm leading-6 text-[#888888]">{request.description}</p>
+      <p className="text-sm leading-6 text-muted-foreground">{request.description}</p>
 
       {request.duplicateOfProjectId ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-[#F5A524]/15 p-4 text-sm text-[#F5A524] ring-1 ring-[#F5A524]/20">
+        <div className="flex items-start gap-3 rounded-2xl bg-brand/15 p-4 text-sm text-brand ring-1 ring-brand/20">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           Posible duplicado detectado con un proyecto existente.
         </div>
       ) : null}
 
       {request.correctionReason ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-[#F5A524]/15 p-4 text-sm text-[#F5A524] ring-1 ring-[#F5A524]/20">
+        <div className="flex items-start gap-3 rounded-2xl bg-brand/15 p-4 text-sm text-brand ring-1 ring-brand/20">
           <MessageSquareText className="mt-0.5 h-5 w-5 shrink-0" />
           {request.correctionReason}
         </div>
       ) : null}
 
       {request.rejectionReason ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-[#E24B4A]/15 p-4 text-sm text-[#E24B4A] ring-1 ring-[#E24B4A]/20">
+        <div className="flex items-start gap-3 rounded-2xl bg-danger/15 p-4 text-sm text-danger ring-1 ring-danger/20">
           <MessageSquareText className="mt-0.5 h-5 w-5 shrink-0" />
           {request.rejectionReason}
         </div>
       ) : null}
 
       {request.linkedProjectId ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-[#2DBE7A]/15 p-4 text-sm text-[#2DBE7A] ring-1 ring-[#2DBE7A]/20">
+        <div className="flex items-start gap-3 rounded-2xl bg-success/15 p-4 text-sm text-success ring-1 ring-success/20">
           <Link2 className="mt-0.5 h-5 w-5 shrink-0" />
           Proyecto relacionado disponible para consulta.
         </div>
       ) : null}
 
       <div className="mt-auto flex items-center justify-between">
-        <p className="text-sm text-[#888888]">Alta: {formatDate(request.createdAt)}</p>
+        <p className="text-sm text-muted-foreground">Alta: {formatDate(request.createdAt)}</p>
         <Button variant="outline" onClick={() => onOpen(request.id)}>
           Ver detalle
           <ArrowUpRight className="h-4 w-4" />

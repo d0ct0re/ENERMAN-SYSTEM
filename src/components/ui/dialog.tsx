@@ -23,19 +23,19 @@ export function Dialog({ open, onOpenChange, title, description, children, class
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-10 max-h-[92vh] w-full overflow-hidden rounded-[30px] border border-[#3F3F46] bg-[#27272A] shadow-panel",
+          "relative z-10 max-h-[92vh] w-full overflow-hidden rounded-[30px] border border-border-default bg-surface-elevated shadow-panel",
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#3F3F46] bg-[#313136]/50 px-5 py-5 sm:px-6">
+        <div className="flex items-start justify-between gap-4 border-b border-border-default bg-muted/50 px-5 py-5 sm:px-6">
           <div className="space-y-1">
             {title ? <h2 className="text-lg font-bold text-foreground">{title}</h2> : null}
-            {description ? <p className="mt-0.5 font-mono text-xs tracking-wide text-[#888888]">{description}</p> : null}
+            {description ? <p className="mt-0.5 font-mono text-xs tracking-wide text-muted-foreground">{description}</p> : null}
           </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="rounded-full p-2 text-[#888888] transition hover:bg-[#3F3F46] hover:text-foreground"
+            className="rounded-full p-2 text-muted-foreground transition hover:bg-border-default hover:text-foreground"
             aria-label="Cerrar"
           >
             <X className="h-5 w-5" />

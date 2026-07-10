@@ -97,10 +97,10 @@ export function CorrectionRequestDialog({
     >
       {/* Corrección requerida */}
       {request.correctionReason ? (
-        <div className="mb-4 flex items-start gap-3 rounded-[20px] border border-[#0EA5E9]/20 bg-[#0EA5E9]/8 p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#0EA5E9]" />
+        <div className="mb-4 flex items-start gap-3 rounded-[20px] border border-info/20 bg-info/[0.08] p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-info" />
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#0EA5E9]">Corrección requerida por administración</p>
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-info">Corrección requerida por administración</p>
             <p className="mt-1 text-sm text-foreground">{request.correctionReason}</p>
           </div>
         </div>
@@ -134,7 +134,7 @@ export function CorrectionRequestDialog({
 
       {/* Duplicado */}
       {duplicateProject ? (
-        <div className="mt-4 flex items-start gap-3 rounded-[24px] border border-warning/20 bg-warning/10 p-4 text-sm text-[#F5A524]">
+        <div className="mt-4 flex items-start gap-3 rounded-[24px] border border-warning/20 bg-warning/10 p-4 text-sm text-brand">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           Posible duplicado con el proyecto {duplicateProject.structuredName}.
         </div>
@@ -148,7 +148,7 @@ export function CorrectionRequestDialog({
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit || saving}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-6 py-2.5 text-sm font-bold text-[#111111] transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-6 py-2.5 text-sm font-bold text-brand-fg transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-4 w-4" />
           {saving ? "Enviando..." : "Volver a enviar"}
