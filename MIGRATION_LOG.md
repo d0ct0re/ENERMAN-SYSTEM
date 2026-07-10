@@ -118,7 +118,7 @@ lotes (cada uno es su propio commit, actualiza esta sección al aterrizar):
 | C | engineer-view.tsx | ✅ completo — `#0c1f2e`/`#0d2535` (azul de corrección) → `info` |
 | D | project-detail-dialog.tsx | ✅ completo — grises (`#52525B`/`#555`/`text-zinc-500`) → `ink-tertiary`; azul de foco/código (`#60A5FA`) → `info`; verdes de aprobación (`#0D2417`/`#166534`/`#4ADE80`) → `success`; ámbar (`#F5A524`, = mismo valor que `--accent`) → `brand`; `#3F3F46` → `border-default`; paleta decorativa de estados de factura (`#60A5FA`/`#A78BFA`/`#34D399`, ya usada así en status-badge.tsx) → `blue-400`/`violet-400`/`emerald-400` con nombre Tailwind en vez de hex |
 | E | project-card.tsx, top-bar.tsx, project-calendar.tsx | ✅ completo — grises → `ink-tertiary`/`ink-secondary`; `hover:bg-[#2B2B2F]`/`hover:bg-[#383840]` → `surface-elevated`/`border-default`. Excepción documentada: `EngineerGroup.color` sintético "sin-área" (línea 162) y acento "importante" (línea 426) en project-calendar.tsx quedan como hex plano porque se consumen vía `style={}` con concatenación de alpha (`${color}33`) — no pueden ser clase Tailwind. Ver `scripts/check-colors.mjs` ALLOWLIST. |
-| F | type-selector.tsx, lugar-input.tsx, tabs.tsx, input.tsx, textarea.tsx | pendiente |
+| F | type-selector.tsx, lugar-input.tsx, tabs.tsx, input.tsx, textarea.tsx | ✅ completo — grises → `ink-tertiary`/`ink-secondary` |
 | G | components/gastos/GastosProyecto.tsx | pendiente (no tocado aún, ~47 hex) |
 | H | components/error-boundary.tsx | pendiente |
 
