@@ -79,12 +79,12 @@ export function GastosProyecto({
   const isWarning = porcentajeEjecutado >= 70 && !isCritical && !isExceeded;
 
   const heroGradient = isExceeded
-    ? "from-[#3A1D1D] to-[#E24B4A]/40 border border-danger/30"
+    ? "from-danger/10 to-danger/40 border border-danger/30"
     : isCritical
-    ? "from-[#3A1D1D] to-[#E24B4A]/30 border border-danger/25"
+    ? "from-danger/10 to-danger/30 border border-danger/25"
     : isWarning
-    ? "from-[#3A300F] to-[#F5A524]/25 border border-[#F5A524]/30"
-    : "from-[#27272A] via-[#2A2922] to-[#1E1E20] border border-accent/25 shadow-glow-gold";
+    ? "from-brand/10 to-brand/25 border border-brand/30"
+    : "from-surface-elevated via-surface-elevated to-surface border border-accent/25 shadow-glow-gold";
 
   const mainBarColor = isExceeded
     ? "bg-red-700"
@@ -172,7 +172,7 @@ export function GastosProyecto({
                     if (e.key === "Escape") setEditingBudget(false);
                   }}
                 />
-                <Button size="sm" onClick={handleSaveBudget} className="bg-accent text-[#111111] hover:bg-accent/90">
+                <Button size="sm" onClick={handleSaveBudget} className="bg-accent text-brand-fg hover:bg-accent/90">
                   Guardar
                 </Button>
                 <button
@@ -233,8 +233,8 @@ export function GastosProyecto({
 
       {/* Category breakdown */}
       {expenses.length > 0 ? (
-        <div className="space-y-3 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Desglose por categoría</p>
+        <div className="space-y-3 rounded-[24px] border border-border-default bg-surface-elevated p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Desglose por categoría</p>
           {CATS.map((cat) => {
             const amount = porCategoria[cat.value];
             if (amount === 0) return null;
@@ -246,10 +246,10 @@ export function GastosProyecto({
                   <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cat.tw}`}>{cat.label}</span>
                   <span className="font-semibold text-foreground tabular-nums">
                     {fmt(amount)}{" "}
-                    <span className="text-xs font-normal text-[#888888]">({catPct.toFixed(0)}%)</span>
+                    <span className="text-xs font-normal text-muted-foreground">({catPct.toFixed(0)}%)</span>
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-[#3F3F46]">
+                <div className="h-1.5 rounded-full bg-border-default">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                     style={{ width: `${catPct}%` }}
@@ -263,7 +263,7 @@ export function GastosProyecto({
 
       {/* Expense list */}
       {expenses.length === 0 ? (
-        <div className="rounded-[24px] border border-dashed border-[#3F3F46] bg-[#27272A]/50 p-8 text-center text-sm text-[#888888]">
+        <div className="rounded-[24px] border border-dashed border-border-default bg-surface-elevated/50 p-8 text-center text-sm text-muted-foreground">
           No hay costos registrados en este proyecto.
         </div>
       ) : (
@@ -274,7 +274,7 @@ export function GastosProyecto({
             return (
               <div
                 key={expense.id}
-                className={`space-y-2 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 transition-all duration-200 ${
+                className={`space-y-2 rounded-[24px] border border-border-default bg-surface-elevated p-4 transition-all duration-200 ${
                   isRemoving ? "opacity-0 -translate-y-2 scale-95" : "opacity-100 translate-y-0 scale-100"
                 }`}
               >
@@ -287,9 +287,9 @@ export function GastosProyecto({
                       ) : null}
                     </div>
                     {expense.descripcion ? (
-                      <p className="text-sm text-[#888888]">{expense.descripcion}</p>
+                      <p className="text-sm text-muted-foreground">{expense.descripcion}</p>
                     ) : null}
-                    <p className="text-xs text-[#888888]">{formatDate(expense.fecha)}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(expense.fecha)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     <p className="font-bold text-foreground tabular-nums">{fmt(expense.monto)}</p>
@@ -297,7 +297,7 @@ export function GastosProyecto({
                       <button
                         type="button"
                         onClick={(e) => handleDeleteClick(e, expense.id)}
-                        className="rounded-full p-1.5 text-[#888888] transition hover:bg-danger/10 hover:text-danger"
+                        className="rounded-full p-1.5 text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -311,7 +311,7 @@ export function GastosProyecto({
                         key={img}
                         type="button"
                         onClick={() => setLightbox(img)}
-                        className="flex items-center gap-1.5 rounded-xl bg-[#3F3F46] px-3 py-1.5 text-xs text-[#888888] transition hover:bg-[#52525B] hover:text-foreground"
+                        className="flex items-center gap-1.5 rounded-xl bg-border-default px-3 py-1.5 text-xs text-muted-foreground transition hover:bg-border-strong hover:text-foreground"
                       >
                         <Paperclip className="h-3 w-3" />{img}
                       </button>
@@ -329,7 +329,7 @@ export function GastosProyecto({
         <button
           type="button"
           onClick={openSheet}
-          className="fixed bottom-6 right-6 z-[100] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-[#111111] shadow-glow-gold transition-transform hover:bg-accent/90 active:scale-95"
+          className="fixed bottom-6 right-6 z-[100] flex h-14 w-14 items-center justify-center rounded-full bg-accent text-brand-fg shadow-glow-gold transition-transform hover:bg-accent/90 active:scale-95"
         >
           <Plus className="h-7 w-7" />
         </button>
@@ -339,8 +339,8 @@ export function GastosProyecto({
       {sheetOpen ? (
         <div className="fixed inset-0 z-[150] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/70" onClick={closeSheet} />
-          <div className="relative z-10 max-h-[85vh] overflow-y-auto rounded-t-[32px] border border-[#3F3F46] border-b-0 bg-[#27272A] px-5 pb-8 pt-5 shadow-panel">
-            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-[#52525B]" />
+          <div className="relative z-10 max-h-[85vh] overflow-y-auto rounded-t-[32px] border border-border-default border-b-0 bg-surface-elevated px-5 pb-8 pt-5 shadow-panel">
+            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border-strong" />
             <div className="mb-5 flex items-center justify-between">
               {form.step === 2 ? (
                 <button
@@ -352,14 +352,14 @@ export function GastosProyecto({
                   Tipo
                 </button>
               ) : (
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Nuevo costo</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Nuevo costo</p>
               )}
               <button
                 type="button"
                 onClick={closeSheet}
-                className="rounded-full p-1.5 transition hover:bg-[#3F3F46]"
+                className="rounded-full p-1.5 transition hover:bg-border-default"
               >
-                <X className="h-4 w-4 text-[#888888]" />
+                <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
 
@@ -372,7 +372,7 @@ export function GastosProyecto({
                   className="w-full rounded-[20px] border-2 border-accent/20 bg-accent/5 p-5 text-left transition hover:border-accent/40 hover:bg-accent/10"
                 >
                   <p className="font-bold text-foreground">Material / Servicio</p>
-                  <p className="mt-1 text-sm text-[#888888]">Compras, herramientas, transporte, servicios externos</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Compras, herramientas, transporte, servicios externos</p>
                 </button>
                 <button
                   type="button"
@@ -380,7 +380,7 @@ export function GastosProyecto({
                   className="w-full rounded-[20px] border-2 border-secondary/20 bg-secondary/5 p-5 text-left transition hover:border-secondary/40 hover:bg-secondary/10"
                 >
                   <p className="font-bold text-foreground">Personal</p>
-                  <p className="mt-1 text-sm text-[#888888]">Sueldos, horas extras, viáticos, bonos</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Sueldos, horas extras, viáticos, bonos</p>
                 </button>
               </div>
             ) : (
@@ -394,7 +394,7 @@ export function GastosProyecto({
                   <select
                     value={form.categoria}
                     onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value as ExpenseCategory }))}
-                    className="h-12 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
+                    className="h-12 w-full rounded-2xl border border-border-default bg-muted px-4 text-sm font-semibold text-foreground outline-none transition focus:border-accent/50 focus:ring-4 focus:ring-accent/10"
                   >
                     {activeCats.map((c) => (
                       <option key={c.value} value={c.value}>{c.label}</option>
@@ -441,22 +441,22 @@ export function GastosProyecto({
           onClick={() => setLightbox(null)}
         >
           <div
-            className="relative w-full max-w-md rounded-3xl border border-[#3F3F46] bg-[#27272A] p-6 shadow-panel"
+            className="relative w-full max-w-md rounded-3xl border border-border-default bg-surface-elevated p-6 shadow-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setLightbox(null)}
-              className="absolute right-4 top-4 rounded-full bg-[#3F3F46] p-1.5 text-[#888888] transition hover:bg-[#52525B] hover:text-foreground"
+              className="absolute right-4 top-4 rounded-full bg-border-default p-1.5 text-muted-foreground transition hover:bg-border-strong hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Comprobante</p>
-            <div className="flex h-52 items-center justify-center rounded-2xl border border-dashed border-[#3F3F46] bg-[#313136]">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Comprobante</p>
+            <div className="flex h-52 items-center justify-center rounded-2xl border border-dashed border-border-default bg-muted">
               <div className="space-y-2 text-center">
                 <p className="text-3xl">📄</p>
                 <p className="text-sm font-semibold text-foreground">{lightbox}</p>
-                <p className="text-xs text-[#888888]">Vista previa disponible al conectar almacenamiento</p>
+                <p className="text-xs text-muted-foreground">Vista previa disponible al conectar almacenamiento</p>
               </div>
             </div>
           </div>
