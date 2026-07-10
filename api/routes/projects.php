@@ -48,17 +48,6 @@ if ($action === 'delete_project') {
     exit;
 }
 
-/* ── get_full_history ── */
-if ($action === 'get_full_history') {
-    requireAdmin();
-    $projects = tableRows('projects');
-    echo json_encode([
-        'ok'      => true,
-        'history' => allHistory($projects),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-}
-
 /* ── update_project — mutación atómica de un proyecto (reemplaza save_state masivo) ── */
 if ($action === 'update_project') {
     requireAuth();

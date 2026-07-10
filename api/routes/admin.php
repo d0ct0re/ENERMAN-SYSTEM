@@ -1,38 +1,6 @@
 <?php
 declare(strict_types=1);
 
-/* ── admin_dashboard ── */
-if ($action === 'admin_dashboard') {
-    requireSystemAdmin();
-    $projects      = tableRows('projects');
-    $users         = tableRowsUsers();
-    $requests      = tableRows('requests');
-    $notifications = tableRows('notifications');
-
-    $activeStatuses = ['en-concurso', 'en-programacion', 'in-progress', 'pendiente-aprobacion', 'pendiente-autorizar', 'reasignado', 'cierre-por-sistema', 'comparativa'];
-    $activeCount    = count(array_filter($projects, static fn($p) => in_array($p['status'] ?? '', $activeStatuses, true)));
-    $unpaidCount    = count(array_filter($projects, static fn($p) => ($p['paymentStatus'] ?? '') === 'unpaid'));
-    $reviewCount    = count(array_filter($requests,  static fn($r) => ($r['status'] ?? '') === 'under-review'));
-
-    echo json_encode([
-        'ok'          => true,
-        'counts'      => [
-            'projects'      => count($projects),
-            'users'         => count($users),
-            'requests'      => count($requests),
-            'notifications' => count($notifications),
-            'active'        => $activeCount,
-            'unpaid'        => $unpaidCount,
-            'underReview'   => $reviewCount,
-        ],
-        'projects'      => $projects,
-        'users'         => $users,
-        'requests'      => $requests,
-        'recentHistory' => array_slice(allHistory($projects), 0, 50),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-}
-
 /* ── reset_active_passwords ── */
 if ($action === 'reset_active_passwords') {
     requireSystemAdmin();

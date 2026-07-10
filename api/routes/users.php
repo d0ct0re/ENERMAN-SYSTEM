@@ -1,47 +1,6 @@
 <?php
 declare(strict_types=1);
 
-/* ── update_user_role ── */
-if ($action === 'update_user_role') {
-    requireAdmin();
-    $data    = readJson();
-    $userId  = trim($data['user_id'] ?? '');
-    $newRole = trim($data['new_role'] ?? '');
-    $allowed = ['system_admin', 'supervisor', 'admin', 'engineer'];
-    if (!$userId || !in_array($newRole, $allowed, true)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'user_id y new_role valido requeridos.']);
-        exit;
-    }
-    $roleLabels = ['system_admin' => 'Gestor del sistema', 'supervisor' => 'Supervisor', 'admin' => 'Administracion', 'engineer' => 'Ingeniero'];
-    $users   = tableRows('app_users');
-    $updated = false;
-    $updatedUserName = $userId;
-    foreach ($users as &$user) {
-        if ($user['id'] === $userId) {
-            $user['role']      = $newRole;
-            $user['roleLabel'] = $roleLabels[$newRole] ?? $newRole;
-            $user['updatedAt'] = gmdate('c');
-            $updatedUserName = $user['name'] ?? $userId;
-            $updated = true;
-            break;
-        }
-    }
-    unset($user);
-    if (!$updated) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Usuario no encontrado.']);
-        exit;
-    }
-    $pdo = db();
-    $pdo->beginTransaction();
-    replaceRows($pdo, 'app_users', $users);
-    $pdo->commit();
-    logActivity('role_updated', 'user', $userId, $updatedUserName, ['newRole' => $newRole]);
-    echo json_encode(['ok' => true]);
-    exit;
-}
-
 /* ── create_user ── */
 if ($action === 'create_user') {
     requireSystemAdmin();

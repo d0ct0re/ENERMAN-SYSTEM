@@ -171,9 +171,6 @@ export interface ProjectDetailDialogProps {
   onAddInvoice?: (projectId: string, invoice: Omit<InvoiceItem, "id" | "createdAt" | "createdBy">) => void;
   onUpdateInvoice?: (projectId: string, invoiceId: string, updates: Partial<InvoiceItem>) => void;
   onAddProjectImportantDate?: (projectId: string, payload: { title: string; date: string }) => void;
-  // Legacy / sin UI aún
-  onSaveProject?: (...args: unknown[]) => void;
-  onAdminUpdateProject?: (...args: unknown[]) => void;
   canManageProjectCalendar?: boolean;
   canAddExpense?: boolean;
   canDeleteExpense?: boolean;
