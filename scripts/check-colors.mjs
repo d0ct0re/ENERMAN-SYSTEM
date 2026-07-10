@@ -20,6 +20,9 @@ const ALLOWLIST = [
   // sintética "sin-área" (línea 162) y el acento "importante" (línea 426) replican
   // ese mismo patrón. Ver MIGRATION_LOG.md, Lote E.
   { file: "components/common/project-calendar.tsx", lines: [162, 426] },
+  // Fondo fijo del banner "sin conexión" — mismo criterio que `warning` en
+  // tailwind.config.ts (sin token de modo claro asignado). Ver MIGRATION_LOG.md, Lote A.
+  { file: "App.tsx", lines: [1824] },
 ];
 
 function isAllowedLine(relFile, lineNo) {

@@ -53,7 +53,7 @@ const toneMap: Record<string, string> = {
   comparativa:            "bg-blue-900/40 text-blue-400 ring-1 ring-blue-500/30",
   "no-autorizado":        "bg-danger/15 text-danger ring-1 ring-danger/30",
   completed:              "bg-success/15 text-success ring-1 ring-success/30",
-  cancelled:              "bg-border-default text-zinc-500",
+  cancelled:              "bg-border-default text-ink-tertiary",
   // request
   "under-review":         "bg-brand/15 text-brand ring-1 ring-brand/30",
   "needs-correction":     "bg-brand/15 text-brand ring-1 ring-brand/30",
@@ -69,7 +69,7 @@ const toneMap: Record<string, string> = {
   "en-portal":"bg-purple-900/40 text-purple-400 ring-1 ring-purple-500/30",
   enviada:    "bg-secondary/15 text-secondary ring-1 ring-secondary/30",
   pagada:     "bg-success/15 text-success ring-1 ring-success/30",
-  cancelada:  "bg-border-default text-zinc-500",
+  cancelada:  "bg-border-default text-ink-tertiary",
 };
 
 const dotMap: Record<string, string> = {

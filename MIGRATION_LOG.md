@@ -120,7 +120,15 @@ lotes (cada uno es su propio commit, actualiza esta sección al aterrizar):
 | E | project-card.tsx, top-bar.tsx, project-calendar.tsx | ✅ completo — grises → `ink-tertiary`/`ink-secondary`; `hover:bg-[#2B2B2F]`/`hover:bg-[#383840]` → `surface-elevated`/`border-default`. Excepción documentada: `EngineerGroup.color` sintético "sin-área" (línea 162) y acento "importante" (línea 426) en project-calendar.tsx quedan como hex plano porque se consumen vía `style={}` con concatenación de alpha (`${color}33`) — no pueden ser clase Tailwind. Ver `scripts/check-colors.mjs` ALLOWLIST. |
 | F | type-selector.tsx, lugar-input.tsx, tabs.tsx, input.tsx, textarea.tsx | ✅ completo — grises → `ink-tertiary`/`ink-secondary` |
 | G | components/gastos/GastosProyecto.tsx | ✅ completo — `#3F3F46`→`border-default`, `#27272A`→`surface-elevated`, `#313136`→`muted`, `#52525B`→`border-strong`, `#888888`→`muted-foreground`, `#111111` (texto sobre botón accent)→`brand-fg`. **Nota:** este componente no está importado en ningún lado (verificado con grep) — es código huérfano, la UI de gastos real vive en `project-detail-dialog.tsx` (F3). Se migró de todas formas por si se conecta más adelante; si se confirma que no se usará, considerar eliminarlo junto con `hooks/useGastos.ts`. |
-| H | components/error-boundary.tsx | pendiente |
+| H | components/error-boundary.tsx | ✅ completo — estilos inline `style={{}}` tokenizados con `rgb(var(--x))` (el CSS de tokens se carga independiente de React, no hay riesgo de que este fallback quede sin estilos). Botón "Recargar" usa `info`/`info-fg` (mismo patrón que `brand`/`brand-fg` para texto legible sobre fondo sólido). |
+
+### ✅ Migración completa (2026-07-10)
+
+`npm run check:colors` → sin coincidencias. Los 8 lotes (A-H) están migrados y commiteados.
+También se corrigieron 2 casos que el barrido inicial de cada lote no detectó: `text-zinc-500`
+suelto en el `toneMap` de `status-badge.tsx` (distinto del `dotMap` ya corregido en la Fase 1) y
+se documentó `#1A0A00` (fondo fijo del banner "sin conexión" en App.tsx) como excepción permanente
+en `scripts/check-colors.mjs`, mismo criterio que `warning`.
 
 ### ⚙️ Guardarraíl agregado: `npm run check:colors`
 
