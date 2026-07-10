@@ -159,7 +159,7 @@ export function ProjectCalendar({
     const ungroupedCount = dayEvents.filter((ev) => !assignedIds.has(ev.project.createdBy)).length;
     if (ungroupedCount > 0) {
       rows.push({
-        group: { id: "sin-area", label: "Sin área", color: "#52525B", dot: "bg-border-strong", pill: "bg-border-default text-muted-foreground", card: "border-border-default bg-surface-elevated", memberIds: [] },
+        group: { id: "sin-area", label: "Sin área", color: "#52525B" /* string plano, ver check-colors.mjs ALLOWLIST */, dot: "bg-border-strong", pill: "bg-border-default text-muted-foreground", card: "border-border-default bg-surface-elevated", memberIds: [] },
         count: ungroupedCount,
       });
     }
@@ -193,17 +193,17 @@ export function ProjectCalendar({
       {/* ── Buscador (solo admin) ── */}
       {isAdminMode ? (
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#52525B]" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-tertiary" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setSelectedDateKey(null); }}
             placeholder="Buscar ingeniero, folio o proyecto..."
-            className="h-11 w-full rounded-2xl border border-border-default bg-surface-elevated pl-10 pr-10 text-sm font-semibold text-foreground outline-none transition placeholder:text-[#52525B] focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
+            className="h-11 w-full rounded-2xl border border-border-default bg-surface-elevated pl-10 pr-10 text-sm font-semibold text-foreground outline-none transition placeholder:text-ink-tertiary focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
           />
           {searchQuery ? (
             <button type="button" onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#52525B] transition hover:text-foreground">
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-tertiary transition hover:text-foreground">
               <X className="h-3.5 w-3.5" />
             </button>
           ) : null}
@@ -422,8 +422,8 @@ export function ProjectCalendar({
                         const engineerName = users?.find((u) => u.id === ev.project.createdBy)?.name;
                         const seq          = ev.project.structuredName.split("-")[0];
                         return (
-                          <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 p-4 bg-muted transition hover:bg-[#383840]"
-                            style={{ borderLeftColor: ev.type === "importante" ? "#A855F7" : group.color }}>
+                          <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 p-4 bg-muted transition hover:bg-border-default"
+                            style={{ borderLeftColor: ev.type === "importante" ? "#A855F7" /* string plano, ver check-colors.mjs ALLOWLIST */ : group.color }}>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${dateCfg.pill}`}>{dateCfg.label}</span>
                               <StatusBadge kind="project" value={ev.project.status} />
@@ -473,7 +473,7 @@ export function ProjectCalendar({
                         const engineerName = users?.find((u) => u.id === ev.project.createdBy)?.name;
                         const seq          = ev.project.structuredName.split("-")[0];
                         return (
-                          <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 border-l-border-strong bg-muted p-4 transition hover:bg-[#383840]">
+                          <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 border-l-border-strong bg-muted p-4 transition hover:bg-border-default">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${dateCfg.pill}`}>{dateCfg.label}</span>
                               <StatusBadge kind="project" value={ev.project.status} />

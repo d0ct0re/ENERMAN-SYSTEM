@@ -10,11 +10,24 @@ import { join, extname } from "node:path";
 
 const SRC_DIR = new URL("../src", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 
-// Archivos/patrones con excepción documentada — ver MIGRATION_LOG.md.
+// Archivos/líneas con excepción documentada — ver MIGRATION_LOG.md.
+// `lines` omitido = excepción para todo el archivo; con `lines`, solo esas líneas.
 const ALLOWLIST = [
   // Colores categóricos fijos por equipo de ingeniería, no adaptan a claro/oscuro.
-  { file: "lib/engineer-groups.ts", pattern: /#[0-9A-Fa-f]{3,8}/g },
+  { file: "lib/engineer-groups.ts" },
+  // EngineerGroup.color se consume como string plano vía style={} y se le concatena
+  // sufijo de alpha (`${g.color}33`) — no puede ser una clase Tailwind. La entrada
+  // sintética "sin-área" (línea 162) y el acento "importante" (línea 426) replican
+  // ese mismo patrón. Ver MIGRATION_LOG.md, Lote E.
+  { file: "components/common/project-calendar.tsx", lines: [162, 426] },
 ];
+
+function isAllowedLine(relFile, lineNo) {
+  return ALLOWLIST.some((entry) => {
+    if (!relFile.endsWith(entry.file)) return false;
+    return !entry.lines || entry.lines.includes(lineNo);
+  });
+}
 
 const CHECKS = [
   { name: "hex literal",        pattern: /#[0-9A-Fa-f]{3,8}\b/g },
@@ -40,10 +53,9 @@ for (const file of walk(SRC_DIR)) {
   const content = readFileSync(file, "utf8");
   const lines = content.split("\n");
 
-  if (ALLOWLIST.some((entry) => relFile.endsWith(entry.file))) continue;
-
   for (const check of CHECKS) {
     lines.forEach((line, idx) => {
+      if (isAllowedLine(relFile, idx + 1)) return;
       const matches = line.match(check.pattern);
       if (matches) {
         violations++;

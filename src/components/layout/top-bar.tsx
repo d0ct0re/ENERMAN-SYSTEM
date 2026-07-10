@@ -112,7 +112,7 @@ export function TopBar({
 
       <div className="max-h-[420px] overflow-y-auto">
         {notifications.length === 0 ? (
-          <p className="py-10 text-center text-sm text-[#555555]">Sin notificaciones</p>
+          <p className="py-10 text-center text-sm text-ink-tertiary">Sin notificaciones</p>
         ) : (
           notifications.slice(0, 30).map((n) => (
             <div
@@ -139,14 +139,14 @@ export function TopBar({
                   <span className={cn("block text-sm leading-snug", !n.isRead ? "font-semibold text-foreground" : "font-medium text-ink-secondary")}>
                     {n.title}
                   </span>
-                  <span className="mt-0.5 block text-xs text-zinc-500">{n.description}</span>
-                  <span className="mt-1 block text-[11px] text-[#52525B]">{timeAgo(n.createdAt)}</span>
+                  <span className="mt-0.5 block text-xs text-ink-tertiary">{n.description}</span>
+                  <span className="mt-1 block text-[11px] text-ink-tertiary">{timeAgo(n.createdAt)}</span>
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => onDeleteNotification(n.id)}
-                className="ml-1 shrink-0 self-start rounded-full p-1 text-[#52525B] opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                className="ml-1 shrink-0 self-start rounded-full p-1 text-ink-tertiary opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
                 aria-label="Eliminar notificación"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -237,7 +237,7 @@ export function TopBar({
                         "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
                         account.id === activeUser.id
                           ? "bg-border-default text-foreground"
-                          : "hover:bg-muted text-[#BCBCBC] hover:text-foreground",
+                          : "hover:bg-muted text-ink-secondary hover:text-foreground",
                       )}
                     >
                       <Avatar initials={account.avatar} className="h-9 w-9 text-xs" />

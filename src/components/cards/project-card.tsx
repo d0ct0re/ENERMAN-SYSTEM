@@ -34,7 +34,7 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
 
   return (
     <Card
-      className={`group flex h-full cursor-pointer flex-col gap-4 border-white/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-[#2B2B2F] hover:shadow-card-hover sm:p-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${priorityAccent[project.priority]}`}
+      className={`group flex h-full cursor-pointer flex-col gap-4 border-white/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-surface-elevated hover:shadow-card-hover sm:p-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${priorityAccent[project.priority]}`}
       onClick={() => onOpen(project.id)}
     >
       <div className="flex items-start justify-between gap-3 lg:min-w-0">
@@ -69,7 +69,7 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
                 className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                   ph.done
                     ? "bg-accent/15 text-accent"
-                    : "bg-border-default/60 text-[#52525B]"
+                    : "bg-border-default/60 text-ink-tertiary"
                 }`}
               >
                 {ph.label}
