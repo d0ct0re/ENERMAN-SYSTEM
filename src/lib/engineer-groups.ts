@@ -1,11 +1,5 @@
 // Grupos de ingenieros para el calendario del administrador.
 // Cada grupo tiene un color y los IDs de sus miembros.
-//
-// Los hex en `color` son categóricos fijos por equipo (no forman parte del
-// sistema de tokens claro/oscuro) — por eso están en la allowlist de
-// scripts/check-colors.mjs. Ver MIGRATION_LOG.md, sección "engineer-groups.ts".
-// El grupo "azul" usa #0EA5E9 intencionalmente igual a --info para consistencia
-// visual entre este `color` (usado en style={}) y las clases `bg-info`/`text-info`.
 
 export interface EngineerGroup {
   id: string;
@@ -22,9 +16,9 @@ export const ENGINEER_GROUPS: EngineerGroup[] = [
     id: "naranja",
     label: "Medición",
     color: "#F97316",
-    dot:  "bg-orange-500",
-    pill: "bg-orange-500/15 text-orange-500",
-    card: "border-orange-500/25 bg-orange-500/[0.04]",
+    dot:  "bg-[#F97316]",
+    pill: "bg-[#F97316]/15 text-[#F97316]",
+    card: "border-[#F97316]/25 bg-[#F97316]/[0.04]",
     memberIds: [
       "user-alan",             // Alan Sanchez (supervisor)
       "user-benjamin-tejada",  // Benjamin Tejada
@@ -35,9 +29,9 @@ export const ENGINEER_GROUPS: EngineerGroup[] = [
     id: "amarillo",
     label: "Operación",
     color: "#EAB308",
-    dot:  "bg-yellow-500",
-    pill: "bg-yellow-500/15 text-yellow-500",
-    card: "border-yellow-500/25 bg-yellow-500/[0.04]",
+    dot:  "bg-[#EAB308]",
+    pill: "bg-[#EAB308]/15 text-[#EAB308]",
+    card: "border-[#EAB308]/25 bg-[#EAB308]/[0.04]",
     memberIds: [
       "user-jesus",              // Jesus Plata (supervisor)
       "user-jorge-becerra",      // Jorge Becerra
@@ -53,9 +47,9 @@ export const ENGINEER_GROUPS: EngineerGroup[] = [
     id: "azul",
     label: "Ingeniería",
     color: "#0EA5E9",
-    dot:  "bg-info",
-    pill: "bg-info/15 text-info",
-    card: "border-info/25 bg-info/[0.04]",
+    dot:  "bg-[#0EA5E9]",
+    pill: "bg-[#0EA5E9]/15 text-[#0EA5E9]",
+    card: "border-[#0EA5E9]/25 bg-[#0EA5E9]/[0.04]",
     memberIds: [
       "user-servando-ramirez",  // Servando Ramirez
       "user-gabriel-colunga",   // Gabriel Colunga (aka Eduardo Colunga)

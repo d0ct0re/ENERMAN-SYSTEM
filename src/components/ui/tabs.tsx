@@ -27,8 +27,8 @@ export function Tabs<T extends string>({ value, onValueChange, options, classNam
             className={cn(
               "inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200",
               active
-                ? "border-transparent bg-accent text-brand-fg font-black shadow-glow-gold"
-                : "border-border-default bg-surface-elevated text-muted-foreground hover:border-border-strong hover:bg-muted hover:text-foreground",
+                ? "border-transparent bg-accent text-[#111111] font-black shadow-glow-gold"
+                : "border-[#3F3F46] bg-[#27272A] text-[#888888] hover:border-[#52525B] hover:bg-[#313136] hover:text-white",
             )}
           >
             <span>{option.label}</span>
@@ -36,7 +36,7 @@ export function Tabs<T extends string>({ value, onValueChange, options, classNam
               <span
                 className={cn(
                   "min-w-5 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
-                  active ? "bg-surface/30 text-brand-fg" : "bg-border-default text-ink-secondary",
+                  active ? "bg-[#1E1E20]/30 text-[#111111]" : "bg-[#3F3F46] text-[#BCBCBC]",
                 )}
               >
                 {option.count}

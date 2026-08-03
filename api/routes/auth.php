@@ -142,3 +142,35 @@ if ($action === 'switch_session') {
     exit;
 }
 
+/* ── admin_login ── */
+if ($action === 'admin_login') {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $blocked = checkRateLimit($ip);
+    if ($blocked) {
+        http_response_code(429);
+        echo json_encode(['error' => $blocked]);
+        exit;
+    }
+    $data = readJson();
+    $user = verifyCredentials($data['email'] ?? '', $data['password'] ?? '');
+    if (!$user || ($user['role'] ?? '') !== 'system_admin') {
+        recordFailedLogin($ip);
+        http_response_code(403);
+        echo json_encode(['error' => 'Acceso restringido a system_admin.']);
+        exit;
+    }
+    clearRateLimit($ip);
+    unset($user['password']);
+    $_SESSION['user_id']   = $user['id'];
+    $_SESSION['user_role'] = $user['role'];
+    logActivity('admin_login', 'user', $user['id'] ?? null, $user['name'] ?? null, ['email' => $user['email'] ?? null], $user);
+    echo json_encode(['ok' => true, 'user' => $user], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+/* ── admin_logout ── */
+if ($action === 'admin_logout') {
+    session_destroy();
+    echo json_encode(['ok' => true]);
+    exit;
+}

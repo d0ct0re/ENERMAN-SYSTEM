@@ -42,10 +42,6 @@ require __DIR__ . '/core/auth_guards.php';
 
 $action = $_GET['action'] ?? 'bootstrap';
 
-// Migraciones de esquema — se aplican una sola vez y no bloquean el API si fallan.
-// Usar ANTES de cualquier route para que el schema esté listo antes de la primera escritura.
-ensureMigrations();
-
 // Garantiza que el directorio de uploads siempre tenga el .htaccess correcto.
 $noExecHtaccessGlobal = "<FilesMatch \"\\.(php[0-9]?|phtml|phar|pl|py|jsp|asp|sh|cgi)$\">\n  Require all denied\n</FilesMatch>\nOptions -Indexes -ExecCGI\n";
 secureMkdir(__DIR__ . '/../uploads/', $noExecHtaccessGlobal);

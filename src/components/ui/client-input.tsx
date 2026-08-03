@@ -42,7 +42,7 @@ export function ClientInput({ value, onChange, placeholder = "Cliente" }: Client
       />
 
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-border-default bg-surface-elevated shadow-panel">
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-[#3F3F46] bg-[#27272A] shadow-panel">
           {suggestions.map((c) => (
             <button
               key={c}
@@ -59,7 +59,7 @@ export function ClientInput({ value, onChange, placeholder = "Cliente" }: Client
           ))}
 
           {isCustomValue && (
-            <div className="px-4 py-3 text-sm text-muted-foreground">
+            <div className="px-4 py-3 text-sm text-[#888888]">
               Se usará <span className="font-semibold text-foreground">"{value}"</span> como cliente
             </div>
           )}

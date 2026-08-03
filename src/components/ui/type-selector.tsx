@@ -28,21 +28,21 @@ export function TypeSelector({ value, onChange }: TypeSelectorProps): JSX.Elemen
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex w-full items-center justify-between rounded-[14px] border bg-surface-elevated px-4 py-3 text-sm text-left transition focus:outline-none",
-          open ? "border-accent/60" : "border-border-default hover:border-accent/30",
+          "flex w-full items-center justify-between rounded-[14px] border bg-[#27272A] px-4 py-3 text-sm text-left transition focus:outline-none",
+          open ? "border-accent/60" : "border-[#3F3F46] hover:border-accent/30",
         )}
       >
         <span className="flex items-center gap-2">
           <span className="font-bold text-accent">{value}</span>
-          <span className="text-ink-tertiary">— {PROJECT_TYPE_LABELS[value]}</span>
+          <span className="text-[#71717A]">— {PROJECT_TYPE_LABELS[value]}</span>
         </span>
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")}
+          className={cn("h-4 w-4 shrink-0 text-[#888888] transition-transform duration-200", open && "rotate-180")}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-border-default bg-surface shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-[#3F3F46] bg-[#1E1E20] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
           {ACTIVE_PROJECT_TYPES.map((type) => (
             <button
               key={type}
@@ -54,10 +54,10 @@ export function TypeSelector({ value, onChange }: TypeSelectorProps): JSX.Elemen
                 value === type ? "bg-accent/5" : "",
               )}
             >
-              <span className={cn("w-12 font-bold", value === type ? "text-accent" : "text-ink-secondary")}>
+              <span className={cn("w-12 font-bold", value === type ? "text-accent" : "text-[#D4D4D8]")}>
                 {type}
               </span>
-              <span className="text-muted-foreground">{PROJECT_TYPE_LABELS[type]}</span>
+              <span className="text-[#888888]">{PROJECT_TYPE_LABELS[type]}</span>
               {value === type && (
                 <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent" />
               )}

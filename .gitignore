@@ -36,9 +36,4 @@ export-analysis.ps1
 run-dev.bat
 run-dev.ps1
 logo-preview.html
-reset-ion-setup.ps1
-
-# Herramientas/tests ad hoc locales y dumps de estructura de directorio
-.tools/
-estructura*.txt
 

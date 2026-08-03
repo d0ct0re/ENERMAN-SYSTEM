@@ -61,7 +61,7 @@ export function DepartmentInput({ value, onChange, placeholder = "Departamento" 
       />
 
       {open && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-60 overflow-y-auto rounded-2xl border border-border-default bg-surface-elevated shadow-panel">
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-60 overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#27272A] shadow-panel">
           {suggestions.map((d) => (
             <button
               key={d}
@@ -78,7 +78,7 @@ export function DepartmentInput({ value, onChange, placeholder = "Departamento" 
           ))}
 
           {isCustomValue && (
-            <div className="px-4 py-3 text-sm text-muted-foreground">
+            <div className="px-4 py-3 text-sm text-[#888888]">
               Se usará <span className="font-semibold text-foreground">"{value}"</span> como departamento
             </div>
           )}

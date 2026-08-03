@@ -1,6 +1,38 @@
 <?php
 declare(strict_types=1);
 
+/* ── admin_dashboard ── */
+if ($action === 'admin_dashboard') {
+    requireSystemAdmin();
+    $projects      = tableRows('projects');
+    $users         = tableRowsUsers();
+    $requests      = tableRows('requests');
+    $notifications = tableRows('notifications');
+
+    $activeStatuses = ['en-concurso', 'en-programacion', 'in-progress', 'pendiente-aprobacion', 'pendiente-autorizar', 'reasignado', 'cierre-por-sistema', 'comparativa'];
+    $activeCount    = count(array_filter($projects, static fn($p) => in_array($p['status'] ?? '', $activeStatuses, true)));
+    $unpaidCount    = count(array_filter($projects, static fn($p) => ($p['paymentStatus'] ?? '') === 'unpaid'));
+    $reviewCount    = count(array_filter($requests,  static fn($r) => ($r['status'] ?? '') === 'under-review'));
+
+    echo json_encode([
+        'ok'          => true,
+        'counts'      => [
+            'projects'      => count($projects),
+            'users'         => count($users),
+            'requests'      => count($requests),
+            'notifications' => count($notifications),
+            'active'        => $activeCount,
+            'unpaid'        => $unpaidCount,
+            'underReview'   => $reviewCount,
+        ],
+        'projects'      => $projects,
+        'users'         => $users,
+        'requests'      => $requests,
+        'recentHistory' => array_slice(allHistory($projects), 0, 50),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 /* ── reset_active_passwords ── */
 if ($action === 'reset_active_passwords') {
     requireSystemAdmin();
@@ -44,21 +76,6 @@ if ($action === 'activity_logs') {
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
-
-/*
- * ⚠️  ATENCIÓN — SI AGREGAS UN JOB DE LIMPIEZA DE activity_logs:
- *
- * Los registros con action = 'deleted' Y entity_type = 'project' contienen
- * el payload completo del proyecto en details.payload_backup.
- * Son el ÚNICO backup de proyectos eliminados — sin ellos, la recuperación
- * es imposible. Cualquier purga de logs DEBE excluirlos:
- *
- *   DELETE FROM activity_logs
- *   WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)
- *     AND NOT (action = 'deleted' AND entity_type = 'project');  ← obligatorio
- *
- * Los logs de tipo 'updated'/'created' sí se pueden purgar sin problema.
- */
 
 /* ── cron_backup — backup automático sin sesión, protegido por clave secreta ── */
 if ($action === 'cron_backup') {
