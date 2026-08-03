@@ -63,23 +63,6 @@ if ($action === 'update_project') {
         echo json_encode(['error' => 'project_id y fields requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
-    $stmt->execute([$projectId]);
-    $row = $stmt->fetch();
-
-    // Ingenieros y supervisores solo pueden modificar proyectos donde son creador o participante.
-    // Admins y system_admin pueden modificar cualquier proyecto.
-    if (!in_array($callerRole, ['admin', 'system_admin'], true)) {
-        $source        = $row ? (json_decode($row['payload'], true) ?? []) : $fields;
-        $isCreator     = ($source['createdBy'] ?? '') === $callerId;
-        $isParticipant = in_array($callerId, $source['participants'] ?? [], true);
-        if (!$isCreator && !$isParticipant) {
-            http_response_code(403);
-            echo json_encode(['error' => 'No tienes permiso para modificar este proyecto.'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-    }
-
     // Extrae el número de folio de un structuredName tipo "0042-Nombre-Cliente".
     // Retorna null si el nombre no empieza con dígitos (proyecto sin folio aún).
     $extractFolio = static function (string $sn): ?int {
@@ -89,26 +72,47 @@ if ($action === 'update_project') {
     };
 
     // Verifica que el folio no esté ya asignado a otro proyecto distinto.
-    $assertFolioUnique = static function (int $folio, string $selfId) use ($extractFolio): void {
+    $assertFolioUnique = static function (int $folio, string $selfId): void {
         $dup = db()->prepare("SELECT id FROM projects WHERE folio = :f AND id != :id LIMIT 1");
         $dup->execute([':f' => $folio, ':id' => $selfId]);
         if ($dup->fetch()) {
-            http_response_code(409);
-            echo json_encode(
-                ['error' => "El folio {$folio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."],
-                JSON_UNESCAPED_UNICODE
-            );
-            exit;
+            throw new RuntimeException('folio_duplicado');
         }
     };
 
-    if (!$row) {
-        // El proyecto aún no existe en BD (p.ej. recién creado, pendiente de save_state)
-        $fields['id'] = $projectId;
-        $newFolio = $extractFolio($fields['structuredName'] ?? '');
-        if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
-        try {
-            db()->prepare(
+    $pdo = db();
+    $pdo->beginTransaction();
+    $newFolio = null;
+
+    try {
+        // Locking pesimista: bloquea la fila del proyecto (si existe) hasta el commit.
+        // Si dos usuarios editan el mismo proyecto casi al mismo tiempo, el segundo
+        // request espera a que el primero termine en vez de pisar sus cambios
+        // (reemplaza el read-merge-write sin protección que había antes).
+        $stmt = $pdo->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1 FOR UPDATE");
+        $stmt->execute([$projectId]);
+        $row = $stmt->fetch();
+
+        // Ingenieros y supervisores solo pueden modificar proyectos donde son creador o participante.
+        // Admins y system_admin pueden modificar cualquier proyecto.
+        if (!in_array($callerRole, ['admin', 'system_admin'], true)) {
+            $source        = $row ? (json_decode($row['payload'], true) ?? []) : $fields;
+            $isCreator     = ($source['createdBy'] ?? '') === $callerId;
+            $isParticipant = in_array($callerId, $source['participants'] ?? [], true);
+            if (!$isCreator && !$isParticipant) {
+                $pdo->rollBack();
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes permiso para modificar este proyecto.'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
+
+        if (!$row) {
+            // El proyecto aún no existe en BD (p.ej. recién creado, pendiente de save_state)
+            $fields['id'] = $projectId;
+            $newFolio = $extractFolio($fields['structuredName'] ?? '');
+            if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
+            $pdo->prepare(
                 "INSERT INTO projects (id, payload, folio, sort_order, updated_at)
                  VALUES (:id, :payload, :folio, 0, NOW())"
             )->execute([
@@ -116,46 +120,45 @@ if ($action === 'update_project') {
                 ':payload' => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 ':folio'   => $newFolio,
             ]);
-        } catch (\PDOException $e) {
-            if ($e->getCode() === '23000') {
-                http_response_code(409);
-                echo json_encode(['error' => "El folio {$newFolio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."], JSON_UNESCAPED_UNICODE);
-                exit;
+        } else {
+            // Fusión quirúrgica: preserva campos que el frontend no envió (archivos, comentarios, etc.)
+            $current = json_decode($row['payload'], true) ?? [];
+            $updated = array_merge($current, $fields);
+            $updated['id'] = $projectId;
+            // Preserve original fechaSolicitud (inmutable — igual que en save_state)
+            if (!empty($current['fechaSolicitud'])) {
+                $updated['fechaSolicitud'] = $current['fechaSolicitud'];
             }
-            throw $e;
-        }
-    } else {
-        // Fusión quirúrgica: preserva campos que el frontend no envió (archivos, comentarios, etc.)
-        $current = json_decode($row['payload'], true) ?? [];
-        $updated = array_merge($current, $fields);
-        $updated['id'] = $projectId;
-        // Preserve original fechaSolicitud (inmutable — igual que en save_state)
-        if (!empty($current['fechaSolicitud'])) {
-            $updated['fechaSolicitud'] = $current['fechaSolicitud'];
-        }
-        // Campos enviados como null se eliminan del payload (semántica de "unset")
-        // p.ej. deletedAt: null al restaurar un proyecto de la papelera
-        foreach ($updated as $key => $val) {
-            if ($val === null) unset($updated[$key]);
-        }
-        $newFolio = $extractFolio($updated['structuredName'] ?? '');
-        if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
-        try {
-            db()->prepare("UPDATE projects SET payload = :p, folio = :f, updated_at = NOW() WHERE id = :id")
+            // Campos enviados como null se eliminan del payload (semántica de "unset")
+            // p.ej. deletedAt: null al restaurar un proyecto de la papelera
+            foreach ($updated as $key => $val) {
+                if ($val === null) unset($updated[$key]);
+            }
+            $newFolio = $extractFolio($updated['structuredName'] ?? '');
+            if ($newFolio !== null) $assertFolioUnique($newFolio, $projectId);
+            $pdo->prepare("UPDATE projects SET payload = :p, folio = :f, updated_at = NOW() WHERE id = :id")
                ->execute([
                    ':p'  => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                    ':f'  => $newFolio,
                    ':id' => $projectId,
                ]);
-        } catch (\PDOException $e) {
-            if ($e->getCode() === '23000') {
-                http_response_code(409);
-                echo json_encode(['error' => "El folio {$newFolio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
-            throw $e;
         }
+
+        $pdo->commit();
+
+    } catch (\Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+
+        $isDupFolio = ($e instanceof \PDOException && $e->getCode() === '23000')
+                   || $e->getMessage() === 'folio_duplicado';
+        if ($isDupFolio) {
+            http_response_code(409);
+            echo json_encode(['error' => "El folio {$newFolio} ya está asignado a otro proyecto. Refresca e intenta de nuevo."], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        throw $e;
     }
+
     echo json_encode(['ok' => true]);
     exit;
 }
