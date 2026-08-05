@@ -207,7 +207,7 @@ function SystemAdminView({
   return (
     <section className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <SectionTitle eyebrow={`Gestor del sistema: ${activeUserName}`} title="Gestion general del sistema" />
+        <SectionTitle eyebrow={`Espacio de trabajo de ${activeUserName}`} title="Gestión general del sistema" />
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <button
             type="button"
@@ -227,8 +227,8 @@ function SystemAdminView({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard title="Proyectos" value={projects.length} tone="accent" />
-        <SummaryCard title="Solicitudes" value={requests.length} tone="warning" />
+        <SummaryCard title="Proyectos" value={projects.length} tone={projects.length > 0 ? "accent" : "secondary"} />
+        <SummaryCard title="Solicitudes" value={requests.length} tone={requests.length > 0 ? "warning" : "secondary"} />
         <SummaryCard title="Usuarios" value={users.length} tone="secondary" />
       </div>
 
@@ -282,7 +282,8 @@ function SystemAdminView({
           <button
             type="button"
             onClick={() => restoreInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-[#F5A524]/40 hover:bg-[#313136] hover:text-[#F5A524]"
+            title="Sobreescribe todos los datos actuales — acción de alto riesgo"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#F5A524]/30 bg-[#F5A524]/5 px-4 py-2 text-sm font-semibold text-[#F5A524]/90 transition hover:border-[#F5A524]/60 hover:bg-[#F5A524]/15 hover:text-[#F5A524]"
           >
             <UploadCloud className="h-4 w-4" />
             Restaurar desde backup
