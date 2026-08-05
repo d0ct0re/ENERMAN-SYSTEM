@@ -84,6 +84,12 @@ export default function App(): JSX.Element {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Avisa al usuario cuando un guardado atómico fire-and-forget falla en el servidor —
+  // antes se tragaban en silencio y el usuario creía que su cambio había quedado guardado.
+  const notifySaveError = (action: string, err: unknown): void => {
+    const msg = err instanceof Error ? err.message : "Error desconocido";
+    setToastMessage(`${action}: ${msg}`);
+  };
   const [loginEmail, setLoginEmail] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineSince, setOfflineSince] = useState<Date | null>(null);
@@ -758,7 +764,14 @@ export default function App(): JSX.Element {
 
     if (apiReady) {
       const persist = () => apiUpdateProject(project.id, project);
-      persist().catch(() => setTimeout(() => persist().catch(() => undefined), 2000));
+      persist().catch(() =>
+        setTimeout(
+          () => persist().catch((err) =>
+            notifySaveError("El proyecto se creó localmente pero no se pudo guardar en el servidor", err),
+          ),
+          2000,
+        ),
+      );
     }
     addNotification({
       id: crypto.randomUUID(),
@@ -863,9 +876,13 @@ export default function App(): JSX.Element {
     // Guardados atómicos — no depender de save_state que en multi-usuario borra datos ajenos
     if (apiReady) {
       if (newProject) {
-        apiUpdateProject(linkedProjectId, newProject).catch(() => undefined);
+        apiUpdateProject(linkedProjectId, newProject).catch((err) =>
+          notifySaveError("El proyecto se creó localmente pero no se pudo guardar en el servidor", err),
+        );
       }
-      apiUpdateRequest(requestId, approvedFields).catch(() => undefined);
+      apiUpdateRequest(requestId, approvedFields).catch((err) =>
+        notifySaveError("No se pudo guardar la aprobación de la solicitud", err),
+      );
     }
 
     addNotification({
@@ -1260,7 +1277,9 @@ export default function App(): JSX.Element {
 
     // Guardado atómico — envía el array completo actualizado (append ya fue hecho localmente)
     if (apiReady) {
-      apiUpdateProject(projectId, { importantDates: updatedImportantDates, updatedAt: now }).catch(() => undefined);
+      apiUpdateProject(projectId, { importantDates: updatedImportantDates, updatedAt: now }).catch((err) =>
+        notifySaveError("No se pudo guardar la fecha importante", err),
+      );
     }
   };
 
@@ -1277,7 +1296,9 @@ export default function App(): JSX.Element {
       ),
     );
     if (apiReady) {
-      apiUpdateProject(projectId, { importantDates: updatedDates, updatedAt: now }).catch(() => undefined);
+      apiUpdateProject(projectId, { importantDates: updatedDates, updatedAt: now }).catch((err) =>
+        notifySaveError("No se pudo eliminar la fecha importante", err),
+      );
     }
   };
 
@@ -1473,7 +1494,14 @@ export default function App(): JSX.Element {
     // Si el gestor navega o recarga antes de los 3 s, el proyecto queda en BD.
     if (apiReady) {
       const persist = () => apiUpdateProject(project.id, project);
-      persist().catch(() => setTimeout(() => persist().catch(() => undefined), 2000));
+      persist().catch(() =>
+        setTimeout(
+          () => persist().catch((err) =>
+            notifySaveError("El proyecto se creó localmente pero no se pudo guardar en el servidor", err),
+          ),
+          2000,
+        ),
+      );
     }
 
     if (assignedEngineer) {
@@ -1727,11 +1755,15 @@ export default function App(): JSX.Element {
     );
 
     if (apiReady) {
-      apiDeleteFile(fileId, projectId).catch(() => undefined);
+      apiDeleteFile(fileId, projectId).catch((err) =>
+        notifySaveError("No se pudo eliminar el archivo en el servidor", err),
+      );
       // Cuando se borra el último archivo de una sección, resetear el status atómicamente
       // para que otros usuarios vean el cambio de inmediato (no esperar save_state 3s).
       if (isLastInCategory) {
-        apiUpdateProject(projectId, { [statusFieldMap[category]]: "no" } as Partial<import("@/types").ProjectItem>).catch(() => undefined);
+        apiUpdateProject(projectId, { [statusFieldMap[category]]: "no" } as Partial<import("@/types").ProjectItem>).catch((err) =>
+          notifySaveError("No se pudo actualizar el estado de la sección", err),
+        );
       }
     }
   };
@@ -1750,7 +1782,9 @@ export default function App(): JSX.Element {
     setToastMessage("Proyecto movido a la papelera");
     // Guardado atómico inmediato: marca deletedAt en BD sin esperar save_state.
     if (apiReady) {
-      apiUpdateProject(projectId, { deletedAt }).catch(() => undefined);
+      apiUpdateProject(projectId, { deletedAt }).catch((err) =>
+        notifySaveError("El proyecto se movió a la papelera localmente pero no se pudo guardar en el servidor", err),
+      );
     }
   };
 
@@ -1765,7 +1799,9 @@ export default function App(): JSX.Element {
     // Limpiar deletedAt en BD atómicamente
     if (apiReady) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiUpdateProject(projectId, { deletedAt: null } as any).catch(() => undefined);
+      apiUpdateProject(projectId, { deletedAt: null } as any).catch((err) =>
+        notifySaveError("El proyecto se restauró localmente pero no se pudo guardar en el servidor", err),
+      );
     }
   };
 
