@@ -40,7 +40,7 @@ jobs:
           set ssl:verify-certificate false
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
-          mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ /public_html/
+          mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ /domains/ampr.site/public_html/
           quit
           LFTP_EOF
 
@@ -88,6 +88,6 @@ jobs:
           set ssl:verify-certificate false
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
-          mirror -R --ignore-time --verbose=1 --delete api/ /public_html/api/
+          mirror -R --ignore-time --verbose=1 --delete api/ /domains/ampr.site/public_html/api/
           quit
           LFTP_EOF
