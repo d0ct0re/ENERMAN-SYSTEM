@@ -40,9 +40,38 @@ jobs:
           set ssl:verify-certificate false
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
-          mirror -R --exclude=api/ --delete dist/ /public_html/
+          mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ /public_html/
           quit
           LFTP_EOF
+
+      # lftp puede reportar exito aunque la transferencia real haya fallado o
+      # quedado a medias por la inestabilidad de Hostinger (ya paso antes en
+      # silencio: el sitio quedo semanas sirviendo un build viejo con el check
+      # en verde). Esta verificacion compara el hash del bundle recien
+      # construido contra el que realmente responde el sitio en vivo, y hace
+      # fallar el job en rojo si no coinciden.
+      - name: Verificar que el frontend realmente se publico
+        run: |
+          EXPECTED=$(grep -o '/assets/index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
+          if [ -z "$EXPECTED" ]; then
+            echo "No se pudo determinar el bundle esperado desde dist/index.html"
+            exit 1
+          fi
+          echo "Bundle esperado: $EXPECTED"
+          LIVE=""
+          for i in 1 2 3 4 5 6; do
+            LIVE=$(curl -s https://ampr.site/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+            echo "Intento $i - bundle en vivo: $LIVE"
+            if [ "$LIVE" = "$EXPECTED" ]; then
+              echo "Deploy verificado: el sitio en vivo sirve el build nuevo."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "ERROR: el sitio en vivo sigue sirviendo un bundle distinto al recien subido."
+          echo "Esperado: $EXPECTED"
+          echo "En vivo:  $LIVE"
+          exit 1
 
       - name: Subir API (api/) a Hostinger
         env:
@@ -59,6 +88,6 @@ jobs:
           set ssl:verify-certificate false
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
-          mirror -R --delete api/ /public_html/api/
+          mirror -R --ignore-time --verbose=1 --delete api/ /public_html/api/
           quit
           LFTP_EOF
