@@ -40,7 +40,10 @@ jobs:
           set ssl:verify-certificate false
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
-          mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ /domains/ampr.site/public_html/
+          cd /domains/ampr.site/public_html/
+          -rm index.html
+          -rm .htaccess
+          mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ .
           quit
           LFTP_EOF
 
