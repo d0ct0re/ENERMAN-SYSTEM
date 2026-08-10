@@ -53,6 +53,13 @@ Para apuntar a un API local, edita `src/lib/api.ts` y cambia `API_BASE_URL`.
 
 ## Deploy a producción
 
+**Automático (el que se usa siempre):** cualquier push a `main` dispara `.github/workflows/deploy.yml` —
+build, sube el frontend y el API por FTP a Hostinger, y **verifica** que el sitio en vivo
+realmente sirva el build nuevo antes de dar el job por bueno. Si el sitio no cambió, el
+check queda en rojo aunque la subida por FTP no haya tirado error.
+
+**Manual (fallback, casi nunca hace falta):**
+
 ```bash
 # Requiere WinSCP instalado y el archivo .env.deploy configurado
 cp .env.deploy.example .env.deploy
@@ -70,9 +77,7 @@ cp .env.deploy.example .env.deploy
 |---|---|
 | `api/config.php` | Credenciales de MySQL |
 | `.env.deploy` | Credenciales FTP de Hostinger |
-| `database/fase1-usuarios.sql` | Contiene contraseñas de usuarios |
-| `database/insert-users*.sql` | Ídem |
-| `database/reset-active-user-passwords.sql` | Ídem |
+| `.env.local` | URL del API para desarrollo local |
 
 Todos están en `.gitignore`. Si accidentalmente los stageas, cancela con `git restore --staged <archivo>`.
 
@@ -80,32 +85,44 @@ Todos están en `.gitignore`. Si accidentalmente los stageas, cancela con `git r
 
 ## Estructura del proyecto
 
-```
-api/
-  index.php          — Único endpoint PHP (action=?)
-  config.php         — Credenciales MySQL (ignorado por git)
-  config.example.php — Plantilla de configuración
+Ordenado como se lee el sistema de abajo hacia arriba: primero dónde vive el dato, después quién lo sirve, después quién lo muestra.
 
-src/
-  App.tsx            — Estado global y lógica central
+```
+database/                — 1. La fuente de verdad
+  schema.sql               tablas reales (projects, requests, app_users, notifications...)
+  migration_folio_unique.sql  migraciones puntuales, ya aplicadas en producción
+  fase2-cleanup.sql        mantenimiento
+  update-user-departments.sql
+  backup.ps1                respaldo manual vía PowerShell (además del backup desde la app)
+
+api/                     — 2. Backend (PHP, un solo entrypoint)
+  index.php                 arma sesión/DB y despacha por ?action=
+  core/
+    functions.php           helpers compartidos (db(), tableRows, syncRows, locking)
+    auth_guards.php          requireAuth / requireAdmin / requireSystemAdmin
+  routes/                    un archivo por dominio (projects, requests, users, uploads...)
+  config.php                 credenciales reales — SOLO en el servidor, nunca en git
+  config.example.php         plantilla para copiar
+
+src/                      — 3. Frontend (React + TS, consume la API)
+  App.tsx                    estado global y orquestación de mutaciones
   lib/
-    api.ts           — Todas las llamadas HTTP al backend
-    realtime.ts      — Short polling cada 4s
-    engineer-groups.ts — Grupos y colores por área
-  features/
-    admin/           — Vista del administrador
-    engineer/        — Vista del ingeniero
-    supervisor/      — Vista del supervisor
-  components/
-    common/          — Componentes compartidos (calendario, etc.)
-    dialogs/         — Modales
-    cards/           — Tarjetas de proyecto/solicitud
-    ui/              — Componentes base
+    api.ts                   toda llamada HTTP al backend vive acá, nada más
+    realtime.ts               short polling cada 4s (sync casi en tiempo real)
+  features/                  una vista por rol: admin/, engineer/, supervisor/
+  components/                 ui/ (primitivos) → cards/ → dialogs/ → common/
+  hooks/, types/, data/        estado derivado, contratos de tipos, semillas
 
-database/
-  schema.sql         — Estructura de tablas MySQL
-  fase2-cleanup.sql  — Scripts de mantenimiento
+docs/                     — 4. Referencia, no código
+  ANALISIS_PROYECTO.md, CAMPOS.md, HOSTINGER_DEPLOY.md, MIGRATION_LOG.md
+
+.github/workflows/deploy.yml — build + FTP a Hostinger en cada push a main,
+                                con verificación automática de que el sitio
+                                en vivo realmente cambió (no solo que el
+                                job terminó en verde)
 ```
+
+> **Nota de orden:** `database/` va primero porque el payload JSON en cada tabla *es* el contrato real entre frontend y backend — cambiar un campo ahí impacta a los dos lados. `api/` va segundo porque es la única capa con permiso de tocar la base directamente. `src/` nunca habla con MySQL, solo con `api/` vía `lib/api.ts`.
 
 ---
 
