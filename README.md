@@ -71,6 +71,45 @@ cp .env.deploy.example .env.deploy
 
 ---
 
+## Flujo de trabajo en equipo (staging)
+
+Hay dos ambientes desplegados, con **bases de datos completamente separadas** —
+nada de lo que se prueba en staging toca los datos reales de ENERMAN:
+
+| Rama | URL | Base de datos | Se actualiza cuando... |
+|---|---|---|---|
+| `dev` | https://ampr.site/staging/ | Separada (staging) | alguien hace push a `dev` |
+| `main` | https://ampr.site/ | Producción | alguien hace push a `main` |
+
+**Para trabajar en algo nuevo:**
+
+```bash
+git checkout dev
+git pull origin dev
+# ... hacer cambios ...
+git add .
+git commit -m "feat: lo que sea"
+git push origin dev
+```
+
+Un par de minutos después, `https://ampr.site/staging/` ya tiene el cambio —
+quien quiera probarlo solo abre esa URL, no hace falta pasar archivos ni
+compilar nada. Los 21 usuarios semilla existen ahí también, con la misma
+contraseña por defecto (`ASBT2026!`).
+
+**Cuando algo ya se probó y está listo para producción:**
+
+```bash
+git checkout main
+git pull origin main
+git merge dev
+git push origin main
+```
+
+Eso dispara el deploy real a `https://ampr.site/`.
+
+---
+
 ## Archivos sensibles — NUNCA commitear
 
 | Archivo | Motivo |
@@ -116,10 +155,11 @@ src/                      — 3. Frontend (React + TS, consume la API)
 docs/                     — 4. Referencia, no código
   ANALISIS_PROYECTO.md, CAMPOS.md, HOSTINGER_DEPLOY.md, MIGRATION_LOG.md
 
-.github/workflows/deploy.yml — build + FTP a Hostinger en cada push a main,
-                                con verificación automática de que el sitio
-                                en vivo realmente cambió (no solo que el
-                                job terminó en verde)
+.github/workflows/
+  deploy.yml                 build + FTP a producción en cada push a main
+  deploy-staging.yml          igual pero a /staging/ en cada push a dev
+  (ambos verifican que el sitio en vivo realmente cambió antes de dar
+   el job por bueno — no solo que el FTP no haya tirado error)
 ```
 
 > **Nota de orden:** `database/` va primero porque el payload JSON en cada tabla *es* el contrato real entre frontend y backend — cambiar un campo ahí impacta a los dos lados. `api/` va segundo porque es la única capa con permiso de tocar la base directamente. `src/` nunca habla con MySQL, solo con `api/` vía `lib/api.ts`.
