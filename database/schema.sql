@@ -8,10 +8,21 @@ CREATE TABLE IF NOT EXISTS app_users (
 
 CREATE TABLE IF NOT EXISTS projects (
   id VARCHAR(80) NOT NULL PRIMARY KEY,
+  folio INT UNSIGNED NULL,
   payload JSON NOT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uniq_folio (folio)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contador atomico para el siguiente folio a asignar (ver api/routes/sequences.php).
+-- Se crea tambien en caliente via ensureSequenceTable() si faltara, pero debe
+-- vivir aca para que un setup nuevo (staging, disaster recovery) quede completo
+-- sin depender de que la app la cree sola en su primer request.
+CREATE TABLE IF NOT EXISTS sequence_counters (
+  name  VARCHAR(50)  NOT NULL PRIMARY KEY,
+  value INT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS requests (
