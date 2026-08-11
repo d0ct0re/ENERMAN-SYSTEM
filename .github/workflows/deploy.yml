@@ -42,9 +42,9 @@ jobs:
           set mirror:parallel-transfer-count 2
           set cmd:fail-exit no
           cd /domains/ampr.site/public_html/
-          rm index.html
-          rm .htaccess
           mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ .
+          put dist/index.html -o index.html
+          put dist/.htaccess -o .htaccess
           quit
           LFTP_EOF
 
