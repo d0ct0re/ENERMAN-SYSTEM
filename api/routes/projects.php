@@ -95,7 +95,7 @@ if ($action === 'update_project') {
 
         // Ingenieros y supervisores solo pueden modificar proyectos donde son creador o participante.
         // Admins y system_admin pueden modificar cualquier proyecto.
-        if (!in_array($callerRole, ['admin', 'system_admin'], true)) {
+        if (!in_array($callerRole, ['admin', 'system_admin', 'supervisor'], true)) {
             $source        = $row ? (json_decode($row['payload'], true) ?? []) : $fields;
             $isCreator     = ($source['createdBy'] ?? '') === $callerId;
             $isParticipant = in_array($callerId, $source['participants'] ?? [], true);

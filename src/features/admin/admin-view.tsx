@@ -354,8 +354,7 @@ function SystemAdminView({
             </p>
           </div>
           <div className="text-xs text-[#555555] leading-relaxed">
-            <p>El servidor asigna este número de forma atómica.</p>
-            <p>Nunca se repite, aunque dos admins aprueben al mismo tiempo.</p>
+            <p> Se asignará automáticamente al próximo proyecto nuevo</p>
           </div>
         </div>
         <p className="mb-2 text-xs font-semibold text-[#888888]">Ajustar el siguiente folio manualmente:</p>

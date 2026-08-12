@@ -86,7 +86,7 @@ export function NewRequestDialog({
         onOpenChange(nextOpen);
       }}
       title="Nueva solicitud"
-      description="Genera una solicitud estructurada con validación visual de duplicados."
+      description="Completa los datos para enviar la solicitud"
       className="max-w-3xl"
     >
       <div className="grid gap-4 sm:grid-cols-2">

@@ -1028,7 +1028,7 @@ export function ProjectDetailDialog({
                 </div>
                 {/* Urgencia */}
                 <div className={FLD}>
-                  <label className={LBL}>7 · Urgencia</label>
+                  <label className={LBL}>6 · Urgencia</label>
                   <select
                     className={INP}
                     value={f1Urgencia}
@@ -1044,8 +1044,8 @@ export function ProjectDetailDialog({
                 {/* Ingeniero asignado */}
                 <div className={canManageProjectStatus ? FLD_ADM : FLD}>
                   {canManageProjectStatus
-                    ? <LabelAdmin text="8 · Ingeniero asignado" />
-                    : <label className={LBL}>8 · Ingeniero asignado</label>}
+                    ? <LabelAdmin text="7 · Ingeniero asignado" />
+                    : <label className={LBL}>7 · Ingeniero asignado</label>}
                   {canManageProjectStatus ? (
                     <select
                       className={INP}
@@ -1065,7 +1065,7 @@ export function ProjectDetailDialog({
 
               {/* 9 · Ubicación */}
               <div>
-                <p className={`${LBL} mb-2`}>9 · Ubicación del trabajo</p>
+                <p className={`${LBL} mb-2`}>8 · Ubicación del trabajo</p>
                 <div className="grid gap-2.5 rounded-2xl bg-[#1E1E20] p-3 sm:grid-cols-2">
                   {ubicacionFields.map(({ key, label, placeholder }) => (
                     <div key={key} className={FLD}>
@@ -1087,7 +1087,7 @@ export function ProjectDetailDialog({
               {/* 10 · Negociador + 11 · Contacto */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className={FLD}>
-                  <label className={LBL}>10 · Compras / Negociador</label>
+                  <label className={LBL}>9 · Compras / Negociador</label>
                   <input
                     className={INP}
                     value={f1Negociador}
@@ -1097,7 +1097,7 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 <div className={FLD}>
-                  <label className={LBL}>11 · Usuario de contacto</label>
+                  <label className={LBL}>10 · Usuario de contacto</label>
                   <input
                     className={INP}
                     value={f1ContactUser}
@@ -1108,10 +1108,10 @@ export function ProjectDetailDialog({
                 </div>
               </div>
 
-              {/* 12 · Monto contratado */}
+              {/* 11 · Monto contratado */}
               {canEditBudget ? (
                 <div className={FLD_ADM}>
-                  <LabelAdmin text="12 · Monto contratado" />
+                  <LabelAdmin text="11 · Monto contratado" />
                   <input
                     type="number"
                     className={INP}
@@ -1122,16 +1122,16 @@ export function ProjectDetailDialog({
                 </div>
               ) : project.totalContratado ? (
                 <div className={FLD}>
-                  <label className={LBL}>12 · Monto contratado</label>
+                  <label className={LBL}>11 · Monto contratado</label>
                   <input className={INP_RO} value={mxn(project.totalContratado)} readOnly />
                 </div>
               ) : null}
 
-              {/* 13 · Fechas importantes */}
+              {/* 12 · Fechas importantes */}
               <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
-                    13 · Fechas importantes
+                    12 · Fechas importantes
                   </p>
                   {onAddProjectImportantDate ? (
                     <button
@@ -2058,6 +2058,7 @@ export function ProjectDetailDialog({
                       {/* Banner de estado (todas las secciones) */}
                       {(() => {
                         const st = getSectionStatus(section.key);
+                        const isApprovable = section.key == "fotos" || section.key === "reporte"; 
                         const noLabel = section.key === "fotos" ? "Sin fotos de evidencia" : `Sin archivos en ${section.label.toLowerCase()}`;
                         const approveExtra = section.key === "fotos" ? { fotos: true } : {};
                         const rejectExtra  = section.key === "fotos" ? { fotos: false } : {};
@@ -2071,11 +2072,11 @@ export function ProjectDetailDialog({
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <span>
                                 {st === "no"          ? noLabel :
-                                 st === "en-revision" ? "En revisión — pendiente de aprobación del admin" :
+                                 st === "en-revision" ? "En revisión — pendiente de aprobación del supervisor" :
                                  st === "si"          ? "Si" :
                                  "Rechazado — sube una nueva versión"}
                               </span>
-                              {canManageProjectStatus && st === "en-revision" ? (
+                              {canManageProjectStatus && isApprovable && st === "en-revision" ? (
                                 <div className="flex shrink-0 gap-2">
                                   <button
                                     type="button"
@@ -2098,7 +2099,7 @@ export function ProjectDetailDialog({
                                     <XCircle className="h-3.5 w-3.5" /> Rechazar
                                   </button>
                                 </div>
-                              ) : canManageProjectStatus && st === "si" ? (
+                              ) : canManageProjectStatus && isApprovable && st === "si" ? (
                                 <div className="flex shrink-0 gap-2">
                                   <button
                                     type="button"
@@ -2121,7 +2122,7 @@ export function ProjectDetailDialog({
                                     <XCircle className="h-3.5 w-3.5" /> Rechazar
                                   </button>
                                 </div>
-                              ) : canManageProjectStatus && st === "rechazado" ? (
+                              ) : canManageProjectStatus && isApprovable && st === "rechazado" ? (
                                 <div className="flex shrink-0 gap-2">
                                   <button
                                     type="button"

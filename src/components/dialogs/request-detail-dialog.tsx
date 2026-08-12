@@ -91,7 +91,6 @@ export function RequestDetailDialog({
         open={open}
         onOpenChange={onOpenChange}
         title="Detalle de solicitud"
-        description="Revisión completa del folio, contexto operativo y acciones administrativas."
         className="max-w-5xl"
       >
         <div className="grid gap-4 lg:grid-cols-3">
@@ -197,13 +196,13 @@ export function RequestDetailDialog({
           }
         }}
         title={actionTitle}
-        description="Confirma la acción administrativa para actualizar el estado visible de la solicitud."
+        description="Revisa los detalles antes de confirmar"
         className="max-w-xl"
       >
         {actionMode === "approve" ? (
           <div className="space-y-5">
             <div className="rounded-2xl bg-success/10 p-4 text-sm text-success">
-              Esta aprobación enlazará visualmente la solicitud con un proyecto existente o permitirá continuar el flujo como aprobada.
+              Al aprobar, esta solicitud se convertirá en un proyecto activo.
             </div>
             <div className="flex justify-end">
               <Button onClick={handleAction}>Confirmar aprobación</Button>

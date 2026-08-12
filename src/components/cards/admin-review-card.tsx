@@ -93,15 +93,13 @@ export function AdminReviewCard({
       {mode === "approving" ? (
         <div className="space-y-2.5 rounded-2xl border border-[#4ADE80]/20 bg-[#0D2417] p-3" onClick={(e) => e.stopPropagation()}>
           <p className="text-xs font-bold text-[#4ADE80]">Confirmar aprobación</p>
-          <p className="text-xs text-[#888888]">
-            El servidor asignará el siguiente consecutivo disponible de forma atómica.
-            {suggestedSequence ? (
-              <>
-                {" "}Estimado:{" "}
-                <span className="font-mono font-semibold text-foreground">~#{suggestedSequence}</span>
-              </>
-            ) : null}
-          </p>
+          <p className="text-xs text-[#888888]">Al aprobar, se creará el proyecto{suggestedSequence ? (
+            <>
+            {" "}con el folio{" "}
+            <span className="font-mono font-semibold text-foreground">~#{suggestedSequence}</span>
+            </>) : null}.
+            
+            </p>
           <div className="flex gap-2">
             <button
               type="button"
