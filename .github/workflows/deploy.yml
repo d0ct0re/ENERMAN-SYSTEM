@@ -57,12 +57,18 @@ jobs:
           log-level: verbose
 
       # Defensa en profundidad: no confiar ciegamente en que el paso anterior
-      # reporte exito (ya pasamos por varias fallas silenciosas de FTP donde
-      # el sitio quedo semanas sirviendo un build viejo con el check en
-      # verde). Esta verificacion compara el hash del bundle recien
-      # construido contra el que realmente responde el sitio en vivo, y hace
-      # fallar el job en rojo si no coinciden.
-      - name: Verificar que el frontend realmente se publico
+      # reporte exito. Ya vimos que tanto lftp como esta Action pueden decir
+      # "listo" sin haber cambiado nada en el servidor (Hostinger es
+      # inestable de por si). Esta verificacion compara el bundle recien
+      # construido contra el que realmente responde el sitio en vivo; si no
+      # coincide, sube dist/ de nuevo por FTP directo via curl (el mismo
+      # metodo que ya funciono a mano, sin herramientas de por medio) antes
+      # de rendirse.
+      - name: Verificar que el frontend realmente se publico (con respaldo por FTP directo)
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
           EXPECTED=$(grep -o '/assets/index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
           if [ -z "$EXPECTED" ]; then
@@ -70,9 +76,14 @@ jobs:
             exit 1
           fi
           echo "Bundle esperado: $EXPECTED"
+
+          check_live() {
+            curl -s https://ampr.site/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1
+          }
+
           LIVE=""
-          for i in 1 2 3 4 5 6; do
-            LIVE=$(curl -s https://ampr.site/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+          for i in 1 2 3; do
+            LIVE=$(check_live)
             echo "Intento $i - bundle en vivo: $LIVE"
             if [ "$LIVE" = "$EXPECTED" ]; then
               echo "Deploy verificado: el sitio en vivo sirve el build nuevo."
@@ -80,7 +91,25 @@ jobs:
             fi
             sleep 10
           done
-          echo "ERROR: el sitio en vivo sigue sirviendo un bundle distinto al recien subido."
+
+          echo "La Action no publico el build (o Hostinger corto la conexion). Subiendo dist/ por FTP directo como respaldo..."
+          cd dist
+          find . -type f | sed 's|^\./||' | while read -r f; do
+            curl -s -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n"
+          done
+          cd ..
+
+          for i in 1 2 3; do
+            sleep 5
+            LIVE=$(check_live)
+            echo "Post-respaldo intento $i - bundle en vivo: $LIVE"
+            if [ "$LIVE" = "$EXPECTED" ]; then
+              echo "Deploy verificado tras respaldo por FTP directo."
+              exit 0
+            fi
+          done
+
+          echo "ERROR: el sitio en vivo sigue sin coincidir incluso tras el respaldo por FTP directo."
           echo "Esperado: $EXPECTED"
           echo "En vivo:  $LIVE"
           exit 1
@@ -116,11 +145,18 @@ jobs:
             **/config.php
 
       # No hay forma de verificar la API contra el sitio real como se hace
-      # con el frontend (no tiene un hash de build) — asi que si el primer
-      # intento fallo, el job solo puede darse por bueno si el reintento
-      # realmente funciono.
-      - name: Fallar el job si ninguno de los dos intentos de API funciono
+      # con el frontend (no tiene un hash de build) — asi que si ambos
+      # intentos de la Action fallaron, se sube por FTP directo via curl
+      # (mismo metodo probado en el paso del frontend) antes de rendirse.
+      - name: Respaldo por FTP directo si ninguno de los dos intentos de API funciono
         if: steps.deploy_api.outcome == 'failure' && steps.deploy_api_retry.outcome != 'success'
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
-          echo "La subida de la API fallo incluso tras reintentar."
-          exit 1
+          echo "La Action fallo dos veces subiendo la API. Subiendo por FTP directo como respaldo..."
+          cd api
+          find . -type f ! -name 'config.php' | sed 's|^\./||' | while read -r f; do
+            curl -sf -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/api/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n" || exit 1
+          done

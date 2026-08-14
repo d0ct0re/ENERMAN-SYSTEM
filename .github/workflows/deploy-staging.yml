@@ -70,9 +70,15 @@ jobs:
           server-dir: /domains/ampr.site/public_html/staging/
           log-level: verbose
 
-      # Mismo principio que el deploy de produccion: lftp puede reportar exito
-      # sin haber subido nada de verdad. Verificamos contra el sitio real.
-      - name: Verificar que el staging realmente se publico
+      # Mismo principio que el deploy de produccion: la Action (o lftp antes)
+      # puede reportar exito sin haber subido nada de verdad. Verificamos
+      # contra el sitio real, y si no coincide, subimos dist/ por FTP directo
+      # via curl como respaldo antes de rendirnos.
+      - name: Verificar que el staging realmente se publico (con respaldo por FTP directo)
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
           EXPECTED=$(grep -o '/staging/assets/index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
           if [ -z "$EXPECTED" ]; then
@@ -80,9 +86,14 @@ jobs:
             exit 1
           fi
           echo "Bundle esperado: $EXPECTED"
+
+          check_live() {
+            curl -s https://ampr.site/staging/ | grep -o '/staging/assets/index-[A-Za-z0-9_-]*\.js' | head -1
+          }
+
           LIVE=""
-          for i in 1 2 3 4 5 6; do
-            LIVE=$(curl -s https://ampr.site/staging/ | grep -o '/staging/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+          for i in 1 2 3; do
+            LIVE=$(check_live)
             echo "Intento $i - bundle en vivo: $LIVE"
             if [ "$LIVE" = "$EXPECTED" ]; then
               echo "Deploy de staging verificado."
@@ -90,7 +101,25 @@ jobs:
             fi
             sleep 10
           done
-          echo "ERROR: staging sigue sirviendo un bundle distinto al recien subido."
+
+          echo "La Action no publico el build de staging. Subiendo dist/ por FTP directo como respaldo..."
+          cd dist
+          find . -type f | sed 's|^\./||' | while read -r f; do
+            curl -s -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n"
+          done
+          cd ..
+
+          for i in 1 2 3; do
+            sleep 5
+            LIVE=$(check_live)
+            echo "Post-respaldo intento $i - bundle en vivo: $LIVE"
+            if [ "$LIVE" = "$EXPECTED" ]; then
+              echo "Deploy de staging verificado tras respaldo por FTP directo."
+              exit 0
+            fi
+          done
+
+          echo "ERROR: staging sigue sin coincidir incluso tras el respaldo por FTP directo."
           echo "Esperado: $EXPECTED"
           echo "En vivo:  $LIVE"
           exit 1
@@ -125,8 +154,15 @@ jobs:
           exclude: |
             **/config.php
 
-      - name: Fallar el job si ninguno de los dos intentos de API funciono
+      - name: Respaldo por FTP directo si ninguno de los dos intentos de API funciono
         if: steps.deploy_api.outcome == 'failure' && steps.deploy_api_retry.outcome != 'success'
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
-          echo "La subida de la API de staging fallo incluso tras reintentar."
-          exit 1
+          echo "La Action fallo dos veces subiendo la API de staging. Subiendo por FTP directo como respaldo..."
+          cd api
+          find . -type f ! -name 'config.php' | sed 's|^\./||' | while read -r f; do
+            curl -sf -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/api/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n" || exit 1
+          done
