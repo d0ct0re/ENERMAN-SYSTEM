@@ -43,6 +43,23 @@ jobs:
           HTACCESS_EOF
 
       - name: Subir frontend (dist/) a Hostinger /staging/
+        id: deploy_frontend
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          protocol: ftp
+          local-dir: ./dist/
+          server-dir: /domains/ampr.site/public_html/staging/
+          log-level: verbose
+
+      # Hostinger corta la conexion FTP de forma intermitente ("Timeout
+      # (control socket)") — un segundo intento en una conexion nueva casi
+      # siempre pasa.
+      - name: Reintentar subida de frontend si el primer intento fallo
+        if: steps.deploy_frontend.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -79,6 +96,8 @@ jobs:
           exit 1
 
       - name: Subir API (api/) a Hostinger /staging/api/
+        id: deploy_api
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -90,3 +109,24 @@ jobs:
           log-level: verbose
           exclude: |
             **/config.php
+
+      - name: Reintentar subida de API si el primer intento fallo
+        id: deploy_api_retry
+        if: steps.deploy_api.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          protocol: ftp
+          local-dir: ./api/
+          server-dir: /domains/ampr.site/public_html/staging/api/
+          log-level: verbose
+          exclude: |
+            **/config.php
+
+      - name: Fallar el job si ninguno de los dos intentos de API funciono
+        if: steps.deploy_api.outcome == 'failure' && steps.deploy_api_retry.outcome != 'success'
+        run: |
+          echo "La subida de la API de staging fallo incluso tras reintentar."
+          exit 1
