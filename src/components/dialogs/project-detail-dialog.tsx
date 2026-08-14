@@ -1896,17 +1896,36 @@ export function ProjectDetailDialog({
 
       {/* ══════════════════ ARCHIVOS TAB ══════════════════ */}
       {mainTab === "archivos" ? (() => {
-        const DOCS_ACCEPT = "image/png,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt";
-        const REPORTE_ACCEPT = ".xls,.xlsx,.doc,.docx,.dwg,.dxf";
+        const FOTOS_ACCEPT = "image/png,image/jpeg";
+        const ESTIMACION_ACCEPT = ".xlsx,.xls";
+        const COTIZACION_ACCEPT = ".pdf";
+        const REPORTE_ACCEPT = ".pdf";
+        const OTROS_ACCEPT = "*/*";
+
+        const SECTION_EXTENSIONS: Record<FileCategory, string[] | null> = {
+          fotos: ["png", "jpg", "jpeg"],
+          estimacion: ["xlsx", "xls"],
+          cotizacion: ["pdf"],
+          reporte: ["pdf"],
+          otros: null,
+        };
+        
+        const isValidExtension = (fileName: string, category: FileCategory): boolean => {
+          const allowed = SECTION_EXTENSIONS[category];
+          if (!allowed) return true;
+          const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+          return allowed.includes(ext);
+        };
+
         const SECTION_MAX_MB: Record<FileCategory, number> = {
-          fotos: 30, estimacion: 30, cotizacion: 30, reporte: 45, otros: 30,
+          fotos: 30, estimacion: 30, cotizacion: 30, reporte: 45, otros: 5,
         };
         const FILE_SECTIONS: { key: FileCategory; label: string; accept: string; onlyImages: boolean; maxMB: number }[] = [
-          { key: "fotos",      label: "Fotos de evidencia", accept: "image/*",      onlyImages: true,  maxMB: 30 },
-          { key: "estimacion", label: "Estimación",         accept: DOCS_ACCEPT,    onlyImages: false, maxMB: 30 },
-          { key: "cotizacion", label: "Cotización",         accept: DOCS_ACCEPT,    onlyImages: false, maxMB: 30 },
-          { key: "reporte",    label: "Reporte",            accept: REPORTE_ACCEPT, onlyImages: false, maxMB: 45 },
-          { key: "otros",      label: "Otros",              accept: DOCS_ACCEPT,    onlyImages: false, maxMB: 30 },
+          { key: "fotos",      label: "Fotos de evidencia", accept: FOTOS_ACCEPT,      onlyImages: true,  maxMB: 30 },
+          { key: "estimacion", label: "Estimación",         accept: ESTIMACION_ACCEPT, onlyImages: false, maxMB: 30 },
+          { key: "cotizacion", label: "Cotización",         accept: COTIZACION_ACCEPT, onlyImages: false, maxMB: 30 },
+          { key: "reporte",    label: "Reporte",            accept: REPORTE_ACCEPT,    onlyImages: false, maxMB: 45 },
+          { key: "otros",      label: "Otros",              accept: OTROS_ACCEPT,      onlyImages: false, maxMB: 5 },
         ];
 
         const getFileRef = (cat: FileCategory) => {
@@ -1944,7 +1963,14 @@ export function ProjectDetailDialog({
           const maxMB = SECTION_MAX_MB[category];
           const oversized = files.find(f => f.size > maxMB * 1024 * 1024);
           if (oversized) { setUploadError(`"${oversized.name}" supera el límite de ${maxMB} MB.`); return; }
+          const invalidFormat = files.find(f => !isValidExtension(f.name, category));
+          if (invalidFormat) {
+            const allowedList = SECTION_EXTENSIONS[category]?.join(", ").toUpperCase();
+            setUploadError(`"${invalidFormat.name}" no es un formato permitido aquí.${allowedList ? ` Formatos válidos: ${allowedList}.` : ""}`);
+            return;
+          }
           setUploadError(null);
+          
           setUploadingSection(category);
           try {
             for (const f of files) await onUploadFile(project.id, f, category);
@@ -1977,15 +2003,15 @@ export function ProjectDetailDialog({
         };
 
         const isEngineer = currentUser.role === "engineer";
-        const canDeleteFiles = isEngineer || currentUser.role === "admin" || currentUser.role === "system_admin";
+        const canDeleteFiles = isEngineer || currentUser.role === "admin" || currentUser.role === "system_admin" || currentUser.role === "supervisor";
 
         return (
           <div className="mt-5 space-y-2.5">
             {/* Hidden inputs */}
-            <input ref={fotosFileInputRef}      type="file" className="hidden" accept="image/*"                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "fotos");      e.target.value = ""; }} />
-            <input ref={estimacionFileInputRef} type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "estimacion"); e.target.value = ""; }} />
-            <input ref={cotizacionFileInputRef} type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "cotizacion"); e.target.value = ""; }} />
-            <input ref={reporteFileInputRef}    type="file" className="hidden" accept=".xls,.xlsx,.doc,.docx,.dwg,.dxf" multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "reporte");    e.target.value = ""; }} />
+            <input ref={fotosFileInputRef}      type="file" className="hidden" accept="image/png,image/jpeg"                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "fotos");      e.target.value = ""; }} />
+            <input ref={estimacionFileInputRef} type="file" className="hidden" accept=".xlsx,.xls"                                  multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "estimacion"); e.target.value = ""; }} />
+            <input ref={cotizacionFileInputRef} type="file" className="hidden" accept=".pdf"                                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "cotizacion"); e.target.value = ""; }} />
+            <input ref={reporteFileInputRef}    type="file" className="hidden" accept=".pdf"                                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "reporte");    e.target.value = ""; }} />
             <input ref={otrosFileInputRef}      type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "otros");       e.target.value = ""; }} />
             <input ref={cameraInputRef} type="file" className="hidden" accept="image/*" capture="environment" onChange={async (e) => { const f = e.target.files?.[0]; if (f) await handleUpload([f], "fotos"); e.target.value = ""; }} />
 
@@ -2072,8 +2098,8 @@ export function ProjectDetailDialog({
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <span>
                                 {st === "no"          ? noLabel :
-                                 st === "en-revision" ? "En revisión — pendiente de aprobación del supervisor" :
-                                 st === "si"          ? "Si" :
+                                 st === "en-revision" ? "En revisión — pendiente de aprobación" :
+                                 st === "si"          ? "Aprobado" :
                                  "Rechazado — sube una nueva versión"}
                               </span>
                               {canManageProjectStatus && isApprovable && st === "en-revision" ? (
@@ -2159,14 +2185,10 @@ export function ProjectDetailDialog({
                           onDrop={async (e) => {
                             e.preventDefault();
                             setDraggingSection(null);
-                            const dropped = Array.from(e.dataTransfer.files).filter(f => {
-                              if (section.onlyImages) return f.type.startsWith("image/");
-                              if (section.key === "reporte") return /\.(xls|xlsx|doc|docx|dwg|dxf)$/i.test(f.name);
-                              return true;
-                            });
+                            const dropped = Array.from(e.dataTransfer.files).filter(f => isValidExtension(f.name, section.key));
                             if (!dropped.length) {
-                              if (section.onlyImages) setUploadError("FOTOS solo acepta imágenes (JPG, PNG, WEBP).");
-                              else if (section.key === "reporte") setUploadError("REPORTE solo acepta Excel (.xlsx), Word (.docx) y AutoCAD (.dwg, .dxf).");
+                              const allowedList = SECTION_EXTENSIONS[section.key]?.join(", ").toUpperCase();
+                              setUploadError(allowedList ? `${section.label.toUpperCase()} solo acepta: ${allowedList}.` : "Formato no permitido.");
                               return;
                             }
                             await handleUpload(dropped, section.key);
