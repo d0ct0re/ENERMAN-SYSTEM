@@ -42,31 +42,16 @@ jobs:
           </IfModule>
           HTACCESS_EOF
 
-      - name: Instalar lftp
-        run: sudo apt-get install -y lftp
-
       - name: Subir frontend (dist/) a Hostinger /staging/
-        env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USER: ${{ secrets.FTP_USER }}
-          FTP_PASS: ${{ secrets.FTP_PASS }}
-        run: |
-          lftp -u "$FTP_USER","$FTP_PASS" "ftp://$FTP_HOST" <<'LFTP_EOF'
-          set ftp:passive-mode true
-          set net:timeout 120
-          set net:max-retries 10
-          set net:reconnect-interval-base 10
-          set net:reconnect-interval-multiplier 1.5
-          set ssl:verify-certificate false
-          set ftp:use-feat false
-          set mirror:parallel-transfer-count 2
-          set cmd:fail-exit no
-          cd /domains/ampr.site/public_html/staging/
-          mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ .
-          put dist/index.html -o index.html
-          put dist/.htaccess -o .htaccess
-          quit
-          LFTP_EOF
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          protocol: ftp
+          local-dir: ./dist/
+          server-dir: /domains/ampr.site/public_html/staging/
+          log-level: verbose
 
       # Mismo principio que el deploy de produccion: lftp puede reportar exito
       # sin haber subido nada de verdad. Verificamos contra el sitio real.
@@ -94,20 +79,14 @@ jobs:
           exit 1
 
       - name: Subir API (api/) a Hostinger /staging/api/
-        env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USER: ${{ secrets.FTP_USER }}
-          FTP_PASS: ${{ secrets.FTP_PASS }}
-        run: |
-          lftp -u "$FTP_USER","$FTP_PASS" "ftp://$FTP_HOST" <<'LFTP_EOF'
-          set ftp:passive-mode true
-          set net:timeout 120
-          set net:max-retries 10
-          set net:reconnect-interval-base 10
-          set net:reconnect-interval-multiplier 1.5
-          set ssl:verify-certificate false
-          set ftp:use-feat false
-          set mirror:parallel-transfer-count 2
-          mirror -R --ignore-time --verbose=1 --delete api/ /domains/ampr.site/public_html/staging/api/
-          quit
-          LFTP_EOF
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          protocol: ftp
+          local-dir: ./api/
+          server-dir: /domains/ampr.site/public_html/staging/api/
+          log-level: verbose
+          exclude: |
+            **/config.php
