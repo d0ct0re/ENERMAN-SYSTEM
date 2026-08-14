@@ -129,7 +129,7 @@ export default function App(): JSX.Element {
 
   const activeRole = activeUser.role;
   const isAdminArea = activeRole === "admin" || activeRole === "system_admin";
-  const canApproveFiles = activeRole === "supervisor" || activeRole === "system_admin";
+  const canApproveFiles = isAdminArea || activeRole === "supervisor";
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -2110,7 +2110,7 @@ export default function App(): JSX.Element {
         project={selectedProject}
         users={users}
         currentUser={activeUser}
-        canEditProject={isAdminArea || selectedProject?.createdBy === activeUser.id || (selectedProject?.participants ?? []).includes(activeUser.id)}
+        canEditProject={canApproveFiles || selectedProject?.createdBy === activeUser.id || (selectedProject?.participants ?? []).includes(activeUser.id)}
         canManageProjectStatus={canApproveFiles}
         canEditBudget={isAdminArea}
         canDeleteProject={activeRole === "system_admin"}

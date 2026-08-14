@@ -29,6 +29,23 @@ jobs:
       # repos, que hace diff real por checksum contra un archivo de estado
       # en el servidor en vez de tamano/fecha.
       - name: Subir frontend (dist/) a Hostinger
+        id: deploy_frontend
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          protocol: ftp
+          local-dir: ./dist/
+          server-dir: /domains/ampr.site/public_html/
+          log-level: verbose
+
+      # Hostinger corta la conexion FTP de forma intermitente ("Timeout
+      # (control socket)") — no es un bug de codigo, es la conexion en si.
+      # Un segundo intento en una conexion nueva casi siempre pasa.
+      - name: Reintentar subida de frontend si el primer intento fallo
+        if: steps.deploy_frontend.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -69,6 +86,8 @@ jobs:
           exit 1
 
       - name: Subir API (api/) a Hostinger
+        id: deploy_api
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -80,3 +99,28 @@ jobs:
           log-level: verbose
           exclude: |
             **/config.php
+
+      - name: Reintentar subida de API si el primer intento fallo
+        id: deploy_api_retry
+        if: steps.deploy_api.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          protocol: ftp
+          local-dir: ./api/
+          server-dir: /domains/ampr.site/public_html/api/
+          log-level: verbose
+          exclude: |
+            **/config.php
+
+      # No hay forma de verificar la API contra el sitio real como se hace
+      # con el frontend (no tiene un hash de build) — asi que si el primer
+      # intento fallo, el job solo puede darse por bueno si el reintento
+      # realmente funciono.
+      - name: Fallar el job si ninguno de los dos intentos de API funciono
+        if: steps.deploy_api.outcome == 'failure' && steps.deploy_api_retry.outcome != 'success'
+        run: |
+          echo "La subida de la API fallo incluso tras reintentar."
+          exit 1
