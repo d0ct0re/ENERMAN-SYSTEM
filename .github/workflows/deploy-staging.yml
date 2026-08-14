@@ -1,8 +1,8 @@
-name: Deploy to Hostinger
+name: Deploy to Staging
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
 
 jobs:
   deploy:
@@ -19,13 +19,33 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Build de producción
-        run: npm run build
+      - name: Build de staging (base path /staging/)
+        run: npm run build:staging
+
+      - name: Ajustar .htaccess para subcarpeta /staging/
+        run: |
+          cat > dist/.htaccess <<'HTACCESS_EOF'
+          <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteBase /staging/
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteCond %{REQUEST_FILENAME} !-d
+            RewriteRule . /staging/index.html [L]
+          </IfModule>
+
+          <IfModule mod_headers.c>
+            Header always set X-Content-Type-Options "nosniff"
+            Header always set X-Frame-Options "DENY"
+            Header always set Referrer-Policy "strict-origin-when-cross-origin"
+            Header always set X-XSS-Protection "1; mode=block"
+            Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+          </IfModule>
+          HTACCESS_EOF
 
       - name: Instalar lftp
         run: sudo apt-get install -y lftp
 
-      - name: Subir frontend (dist/) a Hostinger
+      - name: Subir frontend (dist/) a Hostinger /staging/
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
@@ -41,22 +61,18 @@ jobs:
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
           set cmd:fail-exit no
-          cd /domains/ampr.site/public_html/
+          cd /domains/ampr.site/public_html/staging/
           mirror -R --ignore-time --verbose=1 --exclude=api/ --delete dist/ .
           put dist/index.html -o index.html
           put dist/.htaccess -o .htaccess
           quit
           LFTP_EOF
 
-      # lftp puede reportar exito aunque la transferencia real haya fallado o
-      # quedado a medias por la inestabilidad de Hostinger (ya paso antes en
-      # silencio: el sitio quedo semanas sirviendo un build viejo con el check
-      # en verde). Esta verificacion compara el hash del bundle recien
-      # construido contra el que realmente responde el sitio en vivo, y hace
-      # fallar el job en rojo si no coinciden.
-      - name: Verificar que el frontend realmente se publico
+      # Mismo principio que el deploy de produccion: lftp puede reportar exito
+      # sin haber subido nada de verdad. Verificamos contra el sitio real.
+      - name: Verificar que el staging realmente se publico
         run: |
-          EXPECTED=$(grep -o '/assets/index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
+          EXPECTED=$(grep -o '/staging/assets/index-[A-Za-z0-9_-]*\.js' dist/index.html | head -1)
           if [ -z "$EXPECTED" ]; then
             echo "No se pudo determinar el bundle esperado desde dist/index.html"
             exit 1
@@ -64,20 +80,20 @@ jobs:
           echo "Bundle esperado: $EXPECTED"
           LIVE=""
           for i in 1 2 3 4 5 6; do
-            LIVE=$(curl -s https://ampr.site/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+            LIVE=$(curl -s https://ampr.site/staging/ | grep -o '/staging/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
             echo "Intento $i - bundle en vivo: $LIVE"
             if [ "$LIVE" = "$EXPECTED" ]; then
-              echo "Deploy verificado: el sitio en vivo sirve el build nuevo."
+              echo "Deploy de staging verificado."
               exit 0
             fi
             sleep 10
           done
-          echo "ERROR: el sitio en vivo sigue sirviendo un bundle distinto al recien subido."
+          echo "ERROR: staging sigue sirviendo un bundle distinto al recien subido."
           echo "Esperado: $EXPECTED"
           echo "En vivo:  $LIVE"
           exit 1
 
-      - name: Subir API (api/) a Hostinger
+      - name: Subir API (api/) a Hostinger /staging/api/
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
@@ -92,6 +108,6 @@ jobs:
           set ssl:verify-certificate false
           set ftp:use-feat false
           set mirror:parallel-transfer-count 2
-          mirror -R --ignore-time --verbose=1 --delete api/ /domains/ampr.site/public_html/api/
+          mirror -R --ignore-time --verbose=1 --delete api/ /domains/ampr.site/public_html/staging/api/
           quit
           LFTP_EOF

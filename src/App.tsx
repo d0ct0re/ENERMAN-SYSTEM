@@ -623,7 +623,9 @@ export default function App(): JSX.Element {
   // Agrega una notificación al estado local y la persiste en la BD de forma inmediata
   const addNotification = (notif: NotificationItem): void => {
     setNotifications((current) => [notif, ...current]);
-    if (apiReady) apiCreateNotification(notif).catch(() => undefined);
+    if (apiReady) apiCreateNotification(notif).catch((err) =>
+      notifySaveError("No se pudo guardar la notificación en el servidor", err),
+    );
   };
 
   const handleMarkRead = (notificationId: string): void => {
@@ -642,7 +644,9 @@ export default function App(): JSX.Element {
         keys.add(baseKey);
         return { ...u, readNotifKeys: [...keys] };
       }));
-      if (apiReady) apiUpdateNotifPrefs({ readDateKeys: [baseKey] }).catch(() => undefined);
+      if (apiReady) apiUpdateNotifPrefs({ readDateKeys: [baseKey] }).catch((err) =>
+        notifySaveError("No se pudo guardar la notificación leída", err),
+      );
     } else {
       setNotifications((current) =>
         current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
@@ -654,7 +658,9 @@ export default function App(): JSX.Element {
         ids.add(notificationId);
         return { ...u, readNotifIds: [...ids] };
       }));
-      if (apiReady) apiMarkNotificationRead(notificationId).catch(() => undefined);
+      if (apiReady) apiMarkNotificationRead(notificationId).catch((err) =>
+        notifySaveError("No se pudo guardar la notificación como leída", err),
+      );
     }
   };
 
@@ -680,7 +686,9 @@ export default function App(): JSX.Element {
       // ON DUPLICATE KEY UPDATE en el servidor garantiza idempotencia.
       apiCreateRequest(request).catch(() => {
         setTimeout(() => apiCreateRequest(request).catch(() => {
-          setTimeout(() => apiCreateRequest(request).catch(() => undefined), 2300);
+          setTimeout(() => apiCreateRequest(request).catch((err) =>
+            notifySaveError("No se pudo guardar la solicitud en el servidor", err),
+          ), 2300);
         }), 1200);
       });
     }
@@ -909,7 +917,9 @@ export default function App(): JSX.Element {
       current.map((request) => (request.id === requestId ? { ...request, ...correctionFields } : request)),
     );
     if (apiReady) {
-      apiUpdateRequest(requestId, correctionFields).catch(() => undefined);
+      apiUpdateRequest(requestId, correctionFields).catch((err) =>
+        notifySaveError("No se pudo guardar la solicitud de corrección", err),
+      );
     }
     if (req) {
       addNotification({
@@ -935,7 +945,9 @@ export default function App(): JSX.Element {
       current.map((request) => (request.id === requestId ? { ...request, ...rejectedFields } : request)),
     );
     if (apiReady) {
-      apiUpdateRequest(requestId, rejectedFields).catch(() => undefined);
+      apiUpdateRequest(requestId, rejectedFields).catch((err) =>
+        notifySaveError("No se pudo guardar el rechazo de la solicitud", err),
+      );
     }
     if (req) {
       addNotification({
@@ -960,7 +972,9 @@ export default function App(): JSX.Element {
       current.map((r) => (r.id === requestId ? { ...r, ...reactivatedFields } : r)),
     );
     if (apiReady) {
-      apiUpdateRequest(requestId, reactivatedFields).catch(() => undefined);
+      apiUpdateRequest(requestId, reactivatedFields).catch((err) =>
+        notifySaveError("No se pudo reactivar la solicitud", err),
+      );
     }
     setToastMessage("Solicitud reactivada");
   };
@@ -1170,7 +1184,9 @@ export default function App(): JSX.Element {
 
     // Append atómico en BD — no puede sobreescribir comentarios paralelos de otro usuario
     if (apiReady) {
-      apiAddProjectComment(projectId, newComment, histEntry).catch(() => undefined);
+      apiAddProjectComment(projectId, newComment, histEntry).catch((err) =>
+        notifySaveError("No se pudo guardar el comentario", err),
+      );
     }
   };
 
@@ -1208,7 +1224,9 @@ export default function App(): JSX.Element {
 
     // Append atómico en BD — no sobreescribe gastos paralelos de otro usuario
     if (apiReady) {
-      apiAddProjectExpense(projectId, newExpense, histEntry).catch(() => undefined);
+      apiAddProjectExpense(projectId, newExpense, histEntry).catch((err) =>
+        notifySaveError("No se pudo guardar el gasto", err),
+      );
     }
   };
 
@@ -1234,7 +1252,9 @@ export default function App(): JSX.Element {
 
     // Eliminación atómica en BD — array_filter directo en el nodo expenses
     if (apiReady) {
-      apiDeleteProjectExpense(projectId, expenseId).catch(() => undefined);
+      apiDeleteProjectExpense(projectId, expenseId).catch((err) =>
+        notifySaveError("No se pudo eliminar el gasto", err),
+      );
     }
   };
 
@@ -1341,7 +1361,9 @@ export default function App(): JSX.Element {
     setUsers((current) => [newUser, ...current]);
     setToastMessage("Usuario creado");
 
-    void apiCreateUser({ ...newUser, password: password ?? "ASBT2026!" }).catch(() => undefined);
+    void apiCreateUser({ ...newUser, password: password ?? "ASBT2026!" }).catch((err) =>
+      notifySaveError("El usuario se creó localmente pero no se pudo guardar en el servidor", err),
+    );
   };
 
   const handleUpdateUser = (
@@ -1375,7 +1397,9 @@ export default function App(): JSX.Element {
     );
     setToastMessage("Usuario actualizado");
 
-    void apiUpdateUser(userId, { ...payloadWithoutPassword, ...(password ? { password } : {}) }).catch(() => undefined);
+    void apiUpdateUser(userId, { ...payloadWithoutPassword, ...(password ? { password } : {}) }).catch((err) =>
+      notifySaveError("No se pudo guardar los cambios del usuario en el servidor", err),
+    );
   };
 
   const handleDeleteUser = async (userId: string): Promise<void> => {
@@ -1534,7 +1558,9 @@ export default function App(): JSX.Element {
     // Retry incluido: si Hostinger corta la conexión, el segundo intento lo corrige.
     if (apiReady) {
       const bump = () => apiBumpSequence(Number.parseInt(sequence, 10));
-      bump().catch(() => setTimeout(() => bump().catch(() => undefined), 2000));
+      bump().catch(() => setTimeout(() => bump().catch((err) =>
+        notifySaveError("No se pudo actualizar el consecutivo de folios", err),
+      ), 2000));
     }
   };
 
@@ -1632,7 +1658,9 @@ export default function App(): JSX.Element {
 
     // Append atómico en BD — no sobreescribe facturas paralelas de otro usuario
     if (apiReady) {
-      apiAddProjectInvoice(projectId, newInvoice, histEntry).catch(() => undefined);
+      apiAddProjectInvoice(projectId, newInvoice, histEntry).catch((err) =>
+        notifySaveError("No se pudo guardar la factura", err),
+      );
     }
   };
 
@@ -1669,7 +1697,9 @@ export default function App(): JSX.Element {
 
     // Merge quirúrgico en BD — solo toca el nodo de esa factura, no el array completo
     if (apiReady) {
-      apiUpdateProjectInvoice(projectId, invoiceId, updates).catch(() => undefined);
+      apiUpdateProjectInvoice(projectId, invoiceId, updates).catch((err) =>
+        notifySaveError("No se pudo actualizar la factura", err),
+      );
     }
   };
 
@@ -1920,8 +1950,12 @@ export default function App(): JSX.Element {
             }));
           }
           if (apiReady) {
-            apiMarkAllNotificationsRead().catch(() => undefined);
-            if (newDateKeys.length > 0) apiUpdateNotifPrefs({ readDateKeys: newDateKeys }).catch(() => undefined);
+            apiMarkAllNotificationsRead().catch((err) =>
+              notifySaveError("No se pudieron marcar todas las notificaciones como leídas", err),
+            );
+            if (newDateKeys.length > 0) apiUpdateNotifPrefs({ readDateKeys: newDateKeys }).catch((err) =>
+              notifySaveError("No se pudieron guardar las notificaciones de fecha leídas", err),
+            );
           }
         }}
         onMarkRead={handleMarkRead}
@@ -1940,7 +1974,9 @@ export default function App(): JSX.Element {
               keys.add(baseKey);
               return { ...u, dismissedNotifKeys: [...keys] };
             }));
-            if (apiReady) apiUpdateNotifPrefs({ dismissedDateKeys: [baseKey] }).catch(() => undefined);
+            if (apiReady) apiUpdateNotifPrefs({ dismissedDateKeys: [baseKey] }).catch((err) =>
+              notifySaveError("No se pudo descartar la notificación de fecha", err),
+            );
           } else {
             // Notificación regular (UUID): tercera capa vía save_state.
             setUsers(prev => prev.map(u => {
@@ -1955,7 +1991,9 @@ export default function App(): JSX.Element {
           window.setTimeout(() => { deletedNotificationIds.current.delete(id); }, 30_000);
           // Siempre limpiar del estado local y de BD (puede haber quedado persistida por versión anterior)
           setNotifications((prev) => prev.filter((n) => n.id !== id));
-          if (apiReady) apiDeleteNotification(id).catch(() => undefined);
+          if (apiReady) apiDeleteNotification(id).catch((err) =>
+            notifySaveError("No se pudo eliminar la notificación en el servidor", err),
+          );
         }}
         onNavigateTo={(projectId, requestId) => {
           if (projectId) setSelectedProjectId(projectId);
