@@ -961,7 +961,7 @@ export function ProjectDetailDialog({
                 </div>
                 {/* Cliente */}
                 <div className={FLD}>
-                  <label className={LBL}>1 · Cliente</label>
+                  <label className={LBL}>Cliente</label>
                   <input
                     list="cl-list"
                     className={INP}
@@ -976,7 +976,7 @@ export function ProjectDetailDialog({
                 </div>
                 {/* Departamento */}
                 <div className={FLD}>
-                  <label className={LBL}>2 · Departamento</label>
+                  <label className={LBL}>Departamento</label>
                   <input
                     list="dp-list"
                     className={INP}
@@ -989,20 +989,9 @@ export function ProjectDetailDialog({
                     {departmentOptions.map((d) => <option key={d} value={d} />)}
                   </datalist>
                 </div>
-                {/* Lugar */}
-                <div className={`${FLD} sm:col-span-2`}>
-                  <label className={LBL}>3 · Lugar</label>
-                  <input
-                    className={INP}
-                    value={f1Lugar}
-                    onChange={(e) => setF1Lugar(e.target.value)}
-                    placeholder="Ej. AULAS 2, Planta Norte, Edificio C..."
-                    disabled={!canEditProject}
-                  />
-                </div>
                 {/* Tipo */}
                 <div className={FLD}>
-                  <label className={LBL}>4 · Tipo de proyecto</label>
+                  <label className={LBL}>Tipo de proyecto</label>
                   <select
                     className={INP}
                     value={f1Type}
@@ -1015,9 +1004,20 @@ export function ProjectDetailDialog({
                     )}
                   </select>
                 </div>
+                {/* Lugar */}
+                <div className={`${FLD} sm:col-span-2`}>
+                  <label className={LBL}>Lugar</label>
+                  <input
+                    className={INP}
+                    value={f1Lugar}
+                    onChange={(e) => setF1Lugar(e.target.value)}
+                    placeholder="Ej. AULAS 2, Planta Norte, Edificio C..."
+                    disabled={!canEditProject}
+                  />
+                </div>
                 {/* Nombre del trabajo */}
                 <div className={`${FLD} sm:col-span-2`}>
-                  <label className={LBL}>5 · Nombre / Descripción del trabajo</label>
+                  <label className={LBL}>Nombre / Descripción del trabajo</label>
                   <input
                     className={INP}
                     value={f1BaseName}
@@ -1028,7 +1028,7 @@ export function ProjectDetailDialog({
                 </div>
                 {/* Urgencia */}
                 <div className={FLD}>
-                  <label className={LBL}>6 · Urgencia</label>
+                  <label className={LBL}>Urgencia</label>
                   <select
                     className={INP}
                     value={f1Urgencia}
@@ -1044,8 +1044,8 @@ export function ProjectDetailDialog({
                 {/* Ingeniero asignado */}
                 <div className={canManageProjectStatus ? FLD_ADM : FLD}>
                   {canManageProjectStatus
-                    ? <LabelAdmin text="7 · Ingeniero asignado" />
-                    : <label className={LBL}>7 · Ingeniero asignado</label>}
+                    ? <LabelAdmin text="Ingeniero asignado" />
+                    : <label className={LBL}>Ingeniero asignado</label>}
                   {canManageProjectStatus ? (
                     <select
                       className={INP}
@@ -1063,9 +1063,9 @@ export function ProjectDetailDialog({
                 </div>
               </div>
 
-              {/* 9 · Ubicación */}
+              {/* Ubicación */}
               <div>
-                <p className={`${LBL} mb-2`}>8 · Ubicación del trabajo</p>
+                <p className={`${LBL} mb-2`}>Ubicación del trabajo</p>
                 <div className="grid gap-2.5 rounded-2xl bg-[#1E1E20] p-3 sm:grid-cols-2">
                   {ubicacionFields.map(({ key, label, placeholder }) => (
                     <div key={key} className={FLD}>
@@ -1084,10 +1084,10 @@ export function ProjectDetailDialog({
                 </div>
               </div>
 
-              {/* 10 · Negociador + 11 · Contacto */}
+              {/* Negociador + Contacto */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className={FLD}>
-                  <label className={LBL}>9 · Compras / Negociador</label>
+                  <label className={LBL}>Compras / Negociador</label>
                   <input
                     className={INP}
                     value={f1Negociador}
@@ -1097,7 +1097,7 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 <div className={FLD}>
-                  <label className={LBL}>10 · Usuario de contacto</label>
+                  <label className={LBL}>Usuario de contacto</label>
                   <input
                     className={INP}
                     value={f1ContactUser}
@@ -1108,10 +1108,10 @@ export function ProjectDetailDialog({
                 </div>
               </div>
 
-              {/* 11 · Monto contratado */}
+              {/* Monto contratado */}
               {canEditBudget ? (
                 <div className={FLD_ADM}>
-                  <LabelAdmin text="11 · Monto contratado" />
+                  <LabelAdmin text="Monto contratado" />
                   <input
                     type="number"
                     className={INP}
@@ -1122,16 +1122,16 @@ export function ProjectDetailDialog({
                 </div>
               ) : project.totalContratado ? (
                 <div className={FLD}>
-                  <label className={LBL}>11 · Monto contratado</label>
+                  <label className={LBL}>Monto contratado</label>
                   <input className={INP_RO} value={mxn(project.totalContratado)} readOnly />
                 </div>
               ) : null}
 
-              {/* 12 · Fechas importantes */}
+              {/* Fechas importantes */}
               <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
-                    12 · Fechas importantes
+                    Fechas importantes
                   </p>
                   {onAddProjectImportantDate ? (
                     <button

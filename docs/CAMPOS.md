@@ -53,8 +53,8 @@ al instante → admin y engineer ven cambios del otro en ≤ 4s.
 |---|---|---|---|---|---|---|
 | `client` | Cliente | `string` | Ambos | Ambos | `project?.client` | datalist de clientes |
 | `department` | Departamento | `string` | Ambos | Ambos | `project?.department` | datalist de departamentos |
+| `type` | Tipo de proyecto | `ProjectType` | Ambos | Ambos | `project?.type` | enum: INST, MTTO, MEDI…; en UI va junto a Departamento |
 | `lugar` | Lugar | `string` | Ambos | Ambos | `project?.lugar` | texto libre |
-| `type` | Tipo de proyecto | `ProjectType` | Ambos | Ambos | `project?.type` | enum: INST, MTTO, MEDI… |
 | `baseName` | Nombre / descripción | `string` | Ambos | Ambos | `project?.baseName` | parte del structuredName |
 | `priority` | Urgencia | `PriorityLevel` | Ambos | Ambos | `project?.priority` | bajo/medio/alto/emergencia |
 | `createdBy` | Ingeniero asignado | `string` (userId) | **Admin** | Ambos | `project?.createdBy` | controla filtro de vista del ingeniero |
