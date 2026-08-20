@@ -81,8 +81,8 @@ al instante → admin y engineer ven cambios del otro en ≤ 4s.
 | Campo JS (`ProjectItem`) | Etiqueta UI | Tipo | Edita | Ve | Sync effect dep | Notas |
 |---|---|---|---|---|---|---|
 | `status` | Estado del proyecto | `ProjectStatus` | Ambos | Ambos | `project?.status` | 11 valores; ver STATUS_OPTIONS |
-| `estimacion` | Estado estimación | `EstimacionStatus` | Ambos | Ambos | `project?.estimacion` | Pendiente/Realizada/Cancelada… |
-| `cotizacion` | Estado cotización | `CotizacionStatus` | Ambos | Ambos | `project?.cotizacion` | Pendiente/Realizada/Enviada… |
+| `estimacion` | Estado estimación | `EstimacionStatus` | Ambos | Ambos | `project?.estimacion` | Pendiente/Realizada/Cancelada…; sin opción "Sin definir"/"Sin información", default Pendiente |
+| `cotizacion` | Estado cotización | `CotizacionStatus` | Ambos | Ambos | `project?.cotizacion` | Pendiente/Realizada/Enviada…; sin opción "Sin definir"/"Sin información", default Pendiente |
 | `paymentStatus` | Estado pago | `PaymentStatus` | Ambos | Ambos | `project?.paymentStatus` | unpaid/partial/paid |
 | `startDate` | F. Inicio | `string` (YYYY-MM-DD) | Ambos | Ambos | `project?.startDate` | date input directo, sin conversión UTC |
 | `endDate` | F. Fin ★ | `string` (YYYY-MM-DD) | Ambos | Ambos | `project?.endDate` | date input directo |

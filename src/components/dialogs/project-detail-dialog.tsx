@@ -71,10 +71,10 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
 ];
 
 const ESTIMACION_OPTIONS: EstimacionStatus[] = [
-  "Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A", "Sin información",
+  "Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A",
 ];
 const COTIZACION_OPTIONS: CotizacionStatus[] = [
-  "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información",
+  "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A",
 ];
 
 // Picker de fecha en DD/MM/AAAA — definido a nivel de módulo para que React no lo
@@ -226,8 +226,8 @@ export function ProjectDetailDialog({
 
   // ── F2 state ──
   const [f2Status, setF2Status] = useState<ProjectStatus>("en-programacion");
-  const [f2Estimacion, setF2Estimacion] = useState<EstimacionStatus | "">("");
-  const [f2Cotizacion, setF2Cotizacion] = useState<CotizacionStatus | "">("");
+  const [f2Estimacion, setF2Estimacion] = useState<EstimacionStatus>("Pendiente");
+  const [f2Cotizacion, setF2Cotizacion] = useState<CotizacionStatus>("Pendiente");
   const [f2PaymentStatus, setF2PaymentStatus] = useState<PaymentStatus>("unpaid");
   const [f2FechaSolicitud, setF2FechaSolicitud] = useState("");
   const [f2StartDate, setF2StartDate] = useState("");
@@ -421,8 +421,8 @@ export function ProjectDetailDialog({
     setShowDateForm(false); setDateTitle(""); setDateValue(new Date().toISOString().slice(0, 10));
     // F2
     setF2Status(project.status ?? "en-programacion");
-    setF2Estimacion(project.estimacion ?? "");
-    setF2Cotizacion(project.cotizacion ?? "");
+    setF2Estimacion(project.estimacion ?? "Pendiente");
+    setF2Cotizacion(project.cotizacion ?? "Pendiente");
     setF2PaymentStatus(project.paymentStatus ?? "unpaid");
     setF2FechaSolicitud((project.fechaSolicitud ?? project.createdAt ?? "").slice(0, 10));
     setF2StartDate(project.startDate ?? "");
@@ -525,8 +525,8 @@ export function ProjectDetailDialog({
   useEffect(() => {
     if (!project) return;
     setF2Status(project.status ?? "en-programacion");
-    setF2Estimacion(project.estimacion ?? "");
-    setF2Cotizacion(project.cotizacion ?? "");
+    setF2Estimacion(project.estimacion ?? "Pendiente");
+    setF2Cotizacion(project.cotizacion ?? "Pendiente");
     setF2PaymentStatus(project.paymentStatus ?? "unpaid");
     setF2StartDate(project.startDate ?? "");
     setF2EndDate(project.endDate ?? "");
@@ -914,25 +914,6 @@ export function ProjectDetailDialog({
             ))}
           </div>
 
-          {/* Leyenda y barra de código (comunes a todos los sub-tabs) */}
-          {infoTab === "f1" ? (
-            <p className="border-l-2 border-[#3F3F46] pl-3 text-xs text-[#555555]">
-              Ingeniero o Admin · <span className="text-[#60A5FA]/70">Campos azules = ambos</span> · <span className="text-orange-400/70">Campos naranja = solo Admin</span>
-            </p>
-          ) : infoTab === "f2" ? (
-            <p className="border-l-2 border-[#3F3F46] pl-3 text-xs text-[#555555]">
-              Ingeniero · Llena durante y después del trabajo en campo
-            </p>
-          ) : infoTab === "f3" ? (
-            <p className="border-l-2 border-orange-400/40 pl-3 text-xs font-semibold text-orange-400/80">
-              Solo Admin · Información financiera interna
-            </p>
-          ) : (
-            <p className="border-l-2 border-orange-400/40 pl-3 text-xs font-semibold text-orange-400/80">
-              Solo Admin · Registro de pagos recibidos
-            </p>
-          )}
-
           {/* Barra de código */}
           <div className="rounded-xl border border-[#1E3A5F]/40 bg-[#1A2235] px-4 py-2.5">
             <p className="font-mono text-sm font-bold tracking-wide text-[#60A5FA]">
@@ -1214,14 +1195,12 @@ export function ProjectDetailDialog({
                 <div className={FLD}>
                   <label className={LBL}>Estado estimación</label>
                   <select className={INP} value={f2Estimacion} onChange={(e) => setF2Estimacion(e.target.value as EstimacionStatus)} disabled={!canEditProject}>
-                    <option value="">— Sin definir</option>
                     {ESTIMACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className={FLD}>
                   <label className={LBL}>Estado cotización</label>
                   <select className={INP} value={f2Cotizacion} onChange={(e) => setF2Cotizacion(e.target.value as CotizacionStatus)} disabled={!canEditProject}>
-                    <option value="">— Sin definir</option>
                     {COTIZACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
