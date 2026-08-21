@@ -2179,6 +2179,7 @@ export default function App(): JSX.Element {
         onAddInvoice={handleAddInvoice}
         onUpdateInvoice={handleUpdateInvoice}
         onAddProjectImportantDate={handleAddProjectImportantDate}
+        onToast={setToastMessage}
         clientOptions={[...new Set([...projects.map((p) => p.client), ...requests.map((r) => r.client)].filter(Boolean))]}
         departmentOptions={[
           ...new Set([

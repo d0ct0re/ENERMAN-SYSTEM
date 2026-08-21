@@ -384,7 +384,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
       ) : null}
 
       {tab === "calendar" ? (
-        <ProjectCalendar projects={projects} onOpenProject={onOpenProject} showSideList />
+        <ProjectCalendar projects={projects} onOpenProject={onOpenProject} users={users} showSideList />
       ) : null}
 
       {/* ── Solicitudes con ordenamiento ── */}

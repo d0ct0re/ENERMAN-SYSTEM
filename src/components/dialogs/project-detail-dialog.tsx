@@ -37,11 +37,7 @@ function LabelAdmin({ text }: { text: string }): JSX.Element {
   return <span className={LBL}>{text}</span>;
 }
 function LabelAuto({ text }: { text: string }): JSX.Element {
-  return (
-    <span className={LBL}>
-      {text}<span className="text-[#4ADE80]/90"> · AUTO</span>
-    </span>
-  );
+  return <span className={LBL}>{text}</span>;
 }
 
 // ── Mapeos urgencia/prioridad ──────────────────────────────────
@@ -167,6 +163,7 @@ export interface ProjectDetailDialogProps {
   onAddInvoice?: (projectId: string, invoice: Omit<InvoiceItem, "id" | "createdAt" | "createdBy">) => void;
   onUpdateInvoice?: (projectId: string, invoiceId: string, updates: Partial<InvoiceItem>) => void;
   onAddProjectImportantDate?: (projectId: string, payload: { title: string; date: string }) => void;
+  onToast?: (message: string) => void;
   // Legacy / sin UI aún
   onSaveProject?: (...args: unknown[]) => void;
   onAdminUpdateProject?: (...args: unknown[]) => void;
@@ -188,11 +185,29 @@ function n(s: string): number | undefined {
   return isNaN(v) ? undefined : v;
 }
 
+// ── Campos requeridos (validación suave: avisa pero nunca bloquea el guardado) ──
+function isFilled(v: unknown): boolean {
+  return typeof v === "string" ? v.trim().length > 0 : Boolean(v);
+}
+function fieldClass(opts: { filled: boolean; missing: boolean; admin?: boolean }): string {
+  if (opts.missing) return "space-y-1.5 border-l-2 border-danger/60 pl-3";
+  if (opts.filled) return "space-y-1.5 border-l-2 border-[#4ADE80]/40 pl-3";
+  return opts.admin ? FLD_ADM : FLD;
+}
+function ReqLabel({ text, missing }: { text: string; missing: boolean }): JSX.Element {
+  return (
+    <label className={LBL}>
+      {text}
+      {missing ? <span className="text-danger"> *</span> : null}
+    </label>
+  );
+}
+
 // ── Componente principal ───────────────────────────────────────
 export function ProjectDetailDialog({
   open, onOpenChange, project, users, currentUser,
   canEditProject, canManageProjectStatus, canEditBudget, canDeleteProject, canManageInvoices,
-  onUpdateProject, onAddComment, onUploadFile, onDeleteFile, onDeleteProject, onMessageSent,
+  onUpdateProject, onAddComment, onUploadFile, onDeleteFile, onDeleteProject, onMessageSent, onToast,
   onAddExpense, onDeleteExpense, onAddInvoice, onUpdateInvoice, onAddProjectImportantDate,
   clientOptions = [], departmentOptions = [],
 }: ProjectDetailDialogProps): JSX.Element | null {
@@ -266,6 +281,11 @@ export function ProjectDetailDialog({
   const [savingF2, setSavingF2] = useState(false);
   const [savingF3, setSavingF3] = useState(false);
   const [savingF4, setSavingF4] = useState(false);
+
+  // ── Validación suave: se activa tras el primer intento de guardar cada fase ──
+  const [f1Attempted, setF1Attempted] = useState(false);
+  const [f2Attempted, setF2Attempted] = useState(false);
+  const [f3Attempted, setF3Attempted] = useState(false);
 
   // ── Expense form (F3) ──
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -677,6 +697,7 @@ export function ProjectDetailDialog({
 
   // ── Handlers de guardado ──
   const handleSaveF1 = async (): Promise<void> => {
+    setF1Attempted(true);
     setSavingF1(true);
     try {
       await onUpdateProject(project.id, {
@@ -693,11 +714,13 @@ export function ProjectDetailDialog({
         totalContratado: n(f1TotalContratado) ?? project.totalContratado,
         assignedEngineerId: f1EngineerId || undefined,
       });
+      onToast?.(f1MissingKeys.size > 0 ? "Apertura guardada — rellena los campos marcados en rojo" : "Apertura guardada correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF1(false); }
   };
 
   const handleSaveF2 = async (): Promise<void> => {
+    setF2Attempted(true);
     setSavingF2(true);
     try {
       await onUpdateProject(project.id, {
@@ -714,11 +737,13 @@ export function ProjectDetailDialog({
         autorizador: f2Autorizador || undefined,
         comentariosCampo: f2Comentarios || undefined,
       });
+      onToast?.(f2MissingKeys.size > 0 ? "Ejecución guardada — rellena los campos marcados en rojo" : "Ejecución guardada correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF2(false); }
   };
 
   const handleSaveF3 = async (): Promise<void> => {
+    setF3Attempted(true);
     setSavingF3(true);
     try {
       await onUpdateProject(project.id, {
@@ -739,6 +764,7 @@ export function ProjectDetailDialog({
         estatusPagoLuna: f3EstatusLuna,
         comentariosDireccion: f3ComentariosDireccion || undefined,
       });
+      onToast?.(f3MissingKeys.size > 0 ? "Financiero guardado — rellena los campos marcados en rojo" : "Financiero guardado correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF3(false); }
   };
@@ -763,6 +789,7 @@ export function ProjectDetailDialog({
         pagosProyecto: pagos,
         estatusPagoFinal: f4EstatusFinal,
       });
+      onToast?.("Pagos guardados correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF4(false); }
   };
@@ -797,10 +824,10 @@ export function ProjectDetailDialog({
   };
 
   const infoTabs: { key: InfoTab; label: string; sublabel: string }[] = [
-    { key: "f1", label: "F1", sublabel: "Apertura" },
-    { key: "f2", label: "F2", sublabel: "Ejecución" },
-    ...(canEditBudget ? [{ key: "f3" as InfoTab, label: "F3", sublabel: "Financiero" }] : []),
-    ...(canEditBudget ? [{ key: "f4" as InfoTab, label: "F4", sublabel: "Pagos" }] : []),
+    { key: "f1", label: "Fase 1", sublabel: "Apertura" },
+    { key: "f2", label: "Fase 2", sublabel: "Ejecución" },
+    ...(canEditBudget ? [{ key: "f3" as InfoTab, label: "Fase 3", sublabel: "Financiero" }] : []),
+    ...(canEditBudget ? [{ key: "f4" as InfoTab, label: "Fase 4", sublabel: "Pagos" }] : []),
   ];
 
   const ubicacionFields: { key: keyof UbicacionProyecto; label: string; placeholder: string }[] = [
@@ -811,6 +838,30 @@ export function ProjectDetailDialog({
     { key: "puerta", label: "Puerta / Local", placeholder: "Puerta o local" },
     { key: "descripcion", label: "Descripción ubicación", placeholder: "Referencia adicional" },
   ];
+
+  // ── Campos requeridos por fase — se resaltan en rojo solo tras el primer intento de guardar ──
+  const f1MissingKeys = new Set<string>();
+  if (!isFilled(f1Client)) f1MissingKeys.add("client");
+  if (!isFilled(f1Department)) f1MissingKeys.add("department");
+  if (!isFilled(f1Type)) f1MissingKeys.add("type");
+  if (!isFilled(f1Lugar)) f1MissingKeys.add("lugar");
+  if (!isFilled(f1BaseName)) f1MissingKeys.add("baseName");
+  if (!isFilled(f1Negociador)) f1MissingKeys.add("negociador");
+  if (!isFilled(f1ContactUser)) f1MissingKeys.add("contactUser");
+  if (canManageProjectStatus && !isFilled(f1EngineerId)) f1MissingKeys.add("engineerId");
+  if (canEditBudget && !isFilled(f1TotalContratado)) f1MissingKeys.add("totalContratado");
+  for (const { key } of ubicacionFields) {
+    if (!isFilled(f1Ubicacion[key])) f1MissingKeys.add(`ubicacion.${key}`);
+  }
+
+  const f2MissingKeys = new Set<string>();
+  if (!isFilled(f2StartDate)) f2MissingKeys.add("startDate");
+  if (!isFilled(f2EndDate)) f2MissingKeys.add("endDate");
+  if (!isFilled(f2CommitmentDate)) f2MissingKeys.add("commitmentDate");
+  if (canManageProjectStatus && !isFilled(f2Autorizador)) f2MissingKeys.add("autorizador");
+
+  const f3MissingKeys = new Set<string>();
+  if (!isFilled(f3TotalSinIva)) f3MissingKeys.add("totalSinIva");
 
   function SaveBtn({ onClick, label, saving }: { onClick: () => Promise<void> | void; label: string; saving?: boolean }): JSX.Element {
     return (
@@ -937,8 +988,8 @@ export function ProjectDetailDialog({
                   </div>
                 </div>
                 {/* Cliente */}
-                <div className={FLD}>
-                  <label className={LBL}>Cliente</label>
+                <div className={fieldClass({ filled: isFilled(f1Client), missing: f1Attempted && f1MissingKeys.has("client") })}>
+                  <ReqLabel text="Cliente" missing={f1Attempted && f1MissingKeys.has("client")} />
                   <input
                     list="cl-list"
                     className={INP}
@@ -952,8 +1003,8 @@ export function ProjectDetailDialog({
                   </datalist>
                 </div>
                 {/* Departamento */}
-                <div className={FLD}>
-                  <label className={LBL}>Departamento</label>
+                <div className={fieldClass({ filled: isFilled(f1Department), missing: f1Attempted && f1MissingKeys.has("department") })}>
+                  <ReqLabel text="Departamento" missing={f1Attempted && f1MissingKeys.has("department")} />
                   <input
                     list="dp-list"
                     className={INP}
@@ -967,8 +1018,8 @@ export function ProjectDetailDialog({
                   </datalist>
                 </div>
                 {/* Tipo */}
-                <div className={FLD}>
-                  <label className={LBL}>Tipo de proyecto</label>
+                <div className={fieldClass({ filled: isFilled(f1Type), missing: f1Attempted && f1MissingKeys.has("type") })}>
+                  <ReqLabel text="Tipo de proyecto" missing={f1Attempted && f1MissingKeys.has("type")} />
                   <select
                     className={INP}
                     value={f1Type}
@@ -982,8 +1033,8 @@ export function ProjectDetailDialog({
                   </select>
                 </div>
                 {/* Lugar */}
-                <div className={`${FLD} sm:col-span-2`}>
-                  <label className={LBL}>Lugar</label>
+                <div className={`${fieldClass({ filled: isFilled(f1Lugar), missing: f1Attempted && f1MissingKeys.has("lugar") })} sm:col-span-2`}>
+                  <ReqLabel text="Lugar" missing={f1Attempted && f1MissingKeys.has("lugar")} />
                   <input
                     className={INP}
                     value={f1Lugar}
@@ -993,8 +1044,8 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 {/* Nombre del trabajo */}
-                <div className={`${FLD} sm:col-span-2`}>
-                  <label className={LBL}>Nombre / Descripción del trabajo</label>
+                <div className={`${fieldClass({ filled: isFilled(f1BaseName), missing: f1Attempted && f1MissingKeys.has("baseName") })} sm:col-span-2`}>
+                  <ReqLabel text="Nombre / Descripción del trabajo" missing={f1Attempted && f1MissingKeys.has("baseName")} />
                   <input
                     className={INP}
                     value={f1BaseName}
@@ -1019,10 +1070,8 @@ export function ProjectDetailDialog({
                   </select>
                 </div>
                 {/* Ingeniero asignado */}
-                <div className={canManageProjectStatus ? FLD_ADM : FLD}>
-                  {canManageProjectStatus
-                    ? <LabelAdmin text="Ingeniero asignado" />
-                    : <label className={LBL}>Ingeniero asignado</label>}
+                <div className={fieldClass({ filled: isFilled(f1EngineerId), missing: canManageProjectStatus && f1Attempted && f1MissingKeys.has("engineerId"), admin: canManageProjectStatus })}>
+                  <ReqLabel text="Ingeniero asignado" missing={canManageProjectStatus && f1Attempted && f1MissingKeys.has("engineerId")} />
                   {canManageProjectStatus ? (
                     <select
                       className={INP}
@@ -1044,27 +1093,30 @@ export function ProjectDetailDialog({
               <div>
                 <p className={`${LBL} mb-2`}>Ubicación del trabajo</p>
                 <div className="grid gap-2.5 rounded-2xl bg-[#1E1E20] p-3 sm:grid-cols-2">
-                  {ubicacionFields.map(({ key, label, placeholder }) => (
-                    <div key={key} className={FLD}>
-                      <label className={LBL}>{label}</label>
-                      <input
-                        className={INP}
-                        value={f1Ubicacion[key] ?? ""}
-                        onChange={(e) =>
-                          setF1Ubicacion((prev) => ({ ...prev, [key]: e.target.value }))
-                        }
-                        placeholder={placeholder}
-                        disabled={!canEditProject}
-                      />
-                    </div>
-                  ))}
+                  {ubicacionFields.map(({ key, label, placeholder }) => {
+                    const missing = f1Attempted && f1MissingKeys.has(`ubicacion.${key}`);
+                    return (
+                      <div key={key} className={fieldClass({ filled: isFilled(f1Ubicacion[key]), missing })}>
+                        <ReqLabel text={label} missing={missing} />
+                        <input
+                          className={INP}
+                          value={f1Ubicacion[key] ?? ""}
+                          onChange={(e) =>
+                            setF1Ubicacion((prev) => ({ ...prev, [key]: e.target.value }))
+                          }
+                          placeholder={placeholder}
+                          disabled={!canEditProject}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Negociador + Contacto */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className={FLD}>
-                  <label className={LBL}>Compras / Negociador</label>
+                <div className={fieldClass({ filled: isFilled(f1Negociador), missing: f1Attempted && f1MissingKeys.has("negociador") })}>
+                  <ReqLabel text="Compras / Negociador" missing={f1Attempted && f1MissingKeys.has("negociador")} />
                   <input
                     className={INP}
                     value={f1Negociador}
@@ -1073,8 +1125,8 @@ export function ProjectDetailDialog({
                     disabled={!canEditProject}
                   />
                 </div>
-                <div className={FLD}>
-                  <label className={LBL}>Usuario de contacto</label>
+                <div className={fieldClass({ filled: isFilled(f1ContactUser), missing: f1Attempted && f1MissingKeys.has("contactUser") })}>
+                  <ReqLabel text="Usuario de contacto" missing={f1Attempted && f1MissingKeys.has("contactUser")} />
                   <input
                     className={INP}
                     value={f1ContactUser}
@@ -1087,8 +1139,8 @@ export function ProjectDetailDialog({
 
               {/* Monto contratado */}
               {canEditBudget ? (
-                <div className={FLD_ADM}>
-                  <LabelAdmin text="Monto contratado" />
+                <div className={fieldClass({ filled: isFilled(f1TotalContratado), missing: f1Attempted && f1MissingKeys.has("totalContratado"), admin: true })}>
+                  <ReqLabel text="Monto contratado" missing={f1Attempted && f1MissingKeys.has("totalContratado")} />
                   <input
                     type="number"
                     className={INP}
@@ -1215,8 +1267,8 @@ export function ProjectDetailDialog({
                     {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
                   </div>
                 </div>
-                <div className={FLD}>
-                  <label className={LBL}>F. Inicio</label>
+                <div className={fieldClass({ filled: isFilled(f2StartDate), missing: f2Attempted && f2MissingKeys.has("startDate") })}>
+                  <ReqLabel text="F. Inicio" missing={f2Attempted && f2MissingKeys.has("startDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2StartDate} onChange={setF2StartDate} />
                   ) : (
@@ -1225,8 +1277,8 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                 </div>
-                <div className={FLD}>
-                  <label className={LBL}>F. Fin</label>
+                <div className={fieldClass({ filled: isFilled(f2EndDate), missing: f2Attempted && f2MissingKeys.has("endDate") })}>
+                  <ReqLabel text="F. Fin" missing={f2Attempted && f2MissingKeys.has("endDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2EndDate} onChange={setF2EndDate} />
                   ) : (
@@ -1235,8 +1287,8 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                 </div>
-                <div className={FLD}>
-                  <label className={LBL}>F. Compromiso</label>
+                <div className={fieldClass({ filled: isFilled(f2CommitmentDate), missing: f2Attempted && f2MissingKeys.has("commitmentDate") })}>
+                  <ReqLabel text="F. Compromiso" missing={f2Attempted && f2MissingKeys.has("commitmentDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2CommitmentDate} onChange={setF2CommitmentDate} />
                   ) : (
@@ -1266,8 +1318,8 @@ export function ProjectDetailDialog({
               </div>
 
               {/* Autorizador — solo Admin */}
-              <div className={FLD_ADM}>
-                <LabelAdmin text="Autorizador" />
+              <div className={fieldClass({ filled: isFilled(f2Autorizador), missing: canManageProjectStatus && f2Attempted && f2MissingKeys.has("autorizador"), admin: true })}>
+                <ReqLabel text="Autorizador" missing={canManageProjectStatus && f2Attempted && f2MissingKeys.has("autorizador")} />
                 {canManageProjectStatus ? (
                   <input className={INP} value={f2Autorizador} onChange={(e) => setF2Autorizador(e.target.value)} placeholder="Nombre del autorizador" />
                 ) : (
@@ -1313,8 +1365,8 @@ export function ProjectDetailDialog({
 
               {/* Total + IVA */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className={FLD_ADM}>
-                  <LabelAdmin text="Total sin IVA" />
+                <div className={fieldClass({ filled: isFilled(f3TotalSinIva), missing: f3Attempted && f3MissingKeys.has("totalSinIva"), admin: true })}>
+                  <ReqLabel text="Total sin IVA" missing={f3Attempted && f3MissingKeys.has("totalSinIva")} />
                   <input
                     type="number"
                     className={INP}
