@@ -10,7 +10,7 @@ import { ProjectItem, UserItem } from "@/types";
 type EventType = "fin" | "compromiso" | "inicio" | "solicitud" | "importante";
 
 const DATE_CFG: Record<EventType, { label: string; dot: string; pill: string; card: string; text: string }> = {
-  fin:        { label: "F. Fin ★",         dot: "bg-danger",    pill: "bg-danger/15 text-danger",           card: "border-danger/20 bg-danger/[0.04]",           text: "text-danger" },
+  fin:        { label: "F. Fin",           dot: "bg-danger",    pill: "bg-danger/15 text-danger",           card: "border-danger/20 bg-danger/[0.04]",           text: "text-danger" },
   compromiso: { label: "F. Compromiso",     dot: "bg-secondary", pill: "bg-secondary/15 text-secondary",     card: "border-secondary/20 bg-secondary/[0.04]",     text: "text-secondary" },
   inicio:     { label: "F. Inicio",         dot: "bg-[#4ADE80]", pill: "bg-[#4ADE80]/15 text-[#4ADE80]",    card: "border-[#4ADE80]/20 bg-[#4ADE80]/[0.04]",    text: "text-[#4ADE80]" },
   solicitud:  { label: "F. Solicitud",      dot: "bg-[#52525B]", pill: "bg-[#3F3F46] text-[#A1A1AA]",       card: "border-[#3F3F46] bg-[#27272A]",               text: "text-[#A1A1AA]" },

@@ -35,6 +35,7 @@ type SortDir = "asc" | "desc";
 interface SupervisorViewProps {
   tab: SupervisorTab;
   onTabChange: (tab: SupervisorTab) => void;
+  activeUserName: string;
   projects: ProjectItem[];
   requests: RequestItem[];
   users: UserItem[];
@@ -44,7 +45,7 @@ interface SupervisorViewProps {
 
 const ACTIVE_STATUSES_SUP = ["en-programacion", "en-concurso", "in-progress", "pendiente-aprobacion", "pendiente-autorizar", "reasignado", "comparativa"];
 
-export function SupervisorView({ tab, onTabChange, projects, requests, users, onOpenProject, onOpenNewRequest }: SupervisorViewProps): JSX.Element {
+export function SupervisorView({ tab, onTabChange, activeUserName, projects, requests, users, onOpenProject, onOpenNewRequest }: SupervisorViewProps): JSX.Element {
   const [query, setQuery] = useState("");
   const [clientFilter, setClientFilter] = useState("Todos");
   const [typeFilter, setTypeFilter] = useState("Todos");
@@ -194,7 +195,7 @@ export function SupervisorView({ tab, onTabChange, projects, requests, users, on
   return (
     <section className="space-y-6">
       <SectionTitle
-        eyebrow="Vista del supervisor"
+        eyebrow={`Espacio de trabajo de ${activeUserName}`}
         title="Seguimiento ejecutivo de proyectos"
         actions={
           onOpenNewRequest ? (

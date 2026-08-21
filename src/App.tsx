@@ -2107,6 +2107,7 @@ export default function App(): JSX.Element {
         <SupervisorView
           tab={supervisorTab}
           onTabChange={setSupervisorTab}
+          activeUserName={activeUser.name}
           projects={supervisorProjects}
           requests={filteredRequests}
           users={users}

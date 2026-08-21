@@ -1210,7 +1210,7 @@ export function ProjectDetailDialog({
                   </select>
                 </div>
                 <div className={FLD}>
-                  <label className={LBL}>F. Solicitud 🔒</label>
+                  <label className={LBL}>F. Solicitud</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
                   </div>
@@ -1226,7 +1226,7 @@ export function ProjectDetailDialog({
                   )}
                 </div>
                 <div className={FLD}>
-                  <label className={LBL}>F. Fin ★</label>
+                  <label className={LBL}>F. Fin</label>
                   {canEditProject ? (
                     <DatePickerMX value={f2EndDate} onChange={setF2EndDate} />
                   ) : (
