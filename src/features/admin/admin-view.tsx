@@ -41,6 +41,7 @@ interface AdminViewProps {
   completedProjects: ProjectItem[];
   cancelledProjects: ProjectItem[];
   paidProjects: ProjectItem[];
+  unpaidProjects: ProjectItem[];
   rejectedRequests: RequestItem[];
   correctionRequests: RequestItem[];
   projects: ProjectItem[];
@@ -892,6 +893,7 @@ function LegacyAdminView({
   completedProjects,
   cancelledProjects,
   paidProjects,
+  unpaidProjects,
   rejectedRequests,
   correctionRequests,
   projects,
@@ -918,10 +920,10 @@ function LegacyAdminView({
   );
 
   const summaryCards = [
-    { title: "Por revisar", value: reviewRequests.length, icon: ShieldAlert, bg: "bg-[#27272A]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
+    { title: "Solicitudes pendientes", value: reviewRequests.length, icon: ShieldAlert, bg: "bg-[#27272A]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
     { title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot, bg: "bg-[#27272A]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
     { title: "Pagados", value: paidProjects.length, icon: BadgeDollarSign, bg: "bg-[#27272A]", border: "border-[#4ADE80]/20", iconBg: "bg-[#4ADE80]/15 text-[#4ADE80]", labelColor: "text-[#4ADE80]", accent: "bg-[#4ADE80]" },
-    { title: "Rechazadas", value: rejectedRequests.length, icon: AlertTriangle, bg: "bg-[#27272A]", border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
+    { title: "No pagados", value: unpaidProjects.length, icon: AlertTriangle, bg: "bg-[#27272A]", border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
   ];
 
   return (

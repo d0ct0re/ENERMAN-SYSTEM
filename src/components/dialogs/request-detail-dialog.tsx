@@ -172,7 +172,11 @@ export function RequestDetailDialog({
 
         {canManageActions ? (
           <div className="mt-6 flex flex-col gap-3 border-t border-[#3F3F46] pt-6 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={() => setActionMode("approve")}>
+            <Button
+              variant="outline"
+              className="border-transparent bg-[#166534]/20 text-[#4ADE80] ring-1 ring-[#4ADE80]/20 hover:border-transparent hover:bg-[#166534]/40 hover:text-[#4ADE80]"
+              onClick={() => setActionMode("approve")}
+            >
               <CheckCircle2 className="h-4 w-4" />
               Aprobar
             </Button>
@@ -215,7 +219,7 @@ export function RequestDetailDialog({
               onChange={(event) => setReason(event.target.value)}
               placeholder={
                 actionMode === "correction"
-                  ? "Describe los ajustes requeridos para continuar."
+                  ? ""
                   : "Indica claramente el motivo de rechazo."
               }
             />

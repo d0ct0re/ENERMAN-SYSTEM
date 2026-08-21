@@ -232,6 +232,7 @@ export default function App(): JSX.Element {
   const adminCompletedProjects = filteredProjects.filter((project) => project.status === "completed" || project.status === "cierre-por-sistema");
   const adminCancelledProjects = filteredProjects.filter((project) => project.status === "cancelled" || project.status === "no-autorizado");
   const adminPaidProjects = filteredProjects.filter((project) => project.paymentStatus === "paid");
+  const adminUnpaidProjects = filteredProjects.filter((project) => project.paymentStatus !== "paid");
 
   const supervisorProjects = filteredProjects;
 
@@ -696,6 +697,7 @@ export default function App(): JSX.Element {
     addNotification({
       id: crypto.randomUUID(),
       role: "admin",
+      userIds: users.filter((u) => u.role === "admin" || u.role === "system_admin").map((u) => u.id),
       title: "Nueva solicitud recibida",
       description: `${request.structuredName} ingresó para revisión administrativa.`,
       createdAt: new Date().toISOString(),
@@ -905,6 +907,22 @@ export default function App(): JSX.Element {
       relatedRequestId: requestId,
       relatedProjectId: linkedProjectId,
     });
+    // Avisar también a Admin + Gestor de que la solicitud se convirtió en proyecto,
+    // excluyendo a quien la aprobó (ya lo sabe, fue quien hizo la acción).
+    addNotification({
+      id: crypto.randomUUID(),
+      role: "admin" as const,
+      userIds: users
+        .filter((u) => u.role === "admin" || u.role === "system_admin")
+        .map((u) => u.id)
+        .filter((id) => id !== activeUser.id),
+      title: "Solicitud aceptada",
+      description: `${activeUser.name} aprobó ${approvedStructuredName} — ya es un proyecto activo.`,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      relatedRequestId: requestId,
+      relatedProjectId: linkedProjectId,
+    });
     setSelectedRequestId(null);
     setToastMessage("Solicitud aprobada");
   };
@@ -1007,6 +1025,7 @@ export default function App(): JSX.Element {
       addNotification({
         id: crypto.randomUUID(),
         role: "admin" as const,
+        userIds: users.filter((u) => u.role === "admin" || u.role === "system_admin").map((u) => u.id),
         title: "Solicitud corregida y reenviada",
         description: `${activeUser.name} corrigió y reenvió "${correctedFields.structuredName || req.structuredName}" — lista para nueva revisión.`,
         createdAt: new Date().toISOString(),
@@ -1141,12 +1160,16 @@ export default function App(): JSX.Element {
     const project = projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    // Construir lista de destinatarios: todos los involucrados en el proyecto excepto el remitente
+    // Construir lista de destinatarios: todos los involucrados en el proyecto excepto el remitente.
+    // El Gestor del sistema NO recibe el chat de proyectos por default — solo se entera
+    // si aparece en createdBy/participants de ESE proyecto (p.ej. si él mismo lo dio de alta).
+    // No hay hoy un mecanismo de "mencionar" al Gestor dentro de un mensaje; si se agrega
+    // en el futuro, debe alimentar este mismo Set.
     const involvedIds = new Set([project.createdBy, ...project.participants]);
-    const adminIds = users
-      .filter((u) => u.role === "admin" || u.role === "system_admin")
+    const staffIds = users
+      .filter((u) => u.role === "admin" || u.role === "supervisor")
       .map((u) => u.id);
-    const recipientIds = [...new Set([...involvedIds, ...adminIds])].filter((id) => id !== authorId);
+    const recipientIds = [...new Set([...involvedIds, ...staffIds])].filter((id) => id !== authorId);
 
     if (recipientIds.length === 0) return;
 
@@ -1736,6 +1759,33 @@ export default function App(): JSX.Element {
           };
         }),
       );
+
+      // Notificar: Admin siempre; Gestor del sistema solo si está involucrado en este proyecto.
+      const uploadProject = projects.find((p) => p.id === projectId);
+      if (uploadProject) {
+        const categoryLabels: Record<string, string> = {
+          fotos: "Fotos de evidencia", estimacion: "Estimación",
+          cotizacion: "Cotización", reporte: "Reporte", otros: "Otro documento",
+        };
+        const categoryLabel = (category && categoryLabels[category]) || "Archivo";
+        const gestorInvolved = new Set([uploadProject.createdBy, ...uploadProject.participants]);
+        const recipientIds = users
+          .filter((u) => u.role === "admin" || (u.role === "system_admin" && gestorInvolved.has(u.id)))
+          .map((u) => u.id)
+          .filter((id) => id !== activeUser.id);
+        if (recipientIds.length > 0) {
+          addNotification({
+            id: crypto.randomUUID(),
+            role: "admin",
+            userIds: recipientIds,
+            title: `Nuevo archivo subido: ${categoryLabel}`,
+            description: `${activeUser.name} subió "${file.name}" (${categoryLabel.toLowerCase()}) en ${uploadProject.structuredName ?? uploadProject.baseName}.`,
+            createdAt: now,
+            isRead: false,
+            relatedProjectId: projectId,
+          });
+        }
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al subir el archivo";
       setToastMessage(`Error: ${msg}`);
@@ -2025,6 +2075,7 @@ export default function App(): JSX.Element {
           completedProjects={adminCompletedProjects}
           cancelledProjects={adminCancelledProjects}
           paidProjects={adminPaidProjects}
+          unpaidProjects={adminUnpaidProjects}
           rejectedRequests={adminRejectedRequests}
           correctionRequests={adminCorrectionRequests}
           projects={projects}

@@ -156,7 +156,7 @@ export function AdminReviewCard({
           <textarea
             value={correctionReason}
             onChange={(e) => setCorrectionReason(e.target.value)}
-            placeholder="Indica qué debe corregir el ingeniero..."
+            placeholder=""
             className="w-full resize-none rounded-xl border border-[#0EA5E9]/30 bg-[#0c1f2e] px-3 py-2 text-sm text-foreground outline-none focus:border-[#0EA5E9]/60"
             rows={2}
             autoFocus

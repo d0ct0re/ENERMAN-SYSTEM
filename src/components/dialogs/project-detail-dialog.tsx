@@ -34,11 +34,7 @@ const FLD_ADM = "space-y-1.5 border-l-2 border-orange-400/40 pl-3";
 
 // Sufijos de etiqueta
 function LabelAdmin({ text }: { text: string }): JSX.Element {
-  return (
-    <span className={LBL}>
-      {text}<span className="text-orange-400/90"> · ADMIN</span>
-    </span>
-  );
+  return <span className={LBL}>{text}</span>;
 }
 function LabelAuto({ text }: { text: string }): JSX.Element {
   return (
@@ -927,7 +923,7 @@ export function ProjectDetailDialog({
               <div className="grid gap-3 sm:grid-cols-2">
                 {/* Consecutivo + fecha solicitud */}
                 <div className={FLD}>
-                  <label className={LBL}>No. Consecutivo 🔒</label>
+                  <label className={LBL}>No. Consecutivo</label>
                   <div className={`${INP_RO} flex items-center gap-2`}>
                     <span className="font-mono font-black text-foreground">{consecutivo}</span>
                     {(project.fechaSolicitud ?? project.createdAt) ? (
