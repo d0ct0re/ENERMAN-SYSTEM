@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { ProjectItem, RequestItem } from "@/types";
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
@@ -107,4 +108,38 @@ export function buildRequestName(input: {
   ].filter(Boolean);
 
   return parts.join("-");
+}
+
+// ── Número de proyecto (folio/consecutivo) — compartido entre vistas de todos los roles ──
+export function getProjectSequenceNumber(project: Pick<ProjectItem, "structuredName">): number {
+  const [sequence] = project.structuredName.split("-");
+  const n = Number(sequence);
+  return Number.isFinite(n) ? n : -1;
+}
+
+export function getProjectSequence(project: Pick<ProjectItem, "structuredName">): string {
+  const n = getProjectSequenceNumber(project);
+  return n >= 0 ? String(n).padStart(4, "0") : "—";
+}
+
+export function getRequestSequenceNumber(
+  request: Pick<RequestItem, "sequence" | "linkedProjectId">,
+  projects: Pick<ProjectItem, "id" | "structuredName">[],
+): number {
+  if (request.sequence) {
+    const n = Number(request.sequence);
+    if (Number.isFinite(n)) return n;
+  }
+  const project = request.linkedProjectId
+    ? projects.find((p) => p.id === request.linkedProjectId)
+    : undefined;
+  return project ? getProjectSequenceNumber(project) : -1;
+}
+
+export function getRequestSequence(
+  request: Pick<RequestItem, "sequence" | "linkedProjectId">,
+  projects: Pick<ProjectItem, "id" | "structuredName">[],
+): string {
+  const n = getRequestSequenceNumber(request, projects);
+  return n >= 0 ? String(n).padStart(4, "0") : "—";
 }

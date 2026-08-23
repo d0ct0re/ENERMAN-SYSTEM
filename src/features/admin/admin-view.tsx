@@ -1,6 +1,6 @@
 import { AlertTriangle, BadgeDollarSign, Check, ChevronDown, DatabaseBackup, Eye, FolderOpenDot, MoreVertical, Plus, RotateCcw, Save, ShieldAlert, Trash2, UploadCloud, UserPlus, UsersRound, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cn, formatDate, isNewItem, parseLocalDate } from "@/lib/utils";
+import { cn, formatDate, isNewItem, parseLocalDate, getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
 import { downloadBackup, downloadFilesBackup, restoreBackup } from "@/lib/api";
 import { FIXED_CLIENTS } from "@/components/ui/client-input";
 import { SectionTitle } from "@/components/layout/section-title";
@@ -426,6 +426,7 @@ function SystemAdminView({
       {systemTab === "requests" ? (
         <RequestsManager
           requests={requests}
+          projects={projects}
           users={users}
           onCreateRequest={onCreateRequest}
           onDeleteRequest={onDeleteRequest}
@@ -717,6 +718,7 @@ function ProjectsManager({
 
 function RequestsManager({
   requests,
+  projects,
   users,
   onCreateRequest,
   onDeleteRequest,
@@ -725,6 +727,7 @@ function RequestsManager({
   onRejectRequest,
 }: {
   requests: RequestItem[];
+  projects: ProjectItem[];
   users: UserItem[];
   onCreateRequest: AdminViewProps["onCreateRequest"];
   onDeleteRequest: AdminViewProps["onDeleteRequest"];
@@ -735,6 +738,7 @@ function RequestsManager({
   const [openMenuReqId, setOpenMenuReqId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [reqQuery, setReqQuery] = useState("");
   const [draft, setDraft] = useState({
     baseName: "",
     client: "",
@@ -759,6 +763,17 @@ function RequestsManager({
     });
     setDraft((current) => ({ ...current, baseName: "", description: "" }));
   };
+
+  const sortedRequests = useMemo(() => {
+    const q = reqQuery.trim().toLowerCase();
+    const filtered = q
+      ? requests.filter((r) => [r.baseName, r.client, getRequestSequence(r, projects)].some((f) => f.toLowerCase().includes(q)))
+      : requests;
+    return [...filtered].sort((a, b) => {
+      const diff = getRequestSequenceNumber(b, projects) - getRequestSequenceNumber(a, projects);
+      return diff !== 0 ? diff : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [requests, projects, reqQuery]);
 
   return (
     <div className="space-y-4">
@@ -795,12 +810,25 @@ function RequestsManager({
         </div>
       </Card>
 
+      {requests.length > 0 ? (
+        <Input
+          value={reqQuery}
+          onChange={(e) => setReqQuery(e.target.value)}
+          placeholder="Buscar por N° proyecto, nombre o cliente…"
+          className="h-11"
+        />
+      ) : null}
+
       <div className="space-y-3">
-        {requests.map((request) => (
+        {sortedRequests.length === 0 && requests.length > 0 ? (
+          <p className="py-6 text-center text-sm text-[#888888]">Sin resultados para la búsqueda</p>
+        ) : null}
+        {sortedRequests.map((request) => (
           <Card key={request.id} className="border-[#3F3F46] bg-[#27272A]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-black text-accent">#{getRequestSequence(request, projects)}</span>
                   <StatusBadge kind="request" value={request.status} />
                   <span className="text-xs font-semibold text-[#888888]">{new Date(request.createdAt).toLocaleDateString("es-MX")}</span>
                 </div>

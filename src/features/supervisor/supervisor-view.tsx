@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { ProjectItem, RequestItem, UserItem } from "@/types";
 import { StatusBadge } from "@/components/common/status-badge";
-import { cn } from "@/lib/utils";
+import { cn, getProjectSequence, getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
 
 const STATUS_DISPLAY: Record<string, string> = {
   "en-programacion": "En programación",
@@ -61,8 +61,9 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   const [sortFilter, setSortFilter] = useState("Reciente ↓");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
-  // Request sort
-  const [reqSort, setReqSort] = useState<{ field: string; dir: SortDir }>({ field: "createdAt", dir: "desc" });
+  // Request sort + búsqueda
+  const [reqSort, setReqSort] = useState<{ field: string; dir: SortDir }>({ field: "sequence", dir: "desc" });
+  const [reqQuery, setReqQuery] = useState("");
 
   const clients = useMemo(() => ["Todos", ...new Set(projects.map((p) => p.client))], [projects]);
   const types = useMemo(() => ["Todos", ...new Set(projects.map((p) => p.type))], [projects]);
@@ -143,14 +144,26 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
     rechazadas: requests.filter((r) => r.status === "rejected").length,
   }), [projects, requests]);
 
+  const filteredRequestsList = useMemo(() => {
+    const q = reqQuery.trim().toLowerCase();
+    if (!q) return requests;
+    return requests.filter((r) =>
+      [r.baseName, r.client, getRequestSequence(r, projects)].some((f) => f.toLowerCase().includes(q)),
+    );
+  }, [requests, projects, reqQuery]);
+
   const sortedRequests = useMemo(() => {
-    return [...requests].sort((a, b) => {
+    return [...filteredRequestsList].sort((a, b) => {
+      if (reqSort.field === "sequence") {
+        const cmp = getRequestSequenceNumber(a, projects) - getRequestSequenceNumber(b, projects);
+        return reqSort.dir === "asc" ? cmp : -cmp;
+      }
       const va = String(a[reqSort.field as keyof typeof a] ?? "");
       const vb = String(b[reqSort.field as keyof typeof b] ?? "");
       const cmp = va.localeCompare(vb, "es-MX", { numeric: true });
       return reqSort.dir === "asc" ? cmp : -cmp;
     });
-  }, [requests, reqSort]);
+  }, [filteredRequestsList, projects, reqSort]);
 
   const toggleSort = (
     current: { field: string; dir: SortDir },
@@ -347,7 +360,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                   </thead>
                   <tbody className="divide-y divide-[#3F3F46]">
                     {filteredProjects.map((project) => {
-                      const [seq] = project.structuredName?.split("-") ?? ["—"];
+                      const seq = getProjectSequence(project);
                       return (
                         <tr
                           key={project.id}
@@ -390,14 +403,23 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
       {/* ── Solicitudes con ordenamiento ── */}
       {tab === "requests" ? (
         <div className="overflow-hidden rounded-[28px] border border-[#3F3F46] bg-[#27272A] shadow-panel">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#3F3F46]">
+          <div className="flex flex-col gap-3 border-b border-[#3F3F46] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-bold text-foreground">Todas las solicitudes</h3>
-            <span className="rounded-full bg-[#3F3F46] px-3 py-1 text-xs font-semibold text-[#A1A1AA]">Solo lectura</span>
+            <div className="flex items-center gap-3">
+              <Input
+                value={reqQuery}
+                onChange={(e) => setReqQuery(e.target.value)}
+                placeholder="Buscar por N° proyecto, nombre o cliente…"
+                className="h-9 w-72"
+              />
+              <span className="shrink-0 rounded-full bg-[#3F3F46] px-3 py-1 text-xs font-semibold text-[#A1A1AA]">Solo lectura</span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#3F3F46]">
+                  <SortTh field="sequence" label="N° Proyecto" current={reqSort} setter={setReqSort} />
                   <SortTh field="baseName" label="Proyecto" current={reqSort} setter={setReqSort} />
                   <SortTh field="client" label="Cliente" current={reqSort} setter={setReqSort} />
                   <SortTh field="status" label="Estado" current={reqSort} setter={setReqSort} />
@@ -407,6 +429,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
               <tbody className="divide-y divide-[#3F3F46]">
                 {sortedRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-[#313136] transition-colors">
+                    <td className="px-6 py-3 font-mono text-xs text-accent">{getRequestSequence(req, projects)}</td>
                     <td className="px-6 py-3 font-medium text-foreground">{req.baseName}</td>
                     <td className="px-6 py-3 text-[#A1A1AA]">{req.client}</td>
                     <td className="px-6 py-3"><StatusBadge kind="request" value={req.status} /></td>
@@ -415,10 +438,10 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                     </td>
                   </tr>
                 ))}
-                {requests.length === 0 && (
+                {sortedRequests.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-sm text-[#888888]">
-                      No hay solicitudes registradas
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#888888]">
+                      {requests.length === 0 ? "No hay solicitudes registradas" : "Sin resultados para la búsqueda"}
                     </td>
                   </tr>
                 )}

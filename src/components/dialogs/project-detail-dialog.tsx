@@ -251,7 +251,6 @@ export function ProjectDetailDialog({
   const [f2ReporteFileStatus, setF2ReporteFileStatus] = useState<FileStatus>("no");
   const [f2OtrosFileStatus, setF2OtrosFileStatus] = useState<FileStatus>("no");
   const [f2Reporte, setF2Reporte] = useState(false);
-  const [f2Autorizador, setF2Autorizador] = useState("");
   const [f2Comentarios, setF2Comentarios] = useState("");
 
   // ── F3 state ──
@@ -434,6 +433,7 @@ export function ProjectDetailDialog({
     setF1Description(project.description ?? "");
     setF1Ubicacion(project.ubicacion ?? {});
     setF1TotalContratado(project.totalContratado?.toString() ?? "");
+    setF1Attempted(project.f1SaveAttempted ?? false);
     setShowDateForm(false); setDateTitle(""); setDateValue(new Date().toISOString().slice(0, 10));
     // F2
     setF2Status(project.status ?? "en-programacion");
@@ -451,8 +451,8 @@ export function ProjectDetailDialog({
     setF2ReporteFileStatus(project.reporteFileStatus ?? "no");
     setF2OtrosFileStatus(project.otrosFileStatus ?? "no");
     setF2Reporte(project.reporte ?? false);
-    setF2Autorizador(project.autorizador ?? "");
     setF2Comentarios(project.comentariosCampo ?? "");
+    setF2Attempted(project.f2SaveAttempted ?? false);
     // F3
     setF3TotalSinIva(project.totalSinIva?.toString() ?? "");
     setF3Iva(project.iva?.toString() ?? "");
@@ -470,6 +470,7 @@ export function ProjectDetailDialog({
     setF3EstatusAlberto(project.estatusPagoAlberto ?? "Pendiente");
     setF3EstatusLuna(project.estatusPagoLuna ?? "Pendiente");
     setF3ComentariosDireccion(project.comentariosDireccion ?? "");
+    setF3Attempted(project.f3SaveAttempted ?? false);
     // F4
     setPagoDrafts(
       project.pagosProyecto && project.pagosProyecto.length > 0
@@ -515,6 +516,7 @@ export function ProjectDetailDialog({
     setF1Description(project.description ?? "");
     setF1Ubicacion(project.ubicacion ?? {});
     setF1TotalContratado(project.totalContratado?.toString() ?? "");
+    setF1Attempted(project.f1SaveAttempted ?? false);
   }, [
     project?.client,
     project?.department,
@@ -533,10 +535,11 @@ export function ProjectDetailDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(project?.ubicacion),
     project?.totalContratado,
+    project?.f1SaveAttempted,
   ]);
 
   // Sincroniza los campos F2 cuando el proyecto cambia externamente via polling (mismo project.id, datos nuevos).
-  // Cubre: fechas, estados, fotos, reporte, autorizador y comentarios.
+  // Cubre: fechas, estados, fotos, reporte y comentarios.
   // No toca campos que el usuario podría estar editando ahora mismo en otro formulario.
   useEffect(() => {
     if (!project) return;
@@ -549,8 +552,8 @@ export function ProjectDetailDialog({
     setF2CommitmentDate(project.commitmentDate ?? "");
     setF2Fotos(project.fotos ?? false);
     setF2Reporte(project.reporte ?? false);
-    setF2Autorizador(project.autorizador ?? "");
     setF2Comentarios(project.comentariosCampo ?? "");
+    setF2Attempted(project.f2SaveAttempted ?? false);
   }, [
     project?.status,
     project?.estimacion,
@@ -561,8 +564,8 @@ export function ProjectDetailDialog({
     project?.commitmentDate,
     project?.fotos,
     project?.reporte,
-    project?.autorizador,
     project?.comentariosCampo,
+    project?.f2SaveAttempted,
   ]);
 
   // Sincroniza los campos F3 (Financiero) cuando el proyecto cambia externamente via polling.
@@ -585,6 +588,7 @@ export function ProjectDetailDialog({
     setF3EstatusAlberto(project.estatusPagoAlberto ?? "Pendiente");
     setF3EstatusLuna(project.estatusPagoLuna ?? "Pendiente");
     setF3ComentariosDireccion(project.comentariosDireccion ?? "");
+    setF3Attempted(project.f3SaveAttempted ?? false);
   }, [
     project?.totalSinIva,
     project?.iva,
@@ -602,6 +606,7 @@ export function ProjectDetailDialog({
     project?.estatusPagoAlberto,
     project?.estatusPagoLuna,
     project?.comentariosDireccion,
+    project?.f3SaveAttempted,
   ]);
 
   // Sincroniza los campos F4 (Pagos) cuando el proyecto cambia externamente via polling.
@@ -713,6 +718,7 @@ export function ProjectDetailDialog({
         ubicacion: f1Ubicacion,
         totalContratado: n(f1TotalContratado) ?? project.totalContratado,
         assignedEngineerId: f1EngineerId || undefined,
+        f1SaveAttempted: true,
       });
       onToast?.(f1MissingKeys.size > 0 ? "Apertura guardada — rellena los campos marcados en rojo" : "Apertura guardada correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
@@ -734,8 +740,8 @@ export function ProjectDetailDialog({
         fotos: f2Fotos,
         fotosStatus: f2FotosStatus,
         reporte: f2Reporte,
-        autorizador: f2Autorizador || undefined,
         comentariosCampo: f2Comentarios || undefined,
+        f2SaveAttempted: true,
       });
       onToast?.(f2MissingKeys.size > 0 ? "Ejecución guardada — rellena los campos marcados en rojo" : "Ejecución guardada correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
@@ -763,6 +769,7 @@ export function ProjectDetailDialog({
         estatusPagoAlberto: f3EstatusAlberto,
         estatusPagoLuna: f3EstatusLuna,
         comentariosDireccion: f3ComentariosDireccion || undefined,
+        f3SaveAttempted: true,
       });
       onToast?.(f3MissingKeys.size > 0 ? "Financiero guardado — rellena los campos marcados en rojo" : "Financiero guardado correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
@@ -858,7 +865,6 @@ export function ProjectDetailDialog({
   if (!isFilled(f2StartDate)) f2MissingKeys.add("startDate");
   if (!isFilled(f2EndDate)) f2MissingKeys.add("endDate");
   if (!isFilled(f2CommitmentDate)) f2MissingKeys.add("commitmentDate");
-  if (canManageProjectStatus && !isFilled(f2Autorizador)) f2MissingKeys.add("autorizador");
 
   const f3MissingKeys = new Set<string>();
   if (!isFilled(f3TotalSinIva)) f3MissingKeys.add("totalSinIva");
@@ -970,10 +976,20 @@ export function ProjectDetailDialog({
 
           {/* ────────── F1 APERTURA ────────── */}
           {infoTab === "f1" ? (
-            <div className="space-y-3">
+            <div
+              className="space-y-3"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || !canEditProject) return;
+                const tag = (e.target as HTMLElement).tagName;
+                if (tag === "INPUT" || tag === "SELECT") {
+                  e.preventDefault();
+                  void handleSaveF1();
+                }
+              }}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 {/* Consecutivo + fecha solicitud */}
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(consecutivo) && consecutivo !== "—", missing: false })}>
                   <label className={LBL}>No. Consecutivo</label>
                   <div className={`${INP_RO} flex items-center gap-2`}>
                     <span className="font-mono font-black text-foreground">{consecutivo}</span>
@@ -1055,7 +1071,7 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 {/* Urgencia */}
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f1Urgencia), missing: false })}>
                   <label className={LBL}>Urgencia</label>
                   <select
                     className={INP}
@@ -1126,12 +1142,12 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 <div className={fieldClass({ filled: isFilled(f1ContactUser), missing: f1Attempted && f1MissingKeys.has("contactUser") })}>
-                  <ReqLabel text="Usuario de contacto" missing={f1Attempted && f1MissingKeys.has("contactUser")} />
+                  <ReqLabel text="Usuario de contacto (Agrega nombre)" missing={f1Attempted && f1MissingKeys.has("contactUser")} />
                   <input
                     className={INP}
                     value={f1ContactUser}
                     onChange={(e) => setF1ContactUser(e.target.value)}
-                    placeholder="Contacto del cliente"
+                    placeholder="Agrega (nombre)"
                     disabled={!canEditProject}
                   />
                 </div>
@@ -1150,7 +1166,7 @@ export function ProjectDetailDialog({
                   />
                 </div>
               ) : project.totalContratado ? (
-                <div className={FLD}>
+                <div className={fieldClass({ filled: true, missing: false })}>
                   <label className={LBL}>Monto contratado</label>
                   <input className={INP_RO} value={mxn(project.totalContratado)} readOnly />
                 </div>
@@ -1175,7 +1191,10 @@ export function ProjectDetailDialog({
                 </div>
 
                 {showDateForm && onAddProjectImportantDate ? (
-                  <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                  <div
+                    className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3"
+                    onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation(); }}
+                  >
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className={FLD}>
                         <label className={LBL}>Título</label>
@@ -1234,25 +1253,25 @@ export function ProjectDetailDialog({
           {infoTab === "f2" ? (
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2Status), missing: f2Attempted && !isFilled(f2Status) })}>
                   <label className={LBL}>Estado del proyecto</label>
                   <select className={INP} value={f2Status} onChange={(e) => setF2Status(e.target.value as ProjectStatus)} disabled={!canEditProject}>
                     {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2Estimacion), missing: f2Attempted && !isFilled(f2Estimacion) })}>
                   <label className={LBL}>Estado estimación</label>
                   <select className={INP} value={f2Estimacion} onChange={(e) => setF2Estimacion(e.target.value as EstimacionStatus)} disabled={!canEditProject}>
                     {ESTIMACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2Cotizacion), missing: f2Attempted && !isFilled(f2Cotizacion) })}>
                   <label className={LBL}>Estado cotización</label>
                   <select className={INP} value={f2Cotizacion} onChange={(e) => setF2Cotizacion(e.target.value as CotizacionStatus)} disabled={!canEditProject}>
                     {COTIZACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2PaymentStatus), missing: f2Attempted && !isFilled(f2PaymentStatus) })}>
                   <label className={LBL}>Estado pago</label>
                   <select className={INP} value={f2PaymentStatus} onChange={(e) => setF2PaymentStatus(e.target.value as PaymentStatus)} disabled={!canEditProject}>
                     <option value="">— Sin definir</option>
@@ -1261,7 +1280,7 @@ export function ProjectDetailDialog({
                     <option value="paid">Pagado</option>
                   </select>
                 </div>
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2FechaSolicitud), missing: false })}>
                   <label className={LBL}>F. Solicitud</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
@@ -1297,7 +1316,7 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                 </div>
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2FotosStatus), missing: false })}>
                   <label className={LBL}>Fotos de evidencia</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2FotosStatus === "no" && <span>No</span>}
@@ -1306,7 +1325,7 @@ export function ProjectDetailDialog({
                     {f2FotosStatus === "rechazado" && <span className="text-danger">Rechazado</span>}
                   </div>
                 </div>
-                <div className={FLD}>
+                <div className={fieldClass({ filled: isFilled(f2ReporteFileStatus), missing: false })}>
                   <label className={LBL}>Reporte generado</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2ReporteFileStatus === "no" && <span>No</span>}
@@ -1317,18 +1336,8 @@ export function ProjectDetailDialog({
                 </div>
               </div>
 
-              {/* Autorizador — solo Admin */}
-              <div className={fieldClass({ filled: isFilled(f2Autorizador), missing: canManageProjectStatus && f2Attempted && f2MissingKeys.has("autorizador"), admin: true })}>
-                <ReqLabel text="Autorizador" missing={canManageProjectStatus && f2Attempted && f2MissingKeys.has("autorizador")} />
-                {canManageProjectStatus ? (
-                  <input className={INP} value={f2Autorizador} onChange={(e) => setF2Autorizador(e.target.value)} placeholder="Nombre del autorizador" />
-                ) : (
-                  <input className={INP_RO} value={project.autorizador ?? "—"} readOnly />
-                )}
-              </div>
-
               {/* Comentarios del campo */}
-              <div className={FLD}>
+              <div className={fieldClass({ filled: isFilled(f2Comentarios), missing: f2Attempted && !isFilled(f2Comentarios) })}>
                 <label className={LBL}>Comentarios del campo</label>
                 <textarea
                   className={`${INP} h-auto min-h-[90px] resize-none py-2.5`}
@@ -1379,7 +1388,7 @@ export function ProjectDetailDialog({
                     placeholder="0"
                   />
                 </div>
-                <div className={FLD_ADM}>
+                <div className={fieldClass({ filled: isFilled(f3Iva), missing: false, admin: true })}>
                   <LabelAuto text="IVA (16%)" />
                   <input
                     type="number"
@@ -1406,7 +1415,7 @@ export function ProjectDetailDialog({
                     { label: "Comisión", val: f3Comision, set: setF3Comision },
                     { label: "Otros gastos", val: f3OtrosGastos, set: setF3OtrosGastos },
                   ].map(({ label, val, set }) => (
-                    <div key={label} className={FLD_ADM}>
+                    <div key={label} className={fieldClass({ filled: isFilled(val), missing: false, admin: true })}>
                       <LabelAdmin text={label} />
                       <input type="number" className={INP} value={val} onChange={(e) => set(e.target.value)} placeholder="0" />
                     </div>
@@ -1431,7 +1440,7 @@ export function ProjectDetailDialog({
               </div>
 
               {/* Comentarios dirección */}
-              <div className={FLD_ADM}>
+              <div className={fieldClass({ filled: isFilled(f3ComentariosDireccion), missing: false, admin: true })}>
                 <LabelAdmin text="Comentarios dirección" />
                 <textarea
                   className={`${INP} h-auto min-h-[80px] resize-none py-2.5`}

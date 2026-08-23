@@ -1,12 +1,14 @@
 import { ArrowUpRight, Pencil, Plus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SectionTitle } from "@/components/layout/section-title";
 import { Tabs } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { ProjectCard } from "@/components/cards/project-card";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { CorrectionRequestDialog } from "@/components/dialogs/correction-request-dialog";
 import { ProjectItem, RequestItem } from "@/types";
+import { getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
 
 export type EngineerTab = "all" | "active" | "completed" | "requests" | "correction" | "calendar";
 
@@ -46,6 +48,7 @@ export function EngineerView({
   onResubmitRequest,
 }: EngineerViewProps): JSX.Element {
   const [correctionDialogReq, setCorrectionDialogReq] = useState<RequestItem | null>(null);
+  const [reqQuery, setReqQuery] = useState("");
 
   const byNewest = (a: ProjectItem, b: ProjectItem) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -54,13 +57,26 @@ export function EngineerView({
   const activeProjects = sortedProjects.filter((p) => !CLOSED_STATUSES.includes(p.status));
   const completedProjects = sortedProjects.filter((p) => CLOSED_STATUSES.includes(p.status));
 
-  const sortedRequests = [...requests]
-    .filter((r) => r.status !== "needs-correction")
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const bySequenceThenNewest = (a: RequestItem, b: RequestItem) => {
+    const diff = getRequestSequenceNumber(b, projects) - getRequestSequenceNumber(a, projects);
+    return diff !== 0 ? diff : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  };
 
-  const correctionRequests = [...requests]
-    .filter((r) => r.status === "needs-correction")
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const matchesQuery = (r: RequestItem) => {
+    const q = reqQuery.trim().toLowerCase();
+    if (!q) return true;
+    return [r.baseName, r.client, getRequestSequence(r, projects)].some((f) => f.toLowerCase().includes(q));
+  };
+
+  const sortedRequests = useMemo(
+    () => [...requests].filter((r) => r.status !== "needs-correction").filter(matchesQuery).sort(bySequenceThenNewest),
+    [requests, projects, reqQuery],
+  );
+
+  const correctionRequests = useMemo(
+    () => [...requests].filter((r) => r.status === "needs-correction").filter(matchesQuery).sort(bySequenceThenNewest),
+    [requests, projects, reqQuery],
+  );
 
   const calendarEventCount = projects.reduce(
     (n, p) =>
@@ -118,16 +134,28 @@ export function EngineerView({
       {/* ── Solicitudes normales ── */}
       {tab === "requests" ? (
         <div className="space-y-3">
+          {requests.length > 0 ? (
+            <Input
+              value={reqQuery}
+              onChange={(e) => setReqQuery(e.target.value)}
+              placeholder="Buscar por N° proyecto, nombre o cliente…"
+              className="h-10"
+            />
+          ) : null}
           {sortedRequests.length === 0 ? (
             <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">No has enviado solicitudes</p>
-              <button
-                type="button"
-                onClick={onOpenNewRequest}
-                className="mt-4 text-xs font-bold text-accent hover:underline"
-              >
-                + Crear primera solicitud
-              </button>
+              <p className="text-sm font-semibold text-[#888888]">
+                {requests.length === 0 ? "No has enviado solicitudes" : "Sin resultados para la búsqueda"}
+              </p>
+              {requests.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={onOpenNewRequest}
+                  className="mt-4 text-xs font-bold text-accent hover:underline"
+                >
+                  + Crear primera solicitud
+                </button>
+              ) : null}
             </div>
           ) : (
             sortedRequests.map((req) => (
@@ -136,6 +164,7 @@ export function EngineerView({
                 className="rounded-[20px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-2"
               >
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[10px] font-black text-[#888888]">#{getRequestSequence(req, projects)}</span>
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
                     {req.client} · {req.department}
@@ -178,9 +207,19 @@ export function EngineerView({
       {/* ── Solicitudes en corrección ── */}
       {tab === "correction" ? (
         <div className="space-y-3">
+          {requests.filter((r) => r.status === "needs-correction").length > 0 ? (
+            <Input
+              value={reqQuery}
+              onChange={(e) => setReqQuery(e.target.value)}
+              placeholder="Buscar por N° proyecto, nombre o cliente…"
+              className="h-10"
+            />
+          ) : null}
           {correctionRequests.length === 0 ? (
             <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">Sin solicitudes en corrección</p>
+              <p className="text-sm font-semibold text-[#888888]">
+                {requests.some((r) => r.status === "needs-correction") ? "Sin resultados para la búsqueda" : "Sin solicitudes en corrección"}
+              </p>
             </div>
           ) : (
             correctionRequests.map((req) => (
@@ -191,6 +230,7 @@ export function EngineerView({
               >
                 {/* Header */}
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[10px] font-black text-[#888888]">#{getRequestSequence(req, projects)}</span>
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
                     {req.client} · {req.department}
