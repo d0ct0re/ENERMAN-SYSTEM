@@ -1128,7 +1128,7 @@ export function ProjectDetailDialog({
                   <input
                     className={INP}
                     value={f1ContactUser}
-                    onChange={(e) => setF1ContactUser(e.target.value)}
+                    onChange={(e) => setF1ContactUser(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]/g, ""))}
                     placeholder="Agrega (nombre)"
                     disabled={!canEditProject}
                   />
