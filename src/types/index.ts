@@ -273,7 +273,6 @@ export interface ProjectItem {
   // F1 — Apertura
   lugar?: string;
   ubicacion?: UbicacionProyecto;
-  f1SaveAttempted?: boolean;
   // F2 — Ejecución
   fechaSolicitud?: string;
   fotos?: boolean;
@@ -285,7 +284,6 @@ export interface ProjectItem {
   reporte?: boolean;
   autorizador?: string;
   comentariosCampo?: string;
-  f2SaveAttempted?: boolean;
   // F3 — Financiero
   iva?: number;
   costoMateriales?: number;
@@ -302,7 +300,6 @@ export interface ProjectItem {
   estatusPagoAlberto?: "Pendiente" | "Pagado";
   estatusPagoLuna?: "Pendiente" | "Pagado";
   comentariosDireccion?: string;
-  f3SaveAttempted?: boolean;
   // F4 — Pagos
   pagosProyecto?: PagoProyecto[];
   estatusPagoFinal?: "Pendiente" | "Pagado";

@@ -282,9 +282,6 @@ export function ProjectDetailDialog({
   const [savingF4, setSavingF4] = useState(false);
 
   // ── Validación suave: se activa tras el primer intento de guardar cada fase ──
-  const [f1Attempted, setF1Attempted] = useState(false);
-  const [f2Attempted, setF2Attempted] = useState(false);
-  const [f3Attempted, setF3Attempted] = useState(false);
 
   // ── Expense form (F3) ──
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -433,7 +430,6 @@ export function ProjectDetailDialog({
     setF1Description(project.description ?? "");
     setF1Ubicacion(project.ubicacion ?? {});
     setF1TotalContratado(project.totalContratado?.toString() ?? "");
-    setF1Attempted(project.f1SaveAttempted ?? false);
     setShowDateForm(false); setDateTitle(""); setDateValue(new Date().toISOString().slice(0, 10));
     // F2
     setF2Status(project.status ?? "en-programacion");
@@ -452,7 +448,6 @@ export function ProjectDetailDialog({
     setF2OtrosFileStatus(project.otrosFileStatus ?? "no");
     setF2Reporte(project.reporte ?? false);
     setF2Comentarios(project.comentariosCampo ?? "");
-    setF2Attempted(project.f2SaveAttempted ?? false);
     // F3
     setF3TotalSinIva(project.totalSinIva?.toString() ?? "");
     setF3Iva(project.iva?.toString() ?? "");
@@ -470,7 +465,6 @@ export function ProjectDetailDialog({
     setF3EstatusAlberto(project.estatusPagoAlberto ?? "Pendiente");
     setF3EstatusLuna(project.estatusPagoLuna ?? "Pendiente");
     setF3ComentariosDireccion(project.comentariosDireccion ?? "");
-    setF3Attempted(project.f3SaveAttempted ?? false);
     // F4
     setPagoDrafts(
       project.pagosProyecto && project.pagosProyecto.length > 0
@@ -516,7 +510,6 @@ export function ProjectDetailDialog({
     setF1Description(project.description ?? "");
     setF1Ubicacion(project.ubicacion ?? {});
     setF1TotalContratado(project.totalContratado?.toString() ?? "");
-    setF1Attempted(project.f1SaveAttempted ?? false);
   }, [
     project?.client,
     project?.department,
@@ -535,7 +528,6 @@ export function ProjectDetailDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(project?.ubicacion),
     project?.totalContratado,
-    project?.f1SaveAttempted,
   ]);
 
   // Sincroniza los campos F2 cuando el proyecto cambia externamente via polling (mismo project.id, datos nuevos).
@@ -553,7 +545,6 @@ export function ProjectDetailDialog({
     setF2Fotos(project.fotos ?? false);
     setF2Reporte(project.reporte ?? false);
     setF2Comentarios(project.comentariosCampo ?? "");
-    setF2Attempted(project.f2SaveAttempted ?? false);
   }, [
     project?.status,
     project?.estimacion,
@@ -565,7 +556,6 @@ export function ProjectDetailDialog({
     project?.fotos,
     project?.reporte,
     project?.comentariosCampo,
-    project?.f2SaveAttempted,
   ]);
 
   // Sincroniza los campos F3 (Financiero) cuando el proyecto cambia externamente via polling.
@@ -588,7 +578,6 @@ export function ProjectDetailDialog({
     setF3EstatusAlberto(project.estatusPagoAlberto ?? "Pendiente");
     setF3EstatusLuna(project.estatusPagoLuna ?? "Pendiente");
     setF3ComentariosDireccion(project.comentariosDireccion ?? "");
-    setF3Attempted(project.f3SaveAttempted ?? false);
   }, [
     project?.totalSinIva,
     project?.iva,
@@ -606,7 +595,6 @@ export function ProjectDetailDialog({
     project?.estatusPagoAlberto,
     project?.estatusPagoLuna,
     project?.comentariosDireccion,
-    project?.f3SaveAttempted,
   ]);
 
   // Sincroniza los campos F4 (Pagos) cuando el proyecto cambia externamente via polling.
@@ -702,7 +690,6 @@ export function ProjectDetailDialog({
 
   // ── Handlers de guardado ──
   const handleSaveF1 = async (): Promise<void> => {
-    setF1Attempted(true);
     setSavingF1(true);
     try {
       await onUpdateProject(project.id, {
@@ -718,7 +705,6 @@ export function ProjectDetailDialog({
         ubicacion: f1Ubicacion,
         totalContratado: n(f1TotalContratado) ?? project.totalContratado,
         assignedEngineerId: f1EngineerId || undefined,
-        f1SaveAttempted: true,
       });
       onToast?.(f1MissingKeys.size > 0 ? "Apertura guardada — rellena los campos marcados en rojo" : "Apertura guardada correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
@@ -726,7 +712,6 @@ export function ProjectDetailDialog({
   };
 
   const handleSaveF2 = async (): Promise<void> => {
-    setF2Attempted(true);
     setSavingF2(true);
     try {
       await onUpdateProject(project.id, {
@@ -741,7 +726,6 @@ export function ProjectDetailDialog({
         fotosStatus: f2FotosStatus,
         reporte: f2Reporte,
         comentariosCampo: f2Comentarios || undefined,
-        f2SaveAttempted: true,
       });
       onToast?.(f2MissingKeys.size > 0 ? "Ejecución guardada — rellena los campos marcados en rojo" : "Ejecución guardada correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
@@ -749,7 +733,6 @@ export function ProjectDetailDialog({
   };
 
   const handleSaveF3 = async (): Promise<void> => {
-    setF3Attempted(true);
     setSavingF3(true);
     try {
       await onUpdateProject(project.id, {
@@ -769,7 +752,6 @@ export function ProjectDetailDialog({
         estatusPagoAlberto: f3EstatusAlberto,
         estatusPagoLuna: f3EstatusLuna,
         comentariosDireccion: f3ComentariosDireccion || undefined,
-        f3SaveAttempted: true,
       });
       onToast?.(f3MissingKeys.size > 0 ? "Financiero guardado — rellena los campos marcados en rojo" : "Financiero guardado correctamente");
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
@@ -1004,8 +986,8 @@ export function ProjectDetailDialog({
                   </div>
                 </div>
                 {/* Cliente */}
-                <div className={fieldClass({ filled: isFilled(f1Client), missing: f1Attempted && f1MissingKeys.has("client") })}>
-                  <ReqLabel text="Cliente" missing={f1Attempted && f1MissingKeys.has("client")} />
+                <div className={fieldClass({ filled: isFilled(f1Client), missing: f1MissingKeys.has("client") })}>
+                  <ReqLabel text="Cliente" missing={f1MissingKeys.has("client")} />
                   <input
                     list="cl-list"
                     className={INP}
@@ -1019,8 +1001,8 @@ export function ProjectDetailDialog({
                   </datalist>
                 </div>
                 {/* Departamento */}
-                <div className={fieldClass({ filled: isFilled(f1Department), missing: f1Attempted && f1MissingKeys.has("department") })}>
-                  <ReqLabel text="Departamento" missing={f1Attempted && f1MissingKeys.has("department")} />
+                <div className={fieldClass({ filled: isFilled(f1Department), missing: f1MissingKeys.has("department") })}>
+                  <ReqLabel text="Departamento" missing={f1MissingKeys.has("department")} />
                   <input
                     list="dp-list"
                     className={INP}
@@ -1034,8 +1016,8 @@ export function ProjectDetailDialog({
                   </datalist>
                 </div>
                 {/* Tipo */}
-                <div className={fieldClass({ filled: isFilled(f1Type), missing: f1Attempted && f1MissingKeys.has("type") })}>
-                  <ReqLabel text="Tipo de proyecto" missing={f1Attempted && f1MissingKeys.has("type")} />
+                <div className={fieldClass({ filled: isFilled(f1Type), missing: f1MissingKeys.has("type") })}>
+                  <ReqLabel text="Tipo de proyecto" missing={f1MissingKeys.has("type")} />
                   <select
                     className={INP}
                     value={f1Type}
@@ -1049,8 +1031,8 @@ export function ProjectDetailDialog({
                   </select>
                 </div>
                 {/* Lugar */}
-                <div className={`${fieldClass({ filled: isFilled(f1Lugar), missing: f1Attempted && f1MissingKeys.has("lugar") })} sm:col-span-2`}>
-                  <ReqLabel text="Lugar" missing={f1Attempted && f1MissingKeys.has("lugar")} />
+                <div className={`${fieldClass({ filled: isFilled(f1Lugar), missing: f1MissingKeys.has("lugar") })} sm:col-span-2`}>
+                  <ReqLabel text="Lugar" missing={f1MissingKeys.has("lugar")} />
                   <input
                     className={INP}
                     value={f1Lugar}
@@ -1060,8 +1042,8 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 {/* Nombre del trabajo */}
-                <div className={`${fieldClass({ filled: isFilled(f1BaseName), missing: f1Attempted && f1MissingKeys.has("baseName") })} sm:col-span-2`}>
-                  <ReqLabel text="Nombre / Descripción del trabajo" missing={f1Attempted && f1MissingKeys.has("baseName")} />
+                <div className={`${fieldClass({ filled: isFilled(f1BaseName), missing: f1MissingKeys.has("baseName") })} sm:col-span-2`}>
+                  <ReqLabel text="Nombre / Descripción del trabajo" missing={f1MissingKeys.has("baseName")} />
                   <input
                     className={INP}
                     value={f1BaseName}
@@ -1086,8 +1068,8 @@ export function ProjectDetailDialog({
                   </select>
                 </div>
                 {/* Ingeniero asignado */}
-                <div className={fieldClass({ filled: isFilled(f1EngineerId), missing: canManageProjectStatus && f1Attempted && f1MissingKeys.has("engineerId"), admin: canManageProjectStatus })}>
-                  <ReqLabel text="Ingeniero asignado" missing={canManageProjectStatus && f1Attempted && f1MissingKeys.has("engineerId")} />
+                <div className={fieldClass({ filled: isFilled(f1EngineerId), missing: canManageProjectStatus && f1MissingKeys.has("engineerId"), admin: canManageProjectStatus })}>
+                  <ReqLabel text="Ingeniero asignado" missing={canManageProjectStatus && f1MissingKeys.has("engineerId")} />
                   {canManageProjectStatus ? (
                     <select
                       className={INP}
@@ -1110,7 +1092,7 @@ export function ProjectDetailDialog({
                 <p className={`${LBL} mb-2`}>Ubicación del trabajo</p>
                 <div className="grid gap-2.5 rounded-2xl bg-[#1E1E20] p-3 sm:grid-cols-2">
                   {ubicacionFields.map(({ key, label, placeholder }) => {
-                    const missing = f1Attempted && f1MissingKeys.has(`ubicacion.${key}`);
+                    const missing = f1MissingKeys.has(`ubicacion.${key}`);
                     return (
                       <div key={key} className={fieldClass({ filled: isFilled(f1Ubicacion[key]), missing })}>
                         <ReqLabel text={label} missing={missing} />
@@ -1131,8 +1113,8 @@ export function ProjectDetailDialog({
 
               {/* Negociador + Contacto */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className={fieldClass({ filled: isFilled(f1Negociador), missing: f1Attempted && f1MissingKeys.has("negociador") })}>
-                  <ReqLabel text="Compras / Negociador" missing={f1Attempted && f1MissingKeys.has("negociador")} />
+                <div className={fieldClass({ filled: isFilled(f1Negociador), missing: f1MissingKeys.has("negociador") })}>
+                  <ReqLabel text="Compras / Negociador" missing={f1MissingKeys.has("negociador")} />
                   <input
                     className={INP}
                     value={f1Negociador}
@@ -1141,8 +1123,8 @@ export function ProjectDetailDialog({
                     disabled={!canEditProject}
                   />
                 </div>
-                <div className={fieldClass({ filled: isFilled(f1ContactUser), missing: f1Attempted && f1MissingKeys.has("contactUser") })}>
-                  <ReqLabel text="Usuario de contacto (Agrega nombre)" missing={f1Attempted && f1MissingKeys.has("contactUser")} />
+                <div className={fieldClass({ filled: isFilled(f1ContactUser), missing: f1MissingKeys.has("contactUser") })}>
+                  <ReqLabel text="Usuario de contacto (Agrega nombre)" missing={f1MissingKeys.has("contactUser")} />
                   <input
                     className={INP}
                     value={f1ContactUser}
@@ -1155,8 +1137,8 @@ export function ProjectDetailDialog({
 
               {/* Monto contratado */}
               {canEditBudget ? (
-                <div className={fieldClass({ filled: isFilled(f1TotalContratado), missing: f1Attempted && f1MissingKeys.has("totalContratado"), admin: true })}>
-                  <ReqLabel text="Monto contratado" missing={f1Attempted && f1MissingKeys.has("totalContratado")} />
+                <div className={fieldClass({ filled: isFilled(f1TotalContratado), missing: f1MissingKeys.has("totalContratado"), admin: true })}>
+                  <ReqLabel text="Monto contratado" missing={f1MissingKeys.has("totalContratado")} />
                   <input
                     type="number"
                     className={INP}
@@ -1253,25 +1235,25 @@ export function ProjectDetailDialog({
           {infoTab === "f2" ? (
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className={fieldClass({ filled: isFilled(f2Status), missing: f2Attempted && !isFilled(f2Status) })}>
+                <div className={fieldClass({ filled: isFilled(f2Status), missing: !isFilled(f2Status) })}>
                   <label className={LBL}>Estado del proyecto</label>
                   <select className={INP} value={f2Status} onChange={(e) => setF2Status(e.target.value as ProjectStatus)} disabled={!canEditProject}>
                     {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
-                <div className={fieldClass({ filled: isFilled(f2Estimacion), missing: f2Attempted && !isFilled(f2Estimacion) })}>
+                <div className={fieldClass({ filled: isFilled(f2Estimacion), missing: !isFilled(f2Estimacion) })}>
                   <label className={LBL}>Estado estimación</label>
                   <select className={INP} value={f2Estimacion} onChange={(e) => setF2Estimacion(e.target.value as EstimacionStatus)} disabled={!canEditProject}>
                     {ESTIMACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
-                <div className={fieldClass({ filled: isFilled(f2Cotizacion), missing: f2Attempted && !isFilled(f2Cotizacion) })}>
+                <div className={fieldClass({ filled: isFilled(f2Cotizacion), missing: !isFilled(f2Cotizacion) })}>
                   <label className={LBL}>Estado cotización</label>
                   <select className={INP} value={f2Cotizacion} onChange={(e) => setF2Cotizacion(e.target.value as CotizacionStatus)} disabled={!canEditProject}>
                     {COTIZACION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
-                <div className={fieldClass({ filled: isFilled(f2PaymentStatus), missing: f2Attempted && !isFilled(f2PaymentStatus) })}>
+                <div className={fieldClass({ filled: isFilled(f2PaymentStatus), missing: !isFilled(f2PaymentStatus) })}>
                   <label className={LBL}>Estado pago</label>
                   <select className={INP} value={f2PaymentStatus} onChange={(e) => setF2PaymentStatus(e.target.value as PaymentStatus)} disabled={!canEditProject}>
                     <option value="">— Sin definir</option>
@@ -1286,8 +1268,8 @@ export function ProjectDetailDialog({
                     {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
                   </div>
                 </div>
-                <div className={fieldClass({ filled: isFilled(f2StartDate), missing: f2Attempted && f2MissingKeys.has("startDate") })}>
-                  <ReqLabel text="F. Inicio" missing={f2Attempted && f2MissingKeys.has("startDate")} />
+                <div className={fieldClass({ filled: isFilled(f2StartDate), missing: f2MissingKeys.has("startDate") })}>
+                  <ReqLabel text="F. Inicio" missing={f2MissingKeys.has("startDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2StartDate} onChange={setF2StartDate} />
                   ) : (
@@ -1296,8 +1278,8 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                 </div>
-                <div className={fieldClass({ filled: isFilled(f2EndDate), missing: f2Attempted && f2MissingKeys.has("endDate") })}>
-                  <ReqLabel text="F. Fin" missing={f2Attempted && f2MissingKeys.has("endDate")} />
+                <div className={fieldClass({ filled: isFilled(f2EndDate), missing: f2MissingKeys.has("endDate") })}>
+                  <ReqLabel text="F. Fin" missing={f2MissingKeys.has("endDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2EndDate} onChange={setF2EndDate} />
                   ) : (
@@ -1306,8 +1288,8 @@ export function ProjectDetailDialog({
                     </div>
                   )}
                 </div>
-                <div className={fieldClass({ filled: isFilled(f2CommitmentDate), missing: f2Attempted && f2MissingKeys.has("commitmentDate") })}>
-                  <ReqLabel text="F. Compromiso" missing={f2Attempted && f2MissingKeys.has("commitmentDate")} />
+                <div className={fieldClass({ filled: isFilled(f2CommitmentDate), missing: f2MissingKeys.has("commitmentDate") })}>
+                  <ReqLabel text="F. Compromiso" missing={f2MissingKeys.has("commitmentDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2CommitmentDate} onChange={setF2CommitmentDate} />
                   ) : (
@@ -1337,7 +1319,7 @@ export function ProjectDetailDialog({
               </div>
 
               {/* Comentarios del campo */}
-              <div className={fieldClass({ filled: isFilled(f2Comentarios), missing: f2Attempted && !isFilled(f2Comentarios) })}>
+              <div className={fieldClass({ filled: isFilled(f2Comentarios), missing: !isFilled(f2Comentarios) })}>
                 <label className={LBL}>Comentarios del campo</label>
                 <textarea
                   className={`${INP} h-auto min-h-[90px] resize-none py-2.5`}
@@ -1374,8 +1356,8 @@ export function ProjectDetailDialog({
 
               {/* Total + IVA */}
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className={fieldClass({ filled: isFilled(f3TotalSinIva), missing: f3Attempted && f3MissingKeys.has("totalSinIva"), admin: true })}>
-                  <ReqLabel text="Total sin IVA" missing={f3Attempted && f3MissingKeys.has("totalSinIva")} />
+                <div className={fieldClass({ filled: isFilled(f3TotalSinIva), missing: f3MissingKeys.has("totalSinIva"), admin: true })}>
+                  <ReqLabel text="Total sin IVA" missing={f3MissingKeys.has("totalSinIva")} />
                   <input
                     type="number"
                     className={INP}
