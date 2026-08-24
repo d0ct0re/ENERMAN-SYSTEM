@@ -5,7 +5,7 @@ import { FieldDisplay } from "@/components/common/field-display";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDate, formatOptionalDate } from "@/lib/utils";
+import { formatDate, formatOptionalDate, getRequestSequence } from "@/lib/utils";
 import { ProjectItem, RequestItem, UserItem } from "@/types";
 
 interface RequestDetailDialogProps {
@@ -93,7 +93,8 @@ export function RequestDetailDialog({
         title="Detalle de solicitud"
         className="max-w-5xl"
       >
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-4">
+          <FieldDisplay label="N° Proyecto" value={<span className="font-mono font-black text-accent">#{getRequestSequence(request, projects)}</span>} />
           <FieldDisplay label="Solicitado por" value={requester ? `${requester.name} · ${requester.roleLabel}` : request.createdBy} />
           <FieldDisplay label="Fecha de solicitud" value={formatDate(request.createdAt)} />
           <FieldDisplay label="Estado" value={<StatusBadge kind="request" value={request.status} />} />

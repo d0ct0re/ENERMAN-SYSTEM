@@ -684,7 +684,7 @@ function ProjectsManager({
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-[#3F3F46] px-2 py-0.5 text-xs font-black text-[#888888]">#{getProjectSequence(project)}</span>
+                      <span className="rounded bg-[#3F3F46] px-2 py-0.5 text-xs font-black text-accent">#{getProjectSequence(project)}</span>
                       <p className="truncate text-sm font-semibold text-[#A1A1AA]">{project.baseName}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-[#555555]">{project.client} · {project.department}</p>

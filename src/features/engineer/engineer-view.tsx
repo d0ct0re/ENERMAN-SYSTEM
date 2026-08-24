@@ -164,7 +164,7 @@ export function EngineerView({
                 className="rounded-[20px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-2"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[10px] font-black text-[#888888]">#{getRequestSequence(req, projects)}</span>
+                  <span className="font-mono text-[10px] font-black text-accent">#{getRequestSequence(req, projects)}</span>
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
                     {req.client} · {req.department}
@@ -230,7 +230,7 @@ export function EngineerView({
               >
                 {/* Header */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[10px] font-black text-[#888888]">#{getRequestSequence(req, projects)}</span>
+                  <span className="font-mono text-[10px] font-black text-accent">#{getRequestSequence(req, projects)}</span>
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
                     {req.client} · {req.department}

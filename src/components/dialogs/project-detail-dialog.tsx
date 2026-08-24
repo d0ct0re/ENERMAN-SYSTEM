@@ -974,7 +974,7 @@ export function ProjectDetailDialog({
                 <div className={fieldClass({ filled: isFilled(consecutivo) && consecutivo !== "—", missing: false })}>
                   <label className={LBL}>No. Consecutivo</label>
                   <div className={`${INP_RO} flex items-center gap-2`}>
-                    <span className="font-mono font-black text-foreground">{consecutivo}</span>
+                    <span className="font-mono font-black text-accent">{consecutivo}</span>
                     {(project.fechaSolicitud ?? project.createdAt) ? (
                       <>
                         <span className="text-[#3F3F46]">·</span>
@@ -1233,7 +1233,17 @@ export function ProjectDetailDialog({
 
           {/* ────────── F2 EJECUCIÓN ────────── */}
           {infoTab === "f2" ? (
-            <div className="space-y-3">
+            <div
+              className="space-y-3"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || !canEditProject) return;
+                const tag = (e.target as HTMLElement).tagName;
+                if (tag === "INPUT" || tag === "SELECT") {
+                  e.preventDefault();
+                  void handleSaveF2();
+                }
+              }}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className={fieldClass({ filled: isFilled(f2Status), missing: !isFilled(f2Status) })}>
                   <label className={LBL}>Estado del proyecto</label>
@@ -1337,7 +1347,17 @@ export function ProjectDetailDialog({
 
           {/* ────────── F3 FINANCIERO ────────── */}
           {infoTab === "f3" && canEditBudget ? (
-            <div className="space-y-4">
+            <div
+              className="space-y-4"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || !canEditProject) return;
+                const tag = (e.target as HTMLElement).tagName;
+                if (tag === "INPUT" || tag === "SELECT") {
+                  e.preventDefault();
+                  void handleSaveF3();
+                }
+              }}
+            >
               {/* Summary cards */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
@@ -1457,7 +1477,10 @@ export function ProjectDetailDialog({
                 </div>
 
                 {showExpenseForm && onAddExpense ? (
-                  <div className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3">
+                  <div
+                    className="mb-3 space-y-2.5 rounded-xl border border-[#3F3F46] bg-[#27272A] p-3"
+                    onKeyDown={(e) => { if (e.key === "Enter") e.stopPropagation(); }}
+                  >
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className={FLD}>
                         <label className={LBL}>Título</label>

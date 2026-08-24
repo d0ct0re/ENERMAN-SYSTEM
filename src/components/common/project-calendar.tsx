@@ -508,7 +508,7 @@ export function ProjectCalendar({
 
                             {/* Info del proyecto */}
                             <div className="flex-1">
-                              <p className="font-mono text-[10px] font-bold text-[#888888]">#{seq}</p>
+                              <p className="font-mono text-[10px] font-bold text-accent">#{seq}</p>
                               <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-foreground">
                                 {ev.project.baseName}
                               </p>
@@ -568,7 +568,7 @@ export function ProjectCalendar({
                               <p className="rounded-xl bg-[#EC4899]/10 px-3 py-2 text-sm font-bold text-[#EC4899] leading-snug">★ {ev.title}</p>
                             ) : null}
                             <div className="flex-1">
-                              <p className="font-mono text-[10px] font-bold text-[#888888]">#{seq}</p>
+                              <p className="font-mono text-[10px] font-bold text-accent">#{seq}</p>
                               <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-foreground">{ev.project.baseName}</p>
                               <p className="mt-1 text-xs text-[#888888]">{ev.project.client} · {ev.project.department}</p>
                               {engineerName ? (

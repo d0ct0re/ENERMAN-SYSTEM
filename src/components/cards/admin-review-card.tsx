@@ -125,7 +125,7 @@ export function AdminReviewCard({
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Motivo del rechazo (obligatorio)..."
+            placeholder="Motivo del rechazo..."
             className="w-full resize-none rounded-xl border border-[#3F3F46] bg-[#1F1F22] px-3 py-2 text-sm text-foreground outline-none focus:border-danger/50"
             rows={2}
             autoFocus

@@ -143,3 +143,31 @@ export function getRequestSequence(
   const n = getRequestSequenceNumber(request, projects);
   return n >= 0 ? String(n).padStart(4, "0") : "—";
 }
+
+// ── Completitud de fase F1/F2 — mismos campos requeridos que el indicador rojo/verde ──
+function hasText(v?: string): boolean {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+export function isProjectF1Complete(
+  project: Pick<ProjectItem, "client" | "department" | "type" | "lugar" | "baseName" | "negociador" | "usuarioContacto" | "ubicacion">,
+): boolean {
+  const u = project.ubicacion ?? {};
+  return (
+    hasText(project.client) &&
+    hasText(project.department) &&
+    hasText(project.type) &&
+    hasText(project.lugar) &&
+    hasText(project.baseName) &&
+    hasText(project.negociador) &&
+    hasText(project.usuarioContacto) &&
+    hasText(u.calle) && hasText(u.planta) && hasText(u.edificio) &&
+    hasText(u.piso) && hasText(u.puerta) && hasText(u.descripcion)
+  );
+}
+
+export function isProjectF2Complete(
+  project: Pick<ProjectItem, "startDate" | "endDate" | "commitmentDate">,
+): boolean {
+  return hasText(project.startDate) && hasText(project.endDate) && hasText(project.commitmentDate);
+}

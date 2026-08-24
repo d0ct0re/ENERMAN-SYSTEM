@@ -4,8 +4,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { AmperLogo } from "@/components/ui/amper-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { NotificationItem, UserItem } from "@/types";
+import { cn, getProjectSequence } from "@/lib/utils";
+import { NotificationItem, ProjectItem, UserItem } from "@/types";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -23,6 +23,7 @@ interface TopBarProps {
   onSearchChange: (value: string) => void;
   unreadCount: number;
   notifications: NotificationItem[];
+  projects: ProjectItem[];
   onMarkAllRead: () => void;
   onMarkRead?: (id: string) => void;
   onDeleteNotification: (id: string) => void;
@@ -39,6 +40,7 @@ export function TopBar({
   onSearchChange,
   unreadCount,
   notifications,
+  projects,
   onMarkAllRead,
   onMarkRead,
   onDeleteNotification,
@@ -115,7 +117,11 @@ export function TopBar({
         {notifications.length === 0 ? (
           <p className="py-10 text-center text-sm text-[#555555]">Sin notificaciones</p>
         ) : (
-          notifications.slice(0, 30).map((n) => (
+          notifications.slice(0, 30).map((n) => {
+            const relatedProject = n.relatedProjectId ? projects.find((p) => p.id === n.relatedProjectId) : undefined;
+            const folioValue = relatedProject ? getProjectSequence(relatedProject) : null;
+            const folio = folioValue && folioValue !== "—" ? folioValue : null;
+            return (
             <div
               key={n.id}
               className={cn(
@@ -138,6 +144,11 @@ export function TopBar({
                 )} />
                 <span className="min-w-0 flex-1">
                   <span className={cn("block text-sm leading-snug", !n.isRead ? "font-semibold text-foreground" : "font-medium text-[#A1A1AA]")}>
+                    {folio ? (
+                      <span className="mr-1.5 inline-flex items-center rounded-md bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] font-black text-accent align-middle">
+                        #{folio}
+                      </span>
+                    ) : null}
                     {n.title}
                   </span>
                   <span className="mt-0.5 block text-xs text-[#71717A]">{n.description}</span>
@@ -153,7 +164,8 @@ export function TopBar({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

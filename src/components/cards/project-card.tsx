@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PriorityBadge } from "@/components/common/priority-badge";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ProjectItem, PriorityLevel, PROJECT_TYPE_LABELS } from "@/types";
-import { daysSince, formatDate, formatOptionalDate, isNewItem } from "@/lib/utils";
+import { daysSince, formatDate, formatOptionalDate, isNewItem, isProjectF1Complete, isProjectF2Complete } from "@/lib/utils";
 
 const priorityAccent: Record<PriorityLevel, string> = {
   critical: "accent-critical",
@@ -25,10 +25,10 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
   const showNew = showNewBadge && isNewItem(project.createdAt);
   const consecutivo = project.structuredName.split("-")[0];
 
-  // F1-F4 phase completion indicators
+  // F1-F4 phase completion indicators — mismos campos requeridos que el indicador rojo/verde del diálogo
   const phases = [
-    { label: "F1", done: true },
-    { label: "F2", done: !!(project.startDate || project.endDate || project.fotos || project.reporte) },
+    { label: "F1", done: isProjectF1Complete(project) },
+    { label: "F2", done: isProjectF2Complete(project) },
     { label: "F3", done: !!(project.totalSinIva && project.totalSinIva > 0) },
     { label: "F4", done: !!(project.pagosProyecto?.length) },
   ];
@@ -41,7 +41,7 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
       <div className="flex items-start justify-between gap-3 lg:min-w-0">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] font-black text-[#888888]">#{consecutivo}</span>
+            <span className="font-mono text-[10px] font-black text-accent">#{consecutivo}</span>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
               {project.client} · {project.department}
             </span>

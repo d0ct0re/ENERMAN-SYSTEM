@@ -697,7 +697,8 @@ export default function App(): JSX.Element {
     addNotification({
       id: crypto.randomUUID(),
       role: "admin",
-      userIds: users.filter((u) => u.role === "admin" || u.role === "system_admin").map((u) => u.id),
+      // Gestor solo se entera de proyectos ya creados, no de solicitudes pendientes de revisar.
+      userIds: users.filter((u) => u.role === "admin").map((u) => u.id),
       title: "Nueva solicitud recibida",
       description: `${request.structuredName} ingresó para revisión administrativa.`,
       createdAt: new Date().toISOString(),
@@ -767,8 +768,9 @@ export default function App(): JSX.Element {
       expenses: [],
       invoices: [],
     };
+    // Nuevo proyecto: le llega a admin, gestor y supervisor (regla: supervisor solo se entera de proyectos nuevos).
     const adminUserIds = users
-      .filter((user) => user.role === "admin" || user.role === "system_admin")
+      .filter((user) => user.role === "admin" || user.role === "system_admin" || user.role === "supervisor")
       .map((user) => user.id);
 
     setProjects((current) => [project, ...current]);
@@ -907,13 +909,14 @@ export default function App(): JSX.Element {
       relatedRequestId: requestId,
       relatedProjectId: linkedProjectId,
     });
-    // Avisar también a Admin + Gestor de que la solicitud se convirtió en proyecto,
-    // excluyendo a quien la aprobó (ya lo sabe, fue quien hizo la acción).
+    // Avisar también a Admin + Gestor + Supervisor de que la solicitud se convirtió en proyecto
+    // (regla: gestor y supervisor se enteran de proyectos nuevos), excluyendo a quien la aprobó
+    // (ya lo sabe, fue quien hizo la acción).
     addNotification({
       id: crypto.randomUUID(),
       role: "admin" as const,
       userIds: users
-        .filter((u) => u.role === "admin" || u.role === "system_admin")
+        .filter((u) => u.role === "admin" || u.role === "system_admin" || u.role === "supervisor")
         .map((u) => u.id)
         .filter((id) => id !== activeUser.id),
       title: "Solicitud aceptada",
@@ -1025,7 +1028,8 @@ export default function App(): JSX.Element {
       addNotification({
         id: crypto.randomUUID(),
         role: "admin" as const,
-        userIds: users.filter((u) => u.role === "admin" || u.role === "system_admin").map((u) => u.id),
+        // Gestor solo se entera de proyectos ya creados, no de correcciones de solicitudes.
+        userIds: users.filter((u) => u.role === "admin").map((u) => u.id),
         title: "Solicitud corregida y reenviada",
         description: `${activeUser.name} corrigió y reenvió "${correctedFields.structuredName || req.structuredName}" — lista para nueva revisión.`,
         createdAt: new Date().toISOString(),
@@ -1485,7 +1489,9 @@ export default function App(): JSX.Element {
     const assignedEngineer = payload.assignedEngineerId
       ? users.find((user) => user.id === payload.assignedEngineerId && user.role === "engineer")
       : undefined;
-    const adminUserIds = users.filter((user) => user.role === "admin").map((user) => user.id);
+    // Nuevo proyecto: le llega a admin y supervisor (regla: supervisor solo se entera de proyectos nuevos).
+    // No incluye system_admin porque el propio gestor es quien está dando de alta el proyecto.
+    const adminUserIds = users.filter((user) => user.role === "admin" || user.role === "supervisor").map((user) => user.id);
     const structuredName = buildStructuredName({
       sequence,
       client: payload.client,
@@ -1979,6 +1985,7 @@ export default function App(): JSX.Element {
         onAddAccount={() => setShowLogin(true)}
         onLogout={handleLogout}
         notifications={visibleNotifications}
+        projects={projects}
         onMarkAllRead={() => {
           setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
           // Marcar como leídas también las notificaciones de fecha visibles
