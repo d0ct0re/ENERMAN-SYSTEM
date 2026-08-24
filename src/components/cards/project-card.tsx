@@ -23,7 +23,7 @@ interface ProjectCardProps {
 export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEngineerName }: ProjectCardProps): JSX.Element {
   const isInactive = daysSince(project.updatedAt) >= 14;
   const showNew = showNewBadge && isNewItem(project.createdAt);
-  const consecutivo = project.structuredName.split("-")[0];
+  const consecutivo = (project.structuredName ?? "").split("-")[0] || "—";
 
   // F1-F4 phase completion indicators — mismos campos requeridos que el indicador rojo/verde del diálogo
   const phases = [

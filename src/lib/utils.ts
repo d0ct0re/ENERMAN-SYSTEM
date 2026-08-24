@@ -112,7 +112,7 @@ export function buildRequestName(input: {
 
 // ── Número de proyecto (folio/consecutivo) — compartido entre vistas de todos los roles ──
 export function getProjectSequenceNumber(project: Pick<ProjectItem, "structuredName">): number {
-  const [sequence] = project.structuredName.split("-");
+  const [sequence] = (project.structuredName ?? "").split("-");
   const n = Number(sequence);
   return Number.isFinite(n) ? n : -1;
 }

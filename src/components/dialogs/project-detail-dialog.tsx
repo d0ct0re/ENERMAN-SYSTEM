@@ -357,7 +357,7 @@ export function ProjectDetailDialog({
   }, [engineerUsers, project]);
 
   const consecutivo = useMemo(
-    () => (project ? project.structuredName.split("-")[0] : "—"),
+    () => (project ? (project.structuredName ?? "").split("-")[0] || "—" : "—"),
     [project],
   );
 

@@ -2304,10 +2304,12 @@ function getNextSequence(requests: RequestItem[], projects: ProjectItem[]): stri
   const requestNumbers = requests
     .map((request) => (request.sequence ? Number.parseInt(request.sequence, 10) : Number.NaN))
     .filter((sequence) => Number.isFinite(sequence));
-  const projectNumbers = projects.map((project) => {
-    const [sequence] = project.structuredName.split("-");
-    return Number.parseInt(sequence, 10);
-  });
+  const projectNumbers = projects
+    .map((project) => {
+      const [sequence] = (project.structuredName ?? "").split("-");
+      return Number.parseInt(sequence, 10);
+    })
+    .filter((sequence) => Number.isFinite(sequence));
   // Floor en 3969 para que el primer proyecto generado sea siempre ≥ 3970
   const maxSequence = Math.max(3969, ...requestNumbers, ...projectNumbers);
 
@@ -2315,8 +2317,8 @@ function getNextSequence(requests: RequestItem[], projects: ProjectItem[]): stri
 }
 
 function getProjectSequence(project: ProjectItem): string {
-  const [sequence] = project.structuredName.split("-");
-  return sequence.padStart(4, "0");
+  const [sequence] = (project.structuredName ?? "").split("-");
+  return sequence ? sequence.padStart(4, "0") : "—";
 }
 
 function SplashScreen({ onDone }: { onDone: () => void }): JSX.Element {

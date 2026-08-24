@@ -14,6 +14,13 @@ if ($action === 'poll') {
 
     $sinceMySQL = date('Y-m-d H:i:s', strtotime($since));
 
+    // Decodifica payloads y descarta los que no dieron un array (JSON corrupto/vacio) — bajo
+    // strict_types, un solo registro asi tumbaba con 500 CADA poll (cada 4s, para todos).
+    $decodeRows = static function (array $rows): array {
+        $decoded = array_map(static fn(array $row) => json_decode($row['payload'], true), $rows);
+        return array_values(array_filter($decoded, static fn($r) => is_array($r)));
+    };
+
     // Nuevos mensajes del proyecto abierto
     $messages = [];
     if ($projectId) {
@@ -21,19 +28,13 @@ if ($action === 'poll') {
             "SELECT payload FROM project_messages WHERE project_id = :pid AND created_at > :since ORDER BY created_at ASC"
         );
         $stmt->execute([':pid' => $projectId, ':since' => $sinceMySQL]);
-        $messages = array_map(
-            static fn(array $row): array => json_decode($row['payload'], true),
-            $stmt->fetchAll()
-        );
+        $messages = $decodeRows($stmt->fetchAll());
     }
 
     // Proyectos modificados desde `since`
     $stmt = db()->prepare("SELECT payload FROM projects WHERE updated_at > :since");
     $stmt->execute([':since' => $sinceMySQL]);
-    $updatedProjects = array_map(
-        static fn(array $row): array => json_decode($row['payload'], true),
-        $stmt->fetchAll()
-    );
+    $updatedProjects = $decodeRows($stmt->fetchAll());
 
     // IDs de todos los proyectos actuales (para detectar eliminados en el frontend)
     $allProjectIds = array_column(
@@ -44,10 +45,7 @@ if ($action === 'poll') {
     // Solicitudes modificadas desde `since`
     $stmt = db()->prepare("SELECT payload FROM requests WHERE updated_at > :since");
     $stmt->execute([':since' => $sinceMySQL]);
-    $updatedRequests = array_map(
-        static fn(array $row): array => json_decode($row['payload'], true),
-        $stmt->fetchAll()
-    );
+    $updatedRequests = $decodeRows($stmt->fetchAll());
 
     // IDs de todas las solicitudes actuales
     $allRequestIds = array_column(
@@ -60,10 +58,7 @@ if ($action === 'poll') {
         "SELECT payload FROM notifications WHERE created_at > :since ORDER BY created_at DESC LIMIT 50"
     );
     $stmt->execute([':since' => $sinceMySQL]);
-    $rawNotifs = array_map(
-        static fn(array $row): array => json_decode($row['payload'], true),
-        $stmt->fetchAll()
-    );
+    $rawNotifs = $decodeRows($stmt->fetchAll());
     $pollState    = getUserNotifState($userId);
     $pollDismissed = array_flip($pollState['dismissedIds']);
     $pollReadSet   = array_flip($pollState['readIds']);

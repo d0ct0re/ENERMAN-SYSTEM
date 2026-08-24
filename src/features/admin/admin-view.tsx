@@ -1064,7 +1064,7 @@ function ReviewTab({
   const nextSeq = useMemo(() => {
     const nums = [
       ...requests.map((r) => (r.sequence ? parseInt(r.sequence, 10) : NaN)),
-      ...projects.map((p) => parseInt(p.structuredName.split("-")[0], 10)),
+      ...projects.map((p) => parseInt((p.structuredName ?? "").split("-")[0], 10)),
     ].filter(Number.isFinite);
     return String(Math.max(3999, ...nums) + 1).padStart(4, "0");
   }, [requests, projects]);
@@ -1816,8 +1816,8 @@ function formatCompactDate(value: string): string {
 }
 
 function getProjectSequence(project: ProjectItem): string {
-  const [sequence] = project.structuredName.split("-");
-  return sequence.padStart(4, "0");
+  const [sequence] = (project.structuredName ?? "").split("-");
+  return sequence ? sequence.padStart(4, "0") : "—";
 }
 
 // ── CobrosTab ──────────────────────────────────────────────────────────────────

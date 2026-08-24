@@ -31,7 +31,10 @@ function readJson(): array
  */
 function getUserNotifState(string $userId): array {
     $stmt = db()->query("SELECT payload FROM notifications ORDER BY sort_order ASC, id ASC");
-    $rows = array_map(static fn(array $r) => json_decode($r['payload'], true), $stmt->fetchAll());
+    $rows = array_filter(
+        array_map(static fn(array $r) => json_decode($r['payload'], true), $stmt->fetchAll()),
+        static fn($r) => is_array($r)
+    );
     $dismissedIds      = [];
     $dismissedDateKeys = [];
     $readIds           = [];
@@ -59,7 +62,11 @@ function getUserNotifState(string $userId): array {
 function tableRows(string $table): array
 {
     $stmt = db()->query("SELECT payload FROM {$table} ORDER BY sort_order ASC, id ASC");
-    return array_map(static fn(array $row) => json_decode($row['payload'], true), $stmt->fetchAll());
+    $rows = array_map(static fn(array $row) => json_decode($row['payload'], true), $stmt->fetchAll());
+    // Descartar filas cuyo payload no decodifico a un array (JSON corrupto/vacio) — bajo
+    // strict_types un solo registro asi tumbaba con 500 a cualquier caller que espere array
+    // (ej. tableRowsUsers, bootstrap), rompiendo la app entera por un solo registro malo.
+    return array_values(array_filter($rows, static fn($r) => is_array($r)));
 }
 
 function tableRowsUsers(): array

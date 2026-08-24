@@ -114,7 +114,7 @@ export function ProjectCalendar({
     // Filtro de búsqueda
     if (normalizedSearch) {
       const engineerName = users?.find((u) => u.id === ev.project.createdBy)?.name ?? "";
-      const seq          = ev.project.structuredName.split("-")[0];
+      const seq          = (ev.project.structuredName ?? "").split("-")[0];
       const matchesSearch =
         engineerName.toLowerCase().includes(normalizedSearch) ||
         seq.toLowerCase().includes(normalizedSearch) ||
@@ -420,7 +420,7 @@ export function ProjectCalendar({
                     <div className="hidden sm:block mt-0.5 space-y-0.5">
                       {dayEvents.slice(0, 2).map((ev) => (
                         <div key={ev.id} className={`truncate rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${DATE_CFG[ev.type].pill}`}>
-                          #{ev.project.structuredName.split("-")[0]}
+                          #{(ev.project.structuredName ?? "").split("-")[0]}
                         </div>
                       ))}
                       {dayEvents.length > 2 ? (
@@ -486,7 +486,7 @@ export function ProjectCalendar({
                       {groupEvents.map((ev) => {
                         const dateCfg      = DATE_CFG[ev.type];
                         const engineerName = users?.find((u) => u.id === ev.project.createdBy)?.name;
-                        const seq          = ev.project.structuredName.split("-")[0];
+                        const seq          = (ev.project.structuredName ?? "").split("-")[0];
 
                         return (
                           <div key={ev.id} className={`flex flex-col gap-3 rounded-[18px] border-l-4 p-4 bg-[#313136] transition hover:bg-[#383840]`}
@@ -557,7 +557,7 @@ export function ProjectCalendar({
                       {ungrouped.map((ev) => {
                         const dateCfg      = DATE_CFG[ev.type];
                         const engineerName = users?.find((u) => u.id === ev.project.createdBy)?.name;
-                        const seq          = ev.project.structuredName.split("-")[0];
+                        const seq          = (ev.project.structuredName ?? "").split("-")[0];
                         return (
                           <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 border-l-[#52525B] bg-[#313136] p-4 transition hover:bg-[#383840]">
                             <div className="flex flex-wrap items-center gap-2">
@@ -593,7 +593,7 @@ export function ProjectCalendar({
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {selectedEvents.map((ev) => {
                 const cfg = DATE_CFG[ev.type];
-                const seq = ev.project.structuredName.split("-")[0];
+                const seq = (ev.project.structuredName ?? "").split("-")[0];
                 const isImportant = ev.type === "importante";
                 return (
                   <div key={ev.id} className={`flex flex-col gap-3 rounded-[18px] border p-4 transition ${cfg.card}`}>
