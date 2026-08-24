@@ -352,7 +352,7 @@ export function ProjectDetailDialog({
   const assignedEngineer = useMemo(() => {
     if (!project) return undefined;
     return engineerUsers.find(
-      (u) => u.id === project.createdBy || project.participants.includes(u.id),
+      (u) => u.id === project.createdBy || (project.participants ?? []).includes(u.id),
     );
   }, [engineerUsers, project]);
 
@@ -421,7 +421,7 @@ export function ProjectDetailDialog({
     setF1Urgencia(PRIORITY_TO_URGENCIA[project.priority] ?? "Medio");
     setF1EngineerId(
       engineerUsers.find(
-        (u) => u.id === project.createdBy || project.participants.includes(u.id),
+        (u) => u.id === project.createdBy || (project.participants ?? []).includes(u.id),
       )?.id ?? "",
     );
     setF1Negociador(project.negociador ?? "");
@@ -501,7 +501,7 @@ export function ProjectDetailDialog({
     setF1Urgencia(PRIORITY_TO_URGENCIA[project.priority] ?? "Medio");
     setF1EngineerId(
       engineerUsers.find(
-        (u) => u.id === project.createdBy || project.participants.includes(u.id),
+        (u) => u.id === project.createdBy || (project.participants ?? []).includes(u.id),
       )?.id ?? "",
     );
     setF1Negociador(project.negociador ?? "");

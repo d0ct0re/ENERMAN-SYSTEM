@@ -101,7 +101,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
         if (project.status !== key) return false;
       }
       if (engineerFilter !== "Todos") {
-        const assigned = users.find((u) => u.role === "engineer" && (u.id === project.createdBy || project.participants.includes(u.id)));
+        const assigned = users.find((u) => u.role === "engineer" && (u.id === project.createdBy || (project.participants ?? []).includes(u.id)));
         if (!assigned || assigned.name !== engineerFilter) return false;
       }
       if (estimFilter !== "Todos" && project.estimacion !== estimFilter) return false;

@@ -154,16 +154,16 @@ export function RequestDetailDialog({
               <FieldDisplay
                 label="Últimos gastos"
                 value={
-                  relatedProject.expenses.length > 0
-                    ? relatedProject.expenses.slice(-4).reverse().map((expense) => `${formatDate(expense.fecha)} · ${expense.titulo}: ${mxn(expense.monto)}`).join(" | ")
+                  (relatedProject.expenses ?? []).length > 0
+                    ? (relatedProject.expenses ?? []).slice(-4).reverse().map((expense) => `${formatDate(expense.fecha)} · ${expense.titulo}: ${mxn(expense.monto)}`).join(" | ")
                     : "Sin gastos registrados"
                 }
               />
               <FieldDisplay
                 label="Historial reciente"
                 value={
-                  relatedProject.history.length > 0
-                    ? relatedProject.history.slice(-4).reverse().map((item) => `${formatDate(item.createdAt)} · ${item.action} (${item.author})`).join(" | ")
+                  (relatedProject.history ?? []).length > 0
+                    ? (relatedProject.history ?? []).slice(-4).reverse().map((item) => `${formatDate(item.createdAt)} · ${item.action} (${item.author})`).join(" | ")
                     : "Sin historial"
                 }
               />

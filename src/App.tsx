@@ -163,7 +163,7 @@ export default function App(): JSX.Element {
 
   const engineerCalendarProjects = useMemo(() => {
     return filteredProjects.filter(
-      (project) => project.createdBy === activeUser.id || project.participants.includes(activeUser.id),
+      (project) => project.createdBy === activeUser.id || (project.participants ?? []).includes(activeUser.id),
     );
   }, [activeUser.id, filteredProjects]);
 
@@ -197,7 +197,7 @@ export default function App(): JSX.Element {
         if (!isNear(item.date)) return [];
         const baseKey = `important-date-${project.id}-${item.id}`;
         if (dismissedDateKeys.has(baseKey)) return [];
-        const involvedEngineerIds = new Set([project.createdBy, ...project.participants]);
+        const involvedEngineerIds = new Set([project.createdBy, ...(project.participants ?? [])]);
         const userIds = users
           .filter((u) => u.role === "admin" || u.role === "system_admin" || u.role === "supervisor" || (u.role === "engineer" && involvedEngineerIds.has(u.id)))
           .map((u) => u.id);
@@ -1218,7 +1218,7 @@ export default function App(): JSX.Element {
     // si aparece en createdBy/participants de ESE proyecto (p.ej. si él mismo lo dio de alta).
     // No hay hoy un mecanismo de "mencionar" al Gestor dentro de un mensaje; si se agrega
     // en el futuro, debe alimentar este mismo Set.
-    const involvedIds = new Set([project.createdBy, ...project.participants]);
+    const involvedIds = new Set([project.createdBy, ...(project.participants ?? [])]);
     const staffIds = users
       .filter((u) => u.role === "admin" || u.role === "supervisor")
       .map((u) => u.id);
@@ -1316,7 +1316,7 @@ export default function App(): JSX.Element {
           ? {
               ...project,
               updatedAt: now,
-              expenses: project.expenses.filter((e) => e.id !== expenseId),
+              expenses: (project.expenses ?? []).filter((e) => e.id !== expenseId),
               history: [
                 { id: crypto.randomUUID(), createdAt: now, action: "Gasto eliminado", author: activeUser.name },
                 ...project.history,
@@ -1497,7 +1497,7 @@ export default function App(): JSX.Element {
     setProjects((current) =>
       current.map((project) => ({
         ...project,
-        participants: project.participants.filter((participantId) => participantId !== userId),
+        participants: (project.participants ?? []).filter((participantId) => participantId !== userId),
       })),
     );
     setToastMessage("Usuario eliminado");
@@ -1830,7 +1830,7 @@ export default function App(): JSX.Element {
           cotizacion: "Cotización", reporte: "Reporte", otros: "Otro documento",
         };
         const categoryLabel = (category && categoryLabels[category]) || "Archivo";
-        const gestorInvolved = new Set([uploadProject.createdBy, ...uploadProject.participants]);
+        const gestorInvolved = new Set([uploadProject.createdBy, ...(uploadProject.participants ?? [])]);
         const recipientIds = users
           .filter((u) => u.role === "admin" || (u.role === "system_admin" && gestorInvolved.has(u.id)))
           .map((u) => u.id)
@@ -1861,7 +1861,7 @@ export default function App(): JSX.Element {
 
     // Calcular si este es el último archivo de su sección ANTES del setState (para usarlo fuera)
     const currentProject = projects.find((p) => p.id === projectId);
-    const filesAfterDelete = currentProject ? currentProject.files.filter((f) => f.id !== fileId) : [];
+    const filesAfterDelete = currentProject ? (currentProject.files ?? []).filter((f) => f.id !== fileId) : [];
     const remainingInCat = filesAfterDelete.filter((f) => {
       const cat: import("@/types").FileCategory = f.category ?? (/\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) ? "fotos" : "reporte");
       return cat === category;
@@ -1880,7 +1880,7 @@ export default function App(): JSX.Element {
     setProjects((current) =>
       current.map((project) => {
         if (project.id !== projectId) return project;
-        const newFiles = project.files.filter((f) => f.id !== fileId);
+        const newFiles = (project.files ?? []).filter((f) => f.id !== fileId);
         const resetFields: Partial<import("@/types").ProjectItem> = isLastInCategory
           ? { [statusFieldMap[category]]: "no" }
           : {};
@@ -1914,6 +1914,7 @@ export default function App(): JSX.Element {
   const handleDeleteProject = (projectId: string): void => {
     lastMutationAt.current = Date.now();
     const deletedAt = new Date().toISOString();
+    const deletedProject = projects.find((p) => p.id === projectId);
     // Registrar en rastreador de papelera: evita race condition post-grace donde el polling
     // devuelve la versión sin deletedAt antes de que el servidor procese el update.
     softDeletedProjectIds.current.set(projectId, deletedAt);
@@ -1928,6 +1929,25 @@ export default function App(): JSX.Element {
       apiUpdateProject(projectId, { deletedAt }).catch((err) =>
         notifySaveError("El proyecto se movió a la papelera localmente pero no se pudo guardar en el servidor", err),
       );
+    }
+    if (deletedProject) {
+      const involvedIds = new Set([deletedProject.createdBy, ...(deletedProject.participants ?? [])]);
+      const recipientIds = users
+        .filter((u) => u.role === "admin" || u.role === "system_admin" || u.role === "supervisor" || involvedIds.has(u.id))
+        .map((u) => u.id)
+        .filter((id) => id !== activeUser.id);
+      if (recipientIds.length > 0) {
+        addNotification({
+          id: crypto.randomUUID(),
+          role: "admin",
+          userIds: recipientIds,
+          title: "Proyecto movido a la papelera",
+          description: `${activeUser.name} movió ${deletedProject.structuredName} a la papelera.`,
+          createdAt: deletedAt,
+          isRead: false,
+          relatedProjectId: projectId,
+        });
+      }
     }
   };
 
@@ -1967,6 +1987,24 @@ export default function App(): JSX.Element {
     );
     setSelectedProjectId(null);
     setToastMessage("Proyecto eliminado permanentemente");
+    if (projectSnapshot) {
+      const involvedIds = new Set([projectSnapshot.createdBy, ...(projectSnapshot.participants ?? [])]);
+      const recipientIds = users
+        .filter((u) => u.role === "admin" || u.role === "system_admin" || u.role === "supervisor" || involvedIds.has(u.id))
+        .map((u) => u.id)
+        .filter((id) => id !== activeUser.id);
+      if (recipientIds.length > 0) {
+        addNotification({
+          id: crypto.randomUUID(),
+          role: "admin",
+          userIds: recipientIds,
+          title: "Proyecto eliminado permanentemente",
+          description: `${activeUser.name} eliminó ${projectSnapshot.structuredName} de forma permanente.`,
+          createdAt: new Date().toISOString(),
+          isRead: false,
+        });
+      }
+    }
     if (apiReady) {
       apiDeleteProject(projectId).catch(() => {
         // El DELETE falló — revertir para que el usuario vea el proyecto y pueda reintentar.

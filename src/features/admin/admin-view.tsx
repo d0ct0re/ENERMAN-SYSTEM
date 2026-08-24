@@ -617,7 +617,7 @@ function ProjectsManager({
       <div className="space-y-3">
         {sortedProjects.map((project) => {
           const assignedEngineer = users.find(
-            (user) => user.role === "engineer" && (user.id === project.createdBy || project.participants.includes(user.id)),
+            (user) => user.role === "engineer" && (user.id === project.createdBy || (project.participants ?? []).includes(user.id)),
           );
           return (
             <Card key={project.id} className="border-[#3F3F46] bg-[#27272A]">
@@ -1160,7 +1160,7 @@ function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
 
   const rows = projects.map((p) => {
     const engineer = users.find(
-      (u) => u.role === "engineer" && (u.id === p.createdBy || p.participants.includes(u.id)),
+      (u) => u.role === "engineer" && (u.id === p.createdBy || (p.participants ?? []).includes(u.id)),
     );
     const totalAbonado = (p.pagosProyecto ?? []).reduce((t, pg) => t + (pg.subtotalAbono ?? 0), 0);
     return [
@@ -1259,7 +1259,7 @@ function ProjectsFilterTab({
         if (p.status !== key) return false;
       }
       if (engineerF !== "Todos") {
-        const assigned = users.find((u) => u.role === "engineer" && (u.id === p.createdBy || p.participants.includes(u.id)));
+        const assigned = users.find((u) => u.role === "engineer" && (u.id === p.createdBy || (p.participants ?? []).includes(u.id)));
         if (!assigned || assigned.name !== engineerF) return false;
       }
       if (estimF !== "Todos" && p.estimacion !== estimF) return false;
@@ -1789,7 +1789,7 @@ function getProjectFinancials(project: ProjectItem): {
   barClass: string;
   textClass: string;
 } {
-  const spent = project.expenses.reduce((total, expense) => total + expense.monto, 0);
+  const spent = (project.expenses ?? []).reduce((total, expense) => total + expense.monto, 0);
   const billed = project.invoices?.reduce((total, invoice) => total + invoice.subtotal, 0) ?? 0;
   const paid = project.invoices?.reduce((total, invoice) => total + (invoice.status === "pagada" ? invoice.subtotal : 0), 0) ?? 0;
   const remaining = project.totalContratado - spent;
