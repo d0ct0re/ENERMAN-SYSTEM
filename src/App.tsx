@@ -455,14 +455,45 @@ export default function App(): JSX.Element {
       });
     });
 
-    // Nuevas notificaciones en tiempo real
-    const unsubNotifs = realtime.onNotification((newNotifs) => {
-      const typed = newNotifs as unknown as NotificationItem[];
+    // Notificaciones en tiempo real: nuevas, y también leídas/borradas en OTRA
+    // pestaña o computadora con la misma cuenta — sin esto, esa acción solo se
+    // reflejaba aquí hasta un refresh manual (bootstrap), nunca via polling.
+    const unsubNotifs = realtime.onNotification(({ notifs, dismissedIds, readIds, dismissedDateKeys, readDateKeys }) => {
+      const typed = notifs as unknown as NotificationItem[];
       setNotifications(prev => {
-        const existingIds = new Set(prev.map(n => n.id));
+        let base = prev;
+        if (dismissedIds.length > 0) {
+          const removeSet = new Set(dismissedIds);
+          base = base.filter(n => !removeSet.has(n.id));
+        }
+        if (readIds.length > 0) {
+          const readSet = new Set(readIds);
+          base = base.map(n => (readSet.has(n.id) && !n.isRead ? { ...n, isRead: true } : n));
+        }
+        const existingIds = new Set(base.map(n => n.id));
         const fresh = typed.filter(n => !existingIds.has(n.id) && !deletedNotificationIds.current.has(n.id));
-        return fresh.length > 0 ? [...fresh, ...prev] : prev;
+        return fresh.length > 0 || base !== prev ? [...fresh, ...base] : prev;
       });
+      // Las de fecha (compromiso/fin/importante) se calculan en el cliente a partir de estos
+      // sets — sincronizarlos aquí evita que otra sesión del mismo usuario necesite refrescar.
+      if (dismissedDateKeys.length > 0) {
+        setDismissedDateKeys(prev => {
+          const next = new Set(prev);
+          let changed = false;
+          for (const k of dismissedDateKeys) { if (!next.has(k)) { next.add(k); changed = true; } }
+          if (changed) saveLocalSet(DISMISSED_DATE_KEYS_KEY, next);
+          return changed ? next : prev;
+        });
+      }
+      if (readDateKeys.length > 0) {
+        setReadDateKeys(prev => {
+          const next = new Set(prev);
+          let changed = false;
+          for (const k of readDateKeys) { if (!next.has(k)) { next.add(k); changed = true; } }
+          if (changed) saveLocalSet(READ_DATE_KEYS_KEY, next);
+          return changed ? next : prev;
+        });
+      }
     });
 
     // ── Detección de conectividad ─────────────────────────────────────────────

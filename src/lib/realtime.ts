@@ -24,13 +24,25 @@ interface PollResponse {
   updatedRequests: Record<string, unknown>[];
   allRequestIds: string[];
   notifications: Record<string, unknown>[];
+  dismissedNotificationIds?: string[];
+  readNotificationIds?: string[];
+  dismissedDateKeys?: string[];
+  readDateKeys?: string[];
   serverTime: string;
+}
+
+export interface NotifSync {
+  notifs: Record<string, unknown>[];
+  dismissedIds: string[];
+  readIds: string[];
+  dismissedDateKeys: string[];
+  readDateKeys: string[];
 }
 
 type MsgCb     = (msgs: ChatMessage[]) => void;
 type ProjectCb = (updated: Record<string, unknown>[], allIds: string[]) => void;
 type RequestCb = (updated: Record<string, unknown>[], allIds: string[]) => void;
-type NotifCb   = (notifs: Record<string, unknown>[]) => void;
+type NotifCb   = (sync: NotifSync) => void;
 type StatusCb  = (online: boolean) => void;
 
 // Cuántos polls fallidos consecutivos antes de declarar "offline"
@@ -165,8 +177,13 @@ class RealtimeService {
       if (data.updatedRequests?.length > 0 || data.allRequestIds?.length > 0)
         this.requestCbs.forEach(cb => cb(data.updatedRequests ?? [], data.allRequestIds ?? []));
 
-      if (data.notifications?.length > 0)
-        this.notifCbs.forEach(cb => cb(data.notifications));
+      const dismissedIds     = data.dismissedNotificationIds ?? [];
+      const readIds          = data.readNotificationIds ?? [];
+      const dismissedDateKeys = data.dismissedDateKeys ?? [];
+      const readDateKeys      = data.readDateKeys ?? [];
+      if (data.notifications?.length > 0 || dismissedIds.length > 0 || readIds.length > 0
+        || dismissedDateKeys.length > 0 || readDateKeys.length > 0)
+        this.notifCbs.forEach(cb => cb({ notifs: data.notifications ?? [], dismissedIds, readIds, dismissedDateKeys, readDateKeys }));
 
     } catch {
       // Error de red (timeout, DNS, etc.)

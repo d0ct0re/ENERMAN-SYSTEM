@@ -74,6 +74,11 @@ if ($action === 'poll') {
     $pollUserData = json_decode($stmtPollUser->fetchColumn() ?: '{}', true);
     $pollUserDismissedIds = (array)($pollUserData['dismissedNotifIds'] ?? []);
     $pollUserReadIds      = (array)($pollUserData['readNotifIds']      ?? []);
+    // Claves de notificaciones de fecha (compromiso/fin/fecha importante) descartadas/leídas
+    // por este usuario — se mandan completas en cada poll (son un set chico y solo crece) para
+    // que otras pestañas/sesiones del mismo usuario se enteren sin esperar un refresh manual.
+    $pollUserDismissedDateKeys = (array)($pollUserData['dismissedNotifKeys'] ?? []);
+    $pollUserReadDateKeys      = (array)($pollUserData['readNotifKeys']      ?? []);
     if (!empty($pollUserDismissedIds)) {
         $pollDismissed = array_merge($pollDismissed, array_flip($pollUserDismissedIds));
     }
@@ -92,15 +97,31 @@ if ($action === 'poll') {
         return ($n['role'] ?? '') === $userRole;
     }));
 
+    // Marcadores de leído/descartado creados desde `since` por ESTE usuario — se usan para
+    // que otras pestañas/computadoras donde tenga sesión abierta se enteren de inmediato
+    // (via el siguiente poll) de que algo ya se marcó/borró aquí, sin depender de un refresh
+    // manual. Antes esto solo se aplicaba al pedir la lista completa (bootstrap).
+    $dismissedNow = [];
+    $readNow = [];
+    foreach ($rawNotifs as $n) {
+        if (($n['userId'] ?? '') !== $userId) continue;
+        if (!empty($n['isDismissMarker']) && !empty($n['originalId'])) $dismissedNow[] = $n['originalId'];
+        if (!empty($n['isReadMarker']) && !empty($n['originalId'])) $readNow[] = $n['originalId'];
+    }
+
     echo json_encode([
-        'ok'              => true,
-        'messages'        => $messages,
-        'updatedProjects' => $updatedProjects,
-        'allProjectIds'   => $allProjectIds,
-        'updatedRequests' => $updatedRequests,
-        'allRequestIds'   => $allRequestIds,
-        'notifications'   => $newNotifications,
-        'serverTime'      => gmdate('c'),
+        'ok'                        => true,
+        'messages'                  => $messages,
+        'updatedProjects'           => $updatedProjects,
+        'allProjectIds'             => $allProjectIds,
+        'updatedRequests'           => $updatedRequests,
+        'allRequestIds'             => $allRequestIds,
+        'notifications'             => $newNotifications,
+        'dismissedNotificationIds'  => array_values(array_unique($dismissedNow)),
+        'readNotificationIds'       => array_values(array_unique($readNow)),
+        'dismissedDateKeys'         => array_values(array_unique($pollUserDismissedDateKeys)),
+        'readDateKeys'              => array_values(array_unique($pollUserReadDateKeys)),
+        'serverTime'                => gmdate('c'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }

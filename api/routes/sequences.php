@@ -8,6 +8,14 @@ declare(strict_types=1);
 if ($action === 'next_sequence') {
     requireAuth();
     getOrInitSequence(); // asegura que el registro exista antes del UPDATE
+    // Autocorrección: si el contador quedó atrás del folio más alto realmente usado
+    // (por ejemplo, un folio asignado por el respaldo local del frontend cuando esta
+    // misma llamada falló por conexión), nunca dejar que emita un número ya usado o menor.
+    $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
+    if ($maxFolio > 0) {
+        db()->prepare("UPDATE sequence_counters SET value = GREATEST(value, :m) WHERE name = 'projects'")
+            ->execute([':m' => $maxFolio]);
+    }
     // LAST_INSERT_ID(expr) es atómico por conexión — evita race condition entre usuarios concurrentes
     db()->exec("UPDATE sequence_counters SET value = LAST_INSERT_ID(value + 1) WHERE name = 'projects'");
     $next = (int) db()->query("SELECT LAST_INSERT_ID()")->fetchColumn();
@@ -44,6 +52,14 @@ if ($action === 'next_sequence') {
 if ($action === 'get_sequence_info') {
     requireSystemAdmin();
     $current = getOrInitSequence();
+    // Mismo autocorrectivo que next_sequence — que el panel nunca muestre un "siguiente
+    // folio" que ya quedó atrás del máximo real usado en projects.
+    $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
+    if ($maxFolio > $current) {
+        db()->prepare("UPDATE sequence_counters SET value = :m WHERE name = 'projects'")
+            ->execute([':m' => $maxFolio]);
+        $current = $maxFolio;
+    }
     echo json_encode([
         'ok'      => true,
         'current' => $current,
