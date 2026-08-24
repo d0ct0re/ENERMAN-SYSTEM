@@ -665,16 +665,34 @@ export default function App(): JSX.Element {
     }
   };
 
-  const handleCreateRequest = (payload: Omit<RequestItem, "id" | "createdAt" | "createdBy" | "status">): void => {
+  const handleCreateRequest = async (payload: Omit<RequestItem, "id" | "createdAt" | "createdBy" | "status">): Promise<void> => {
+    lastMutationAt.current = Date.now();
+    // Folio atómico del servidor desde la creación — así la solicitud ya tiene
+    // número real (visible en notificaciones, listas, etc.) sin esperar a que se apruebe.
+    let sequence: string;
+    try {
+      sequence = await apiNextSequence();
+    } catch {
+      sequence = getNextSequence(requests, projects);
+    }
+    const structuredName = buildStructuredName({
+      sequence,
+      client: payload.client,
+      department: payload.department,
+      lugar: payload.lugar,
+      type: payload.type,
+      baseName: payload.baseName,
+    });
     const request: RequestItem = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       createdBy: activeUser.id,
       status: "under-review",
       ...payload,
+      sequence,
+      structuredName,
     };
 
-    lastMutationAt.current = Date.now();
     // Calcular nuevo estado inmediatamente para guardarlo sin esperar el debounce.
     // Sin esto, el polling (cada 4s) puede sobrescribir el state local antes de que
     // el save con debounce de 450ms alcance a completarse en el servidor.
@@ -1593,7 +1611,7 @@ export default function App(): JSX.Element {
     }
   };
 
-  const handleCreateRequestFromAdmin = (
+  const handleCreateRequestFromAdmin = async (
     payload: {
       baseName: string;
       client: string;
@@ -1603,11 +1621,18 @@ export default function App(): JSX.Element {
       createdBy: string;
       status: RequestItem["status"];
     },
-  ): void => {
+  ): Promise<void> => {
+    let sequence: string;
+    try {
+      sequence = await apiNextSequence();
+    } catch {
+      sequence = getNextSequence(requests, projects);
+    }
     const request: RequestItem = {
       id: crypto.randomUUID(),
+      sequence,
       structuredName: buildStructuredName({
-        sequence: "SOL",
+        sequence,
         client: payload.client,
         department: payload.department,
         type: payload.type,

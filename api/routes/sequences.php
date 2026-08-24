@@ -1,11 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* ── next_sequence — devuelve el siguiente consecutivo y avanza el contador ── */
+/* ── next_sequence — devuelve el siguiente consecutivo y avanza el contador ──
+   Cualquier usuario autenticado puede pedir uno (no solo admin): las solicitudes
+   creadas por ingenieros también necesitan folio desde que se crean, no solo al
+   aprobarse. No expone datos sensibles, solo incrementa un contador atómico. */
 if ($action === 'next_sequence') {
-    requireAdmin();
+    requireAuth();
     getOrInitSequence(); // asegura que el registro exista antes del UPDATE
-    // LAST_INSERT_ID(expr) es atómico por conexión — evita race condition entre admins concurrentes
+    // LAST_INSERT_ID(expr) es atómico por conexión — evita race condition entre usuarios concurrentes
     db()->exec("UPDATE sequence_counters SET value = LAST_INSERT_ID(value + 1) WHERE name = 'projects'");
     $next = (int) db()->query("SELECT LAST_INSERT_ID()")->fetchColumn();
     if ($next === 0) {
