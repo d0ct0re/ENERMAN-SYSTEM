@@ -935,7 +935,10 @@ function LegacyAdminView({
   onReactivateRequest,
 }: AdminViewProps): JSX.Element {
   const CLOSED_STATUSES_ADMIN = ["completed", "cancelled", "no-autorizado", "cierre-por-sistema"];
-  const allNonDeletedProjects = [...activeProjects, ...completedProjects, ...cancelledProjects];
+  // Directo desde `projects` (todos, sin filtrar por status) en vez de unir activos+terminados+
+  // cancelados: un proyecto con un status que no cae en ninguna de esas 3 categorias (dato raro)
+  // desaparecia de "Todos los proyectos" aunque siguiera contando en tarjetas como "No pagados".
+  const allNonDeletedProjects = projects.filter((p) => !p.deletedAt);
   const terminatedProjects = allNonDeletedProjects.filter((p) => CLOSED_STATUSES_ADMIN.includes(p.status));
   const onlyActiveProjects = allNonDeletedProjects.filter((p) => !CLOSED_STATUSES_ADMIN.includes(p.status));
 
