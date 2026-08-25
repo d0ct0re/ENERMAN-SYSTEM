@@ -7,6 +7,9 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 export function formatDate(date: string): string {
+  // `date` puede venir undefined/vacío en registros con datos incompletos aunque el tipo
+  // diga string — nunca dejar que una sola fecha faltante tumbe toda la pantalla.
+  if (!date) return "Sin fecha";
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
@@ -19,6 +22,7 @@ export function formatOptionalDate(date?: string): string {
 }
 
 export function parseLocalDate(date: string): Date {
+  if (!date) return new Date(NaN);
   const [year, month, day] = date.split("-").map(Number);
 
   if (year && month && day) {
