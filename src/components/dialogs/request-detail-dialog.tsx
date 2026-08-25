@@ -77,7 +77,7 @@ export function RequestDetailDialog({
           : "";
   const requester = users.find((user) => user.id === request.createdBy);
   const relatedProject = projects.find((project) => project.id === (request.linkedProjectId ?? request.duplicateOfProjectId));
-  const totalGastos = relatedProject?.expenses.reduce((total, expense) => total + expense.monto, 0) ?? 0;
+  const totalGastos = relatedProject?.expenses?.reduce((total, expense) => total + expense.monto, 0) ?? 0;
   const totalFacturado = relatedProject?.invoices?.reduce((total, invoice) => total + invoice.subtotal, 0) ?? 0;
   const totalPagado = relatedProject?.invoices?.reduce((total, invoice) => total + (invoice.status === "pagada" ? invoice.subtotal : 0), 0) ?? 0;
   const utilidad = (relatedProject?.totalContratado ?? 0) - totalGastos;

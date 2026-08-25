@@ -917,8 +917,8 @@ export function ProjectDetailDialog({
         onValueChange={setMainTab}
         options={[
           { key: "info", label: "Info" },
-          { key: "chat", label: "Chat", count: chatMessages.length || project.comments.length },
-          { key: "archivos", label: "Archivos", count: project.files.length },
+          { key: "chat", label: "Chat", count: chatMessages.length || (project.comments ?? []).length },
+          { key: "archivos", label: "Archivos", count: (project.files ?? []).length },
         ]}
       />
 
