@@ -830,7 +830,7 @@ function RequestsManager({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs font-black text-accent">#{getRequestSequence(request, projects)}</span>
                   <StatusBadge kind="request" value={request.status} />
-                  <span className="text-xs font-semibold text-[#888888]">{new Date(request.createdAt).toLocaleDateString("es-MX")}</span>
+                  <span className="text-xs font-semibold text-[#888888]">{parseLocalDate(request.createdAt).toLocaleDateString("es-MX")}</span>
                 </div>
                 <p className="mt-2 text-base font-semibold text-foreground">{request.baseName}</p>
                 <p className="mt-1 text-sm text-[#888888]">{request.client} · {request.department} · {request.structuredName}</p>
@@ -1597,7 +1597,7 @@ function CancelledTab({
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3F3F46] px-3 py-1 text-[10px] font-bold text-[#71717A]">
                       Cancelado
                     </span>
-                    <span className="text-xs text-[#888888]">{new Date(req.createdAt).toLocaleDateString("es-MX")}</span>
+                    <span className="text-xs text-[#888888]">{parseLocalDate(req.createdAt).toLocaleDateString("es-MX")}</span>
                   </div>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
                   <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
@@ -1815,6 +1815,7 @@ function formatCurrency(value: number): string {
 }
 
 function formatCompactDate(value: string): string {
+  if (!value) return "Sin fecha";
   return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(parseLocalDate(value));
 }
 

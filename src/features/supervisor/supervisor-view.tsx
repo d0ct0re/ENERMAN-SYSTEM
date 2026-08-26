@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { ProjectItem, RequestItem, UserItem } from "@/types";
 import { StatusBadge } from "@/components/common/status-badge";
-import { cn, getProjectSequence, getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
+import { cn, getProjectSequence, getRequestSequence, getRequestSequenceNumber, parseLocalDate } from "@/lib/utils";
 
 const STATUS_DISPLAY: Record<string, string> = {
   "en-programacion": "En programación",
@@ -434,7 +434,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                     <td className="px-6 py-3 text-[#A1A1AA]">{req.client}</td>
                     <td className="px-6 py-3"><StatusBadge kind="request" value={req.status} /></td>
                     <td className="px-6 py-3 text-[#888888]">
-                      {new Date(req.createdAt).toLocaleDateString("es-MX")}
+                      {parseLocalDate(req.createdAt).toLocaleDateString("es-MX")}
                     </td>
                   </tr>
                 ))}

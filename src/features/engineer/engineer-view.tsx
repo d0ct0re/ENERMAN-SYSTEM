@@ -8,7 +8,7 @@ import { ProjectCalendar } from "@/components/common/project-calendar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { CorrectionRequestDialog } from "@/components/dialogs/correction-request-dialog";
 import { ProjectItem, RequestItem } from "@/types";
-import { getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
+import { getRequestSequence, getRequestSequenceNumber, parseLocalDate } from "@/lib/utils";
 
 export type EngineerTab = "all" | "active" | "completed" | "requests" | "correction" | "calendar";
 
@@ -170,7 +170,7 @@ export function EngineerView({
                     {req.client} · {req.department}
                   </span>
                   <span className="ml-auto text-xs text-[#888888]">
-                    {new Date(req.createdAt).toLocaleDateString("es-MX", {
+                    {parseLocalDate(req.createdAt).toLocaleDateString("es-MX", {
                       day: "2-digit", month: "short", year: "numeric",
                     })}
                   </span>
@@ -236,7 +236,7 @@ export function EngineerView({
                     {req.client} · {req.department}
                   </span>
                   <span className="ml-auto text-xs text-[#888888]">
-                    {new Date(req.createdAt).toLocaleDateString("es-MX", {
+                    {parseLocalDate(req.createdAt).toLocaleDateString("es-MX", {
                       day: "2-digit", month: "short", year: "numeric",
                     })}
                   </span>

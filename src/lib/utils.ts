@@ -21,15 +21,17 @@ export function formatOptionalDate(date?: string): string {
   return date ? formatDate(date) : "Pendiente asignar";
 }
 
+// Nunca devuelve una Date invalida — Intl.DateTimeFormat/.toLocaleDateString()/.toISOString()
+// truenan con RangeError al recibir una fecha invalida, y ese throw pasaba por encima de
+// cualquier chequeo `if (!date)` que no estuviera exactamente en el llamador. Ante un string
+// vacio/no parseable, cae a epoch (1970) — se ve raro pero nunca tumba la pantalla.
 export function parseLocalDate(date: string): Date {
-  if (!date) return new Date(NaN);
-  const [year, month, day] = date.split("-").map(Number);
-
-  if (year && month && day) {
-    return new Date(year, month - 1, day);
+  if (date) {
+    const [year, month, day] = date.split("-").map(Number);
+    const parsed = year && month && day ? new Date(year, month - 1, day) : new Date(date);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
   }
-
-  return new Date(date);
+  return new Date(0);
 }
 
 export function formatLocalDateKey(date: Date): string {
