@@ -1,6 +1,31 @@
 <?php
 declare(strict_types=1);
 
+/* ── get_app_settings — switches de "Funciones" (lectura para cualquier sesión,
+   ya que admin/supervisor necesitan saber si una sección está habilitada o no) ── */
+if ($action === 'get_app_settings') {
+    requireAuth();
+    echo json_encode(['ok' => true, 'settings' => getAppSettings()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/* ── set_app_setting — solo el Gestor del sistema puede prender/apagar switches ── */
+if ($action === 'set_app_setting') {
+    requireSystemAdmin();
+    $data = readJson();
+    $name = (string)($data['name'] ?? '');
+    if (!array_key_exists($name, APP_SETTINGS_DEFAULTS)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Switch desconocido.']);
+        exit;
+    }
+    $value = $data['value'] ?? null;
+    setAppSetting($name, $value);
+    logActivity('updated', 'app_setting', $name, $name, ['value' => $value]);
+    echo json_encode(['ok' => true, 'settings' => getAppSettings()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 /* ── admin_dashboard ── */
 if ($action === 'admin_dashboard') {
     requireSystemAdmin();
@@ -63,6 +88,98 @@ if ($action === 'reset_active_passwords') {
     $pdo->commit();
     logActivity('password_reset_all', 'user', null, 'Usuarios activos', ['updated' => $updated]);
     echo json_encode(['ok' => true, 'updated' => $updated]);
+    exit;
+}
+
+/* ── bulk_delete_before_folio — limpieza de datos de prueba: borra proyectos sin folio o con
+   folio menor al umbral (y sus mensajes + archivos subidos), más las solicitudes que no
+   quedaron vinculadas a un proyecto sobreviviente. Irreversible — requiere confirmación. ── */
+if ($action === 'bulk_delete_before_folio') {
+    requireSystemAdmin();
+    $data      = readJson();
+    $threshold = (int)($data['folio'] ?? 0);
+    $confirm   = (string)($data['confirm'] ?? '');
+    if ($threshold < 1 || $threshold > 999999) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Folio inválido.']);
+        exit;
+    }
+    if ($confirm !== 'ELIMINAR_PROYECTOS_ANTERIORES') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Confirmación inválida.']);
+        exit;
+    }
+
+    $pdo = db();
+
+    // Proyectos a eliminar: sin folio asignado o con folio menor al umbral.
+    // Se trae el payload completo (no solo el id) para poder respaldarlo antes de borrar.
+    $stmt = $pdo->prepare("SELECT id, payload FROM projects WHERE folio IS NULL OR folio < :t");
+    $stmt->execute([':t' => $threshold]);
+    $deleteProjectRows = $stmt->fetchAll();
+    $deleteProjectIds  = array_column($deleteProjectRows, 'id');
+
+    // Solicitudes huérfanas: las que NO quedan vinculadas a un proyecto que sobrevive
+    // (folio >= umbral). Cubre tanto las nunca aprobadas como las ligadas a un proyecto
+    // que se está borrando en este mismo paso.
+    $survStmt = $pdo->prepare("SELECT id FROM projects WHERE folio >= :t");
+    $survStmt->execute([':t' => $threshold]);
+    $survivingProjectIds = array_flip(array_column($survStmt->fetchAll(), 'id'));
+
+    $deleteRequestIds = [];
+    $deleteRequestRows = [];
+    foreach (tableRows('requests') as $r) {
+        $rid = $r['id'] ?? '';
+        if (!$rid) continue;
+        $linked = $r['linkedProjectId'] ?? null;
+        if (!$linked || !isset($survivingProjectIds[$linked])) {
+            $deleteRequestIds[] = $rid;
+            $deleteRequestRows[] = $r;
+        }
+    }
+
+    // Respaldo completo de cada proyecto/solicitud ANTES de borrar para siempre —
+    // recuperable a mano en caso de error, igual que delete_project/delete_request.
+    foreach ($deleteProjectRows as $row) {
+        $payload = json_decode($row['payload'], true);
+        if (is_array($payload)) archiveDeletedItem('project', $row['id'], $payload);
+    }
+    foreach ($deleteRequestRows as $r) {
+        archiveDeletedItem('request', $r['id'], $r);
+    }
+
+    if (!empty($deleteProjectIds)) {
+        $placeholders = implode(',', array_fill(0, count($deleteProjectIds), '?'));
+        $pdo->prepare("DELETE FROM projects WHERE id IN ($placeholders)")->execute($deleteProjectIds);
+        $pdo->prepare("DELETE FROM project_messages WHERE project_id IN ($placeholders)")->execute($deleteProjectIds);
+        foreach ($deleteProjectIds as $pid) {
+            $dir = __DIR__ . '/../../uploads/projectra/' . $pid . '/';
+            if (is_dir($dir)) deleteDirRecursive($dir);
+            // Notificaciones que apuntaban a este proyecto — mismo fix que delete_project.
+            deleteNotificationsFor('relatedProjectId', $pid);
+        }
+    }
+    if (!empty($deleteRequestIds)) {
+        $placeholdersR = implode(',', array_fill(0, count($deleteRequestIds), '?'));
+        $pdo->prepare("DELETE FROM requests WHERE id IN ($placeholdersR)")->execute($deleteRequestIds);
+        foreach ($deleteRequestIds as $rid) {
+            deleteNotificationsFor('relatedRequestId', $rid);
+        }
+    }
+
+    logActivity(
+        'bulk_deleted',
+        'projects',
+        null,
+        "Limpieza masiva: folio < {$threshold}",
+        ['threshold' => $threshold, 'deleted_projects' => count($deleteProjectIds), 'deleted_requests' => count($deleteRequestIds)],
+    );
+
+    echo json_encode([
+        'ok'              => true,
+        'deletedProjects' => count($deleteProjectIds),
+        'deletedRequests' => count($deleteRequestIds),
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

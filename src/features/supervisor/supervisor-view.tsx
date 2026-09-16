@@ -1,15 +1,16 @@
-import { AlertTriangle, BadgeDollarSign, ChevronDown, ChevronUp, FolderOpenDot, LayoutGrid, LayoutList, ChevronsUpDown, Plus, ShieldAlert } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { BadgeCheck, BadgeDollarSign, ChevronDown, DollarSign, FileText, FolderOpenDot, LayoutGrid, LayoutList, Plus, ShieldAlert, Trash2, Wrench } from "lucide-react";
+import { ComponentType, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { SectionTitle } from "@/components/layout/section-title";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ProjectCard } from "@/components/cards/project-card";
+import { AdminReviewCard } from "@/components/cards/admin-review-card";
 import { Button } from "@/components/ui/button";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { ProjectItem, RequestItem, UserItem } from "@/types";
 import { StatusBadge } from "@/components/common/status-badge";
-import { cn, getProjectSequence, getRequestSequence, getRequestSequenceNumber, parseLocalDate } from "@/lib/utils";
+import { cn, getProjectSequence, getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
 
 const STATUS_DISPLAY: Record<string, string> = {
   "en-programacion": "En programación",
@@ -27,10 +28,17 @@ const STATUS_DISPLAY: Record<string, string> = {
 const PRIORITY_DISPLAY: Record<string, string> = { low: "Bajo", medium: "Medio", high: "Alto", critical: "Crítica" };
 const PAYMENT_DISPLAY: Record<string, string> = { unpaid: "No pagado", partial: "Pago parcial", paid: "Pagado" };
 const FOTOS_DISPLAY: Record<string, string> = { no: "No", "en-revision": "En revisión", si: "Si", rechazado: "Rechazado" };
+// Mismos 4 estados que Fotos — ligado a reporteFileStatus de Fase 2 ("Reporte generado").
+const REPORTE_DISPLAY: Record<string, string> = { no: "No", "en-revision": "En revisión", si: "Si", rechazado: "Rechazado" };
+const SUBFACT_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado: "Pagado" };
+// Mismas etiquetas que en Fase 4 del proyecto — igual que en admin-view.tsx, para que Admin y
+// Supervisor cuenten con exactamente los mismos filtros.
+const MDP_OPTIONS = ["Todos", "Sin Definir", "PPD", "PUE"];
+const FORMAPAGO_OPTIONS = ["Todos", "Sin definir", "Efectivo", "Transferencia", "Cheque"];
+const PAGOFINAL_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado: "Pagado" };
 
-export type SupervisorTab = "open" | "closed" | "calendar" | "requests";
+export type SupervisorTab = "all" | "open" | "closed" | "calendar" | "requests";
 type ViewMode = "cards" | "table";
-type SortDir = "asc" | "desc";
 
 interface SupervisorViewProps {
   tab: SupervisorTab;
@@ -40,12 +48,13 @@ interface SupervisorViewProps {
   requests: RequestItem[];
   users: UserItem[];
   onOpenProject: (projectId: string) => void;
+  onOpenRequest?: (requestId: string) => void;
   onOpenNewRequest?: () => void;
 }
 
 const ACTIVE_STATUSES_SUP = ["en-programacion", "en-concurso", "in-progress", "pendiente-aprobacion", "pendiente-autorizar", "reasignado", "comparativa"];
 
-export function SupervisorView({ tab, onTabChange, activeUserName, projects, requests, users, onOpenProject, onOpenNewRequest }: SupervisorViewProps): JSX.Element {
+export function SupervisorView({ tab, onTabChange, activeUserName, projects, requests, users, onOpenProject, onOpenRequest, onOpenNewRequest }: SupervisorViewProps): JSX.Element {
   const [query, setQuery] = useState("");
   const [clientFilter, setClientFilter] = useState("Todos");
   const [typeFilter, setTypeFilter] = useState("Todos");
@@ -57,12 +66,21 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   const [cotizFilter, setCotizFilter] = useState("Todos");
   const [payFilter, setPayFilter] = useState("Todos");
   const [fotosFilter, setFotosFilter] = useState("Todos");
+  const [reporteFilter, setReporteFilter] = useState("Todos");
+  const [subFilter, setSubFilter] = useState("Todos");
+  const [subFacturaFilter, setSubFacturaFilter] = useState("Todos");
+  const [mdpFilter, setMdpFilter] = useState("Todos");
+  const [formaPagoFilter, setFormaPagoFilter] = useState("Todos");
+  const [pagoFinalFilter, setPagoFinalFilter] = useState("Todos");
   const [yearFilter, setYearFilter] = useState("Todos");
   const [sortFilter, setSortFilter] = useState("Reciente ↓");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  // Acordeones de filtros — cerrados por defecto, cada grupo se abre/cierra independiente.
+  const [openOperativo, setOpenOperativo] = useState(false);
+  const [openAdministrativo, setOpenAdministrativo] = useState(false);
+  const [openFinanciero, setOpenFinanciero] = useState(false);
 
-  // Request sort + búsqueda
-  const [reqSort, setReqSort] = useState<{ field: string; dir: SortDir }>({ field: "sequence", dir: "desc" });
+  // Búsqueda de solicitudes
   const [reqQuery, setReqQuery] = useState("");
 
   const clients = useMemo(() => ["Todos", ...new Set(projects.map((p) => p.client))], [projects]);
@@ -79,13 +97,20 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   const cotizOptions = ["Todos", "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información"];
   const payOptions = ["Todos", ...Object.values(PAYMENT_DISPLAY)];
   const fotosOptions = ["Todos", ...Object.values(FOTOS_DISPLAY)];
-  const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑", "Compromiso ↑"];
+  const reporteOptions = ["Todos", ...Object.values(REPORTE_DISPLAY)];
+  const subOptions = ["Todos", "Sí", "No"];
+  const subFacturaOptions = ["Todos", ...Object.values(SUBFACT_DISPLAY)];
+  const pagoFinalOptions = ["Todos", ...Object.values(PAGOFINAL_DISPLAY)];
+  const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑"];
 
   const filteredProjects = useMemo(() => {
     if (tab === "calendar") return projects;
     const q = query.trim().toLowerCase();
     const result = projects.filter((project) => {
-      const matchesTab = tab === "open" ? project.status !== "completed" : project.status === "completed";
+      const matchesTab =
+        tab === "all" ? true :
+        tab === "open" ? project.status !== "completed" :
+        project.status === "completed";
       if (!matchesTab) return false;
       if (yearFilter !== "Todos" && new Date(project.createdAt).getFullYear().toString() !== yearFilter) return false;
       if (q && ![project.structuredName, project.client, project.description, project.baseName, project.oc ?? ""].some((f) => f.toLowerCase().includes(q))) return false;
@@ -115,33 +140,62 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
         const actual = project.fotosStatus ?? (project.fotos ? "si" : "no");
         if (actual !== key) return false;
       }
+      if (reporteFilter !== "Todos") {
+        const key = Object.keys(REPORTE_DISPLAY).find((k) => REPORTE_DISPLAY[k] === reporteFilter);
+        const actual = project.reporteFileStatus ?? "no";
+        if (actual !== key) return false;
+      }
+      if (subFilter !== "Todos" && !!project.subcontratadoActivo !== (subFilter === "Sí")) return false;
+      if (subFacturaFilter !== "Todos") {
+        // Solo cuenta si el subcontratado esta activo — no mezclar con proyectos sin subcontratado.
+        if (!project.subcontratadoActivo) return false;
+        // Pagado real: se calcula de los archivos de Subcontratados-Facturas (cada uno con su
+        // propio "Pagada"/"Rechazado"/"En revisión"), no de un campo aparte — asi el filtro
+        // siempre coincide con lo que se ve en la ficha del proyecto (ej. "2/2 pagadas").
+        const facturasFiles = (project.files ?? []).filter((f) => f.category === "subcontratadosFacturas");
+        const allPaid = facturasFiles.length > 0 && facturasFiles.every((f) => f.status === "si");
+        const wantPaid = subFacturaFilter === "Pagado";
+        if (allPaid !== wantPaid) return false;
+      }
+      if (mdpFilter !== "Todos") {
+        const pagos = project.pagosProyecto ?? [];
+        if (!pagos.some((pg) => (mdpFilter === "Sin Definir" ? !pg.mdp : pg.mdp === mdpFilter))) return false;
+      }
+      if (formaPagoFilter !== "Todos") {
+        const pagos = project.pagosProyecto ?? [];
+        if (!pagos.some((pg) => (formaPagoFilter === "Sin definir" ? !pg.formaPago : pg.formaPago === formaPagoFilter))) return false;
+      }
+      if (pagoFinalFilter !== "Todos") {
+        const key = Object.keys(PAGOFINAL_DISPLAY).find((k) => PAGOFINAL_DISPLAY[k] === pagoFinalFilter);
+        if ((project.estatusPagoFinal ?? "Pendiente") !== key) return false;
+      }
       return true;
     });
     result.sort((a, b) => {
       switch (sortFilter) {
         case "Antiguo ↑": return a.createdAt.localeCompare(b.createdAt);
-        case "Monto ↓": return (b.totalContratado ?? 0) - (a.totalContratado ?? 0);
-        case "Monto ↑": return (a.totalContratado ?? 0) - (b.totalContratado ?? 0);
-        case "Compromiso ↑": return (a.commitmentDate ?? "9999").localeCompare(b.commitmentDate ?? "9999");
+        case "Monto ↓": return (b.totalSinIva ?? 0) - (a.totalSinIva ?? 0);
+        case "Monto ↑": return (a.totalSinIva ?? 0) - (b.totalSinIva ?? 0);
         default: return b.createdAt.localeCompare(a.createdAt);
       }
     });
     return result;
-  }, [clientFilter, departmentFilter, projects, query, tab, typeFilter, urgencyFilter, engineerFilter, statusFilter, estimFilter, cotizFilter, payFilter, fotosFilter, yearFilter, sortFilter, users]);
+  }, [clientFilter, departmentFilter, projects, query, tab, typeFilter, urgencyFilter, engineerFilter, statusFilter, estimFilter, cotizFilter, payFilter, fotosFilter, reporteFilter, subFilter, subFacturaFilter, mdpFilter, formaPagoFilter, pagoFinalFilter, yearFilter, sortFilter, users]);
 
-  const hasFilters = !!(query || yearFilter !== "Todos" || clientFilter !== "Todos" || typeFilter !== "Todos" || departmentFilter !== "Todos" || urgencyFilter !== "Todos" || engineerFilter !== "Todos" || statusFilter !== "Todos" || estimFilter !== "Todos" || cotizFilter !== "Todos" || payFilter !== "Todos" || fotosFilter !== "Todos");
+  const hasFilters = !!(query || yearFilter !== "Todos" || clientFilter !== "Todos" || typeFilter !== "Todos" || departmentFilter !== "Todos" || urgencyFilter !== "Todos" || engineerFilter !== "Todos" || statusFilter !== "Todos" || estimFilter !== "Todos" || cotizFilter !== "Todos" || payFilter !== "Todos" || fotosFilter !== "Todos" || reporteFilter !== "Todos" || subFilter !== "Todos" || subFacturaFilter !== "Todos" || mdpFilter !== "Todos" || formaPagoFilter !== "Todos" || pagoFinalFilter !== "Todos");
 
   const clearFilters = (): void => {
     setQuery(""); setYearFilter("Todos"); setClientFilter("Todos"); setTypeFilter("Todos"); setDepartmentFilter("Todos");
     setUrgencyFilter("Todos"); setEngineerFilter("Todos"); setStatusFilter("Todos");
-    setEstimFilter("Todos"); setCotizFilter("Todos"); setPayFilter("Todos"); setFotosFilter("Todos");
+    setEstimFilter("Todos"); setCotizFilter("Todos"); setPayFilter("Todos"); setFotosFilter("Todos"); setReporteFilter("Todos");
+    setSubFilter("Todos"); setSubFacturaFilter("Todos"); setMdpFilter("Todos"); setFormaPagoFilter("Todos"); setPagoFinalFilter("Todos");
   };
 
   const summary = useMemo(() => ({
     porRevisar: requests.filter((r) => r.status === "under-review").length,
     activos: projects.filter((p) => ACTIVE_STATUSES_SUP.includes(p.status)).length,
     noPagados: projects.filter((p) => p.paymentStatus === "unpaid").length,
-    rechazadas: requests.filter((r) => r.status === "rejected").length,
+    pagados: projects.filter((p) => p.paymentStatus === "paid").length,
   }), [projects, requests]);
 
   const filteredRequestsList = useMemo(() => {
@@ -154,56 +208,10 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
 
   const sortedRequests = useMemo(() => {
     return [...filteredRequestsList].sort((a, b) => {
-      if (reqSort.field === "sequence") {
-        const cmp = getRequestSequenceNumber(a, projects) - getRequestSequenceNumber(b, projects);
-        return reqSort.dir === "asc" ? cmp : -cmp;
-      }
-      const va = String(a[reqSort.field as keyof typeof a] ?? "");
-      const vb = String(b[reqSort.field as keyof typeof b] ?? "");
-      const cmp = va.localeCompare(vb, "es-MX", { numeric: true });
-      return reqSort.dir === "asc" ? cmp : -cmp;
+      const diff = getRequestSequenceNumber(b, projects) - getRequestSequenceNumber(a, projects);
+      return diff !== 0 ? diff : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [filteredRequestsList, projects, reqSort]);
-
-  const toggleSort = (
-    current: { field: string; dir: SortDir },
-    field: string,
-    setter: (v: { field: string; dir: SortDir }) => void,
-  ) => {
-    if (current.field === field) {
-      setter({ field, dir: current.dir === "asc" ? "desc" : "asc" });
-    } else {
-      setter({ field, dir: "asc" });
-    }
-  };
-
-  const SortTh = ({
-    field,
-    label,
-    current,
-    setter,
-    className,
-  }: {
-    field: string;
-    label: string;
-    current: { field: string; dir: SortDir };
-    setter: (v: { field: string; dir: SortDir }) => void;
-    className?: string;
-  }) => (
-    <th
-      className={cn("px-6 py-3 text-left select-none", className)}
-      onClick={() => toggleSort(current, field, setter)}
-    >
-      <button type="button" className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#888888] hover:text-accent transition-colors">
-        {label}
-        {current.field === field ? (
-          current.dir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronsUpDown className="h-3 w-3 opacity-30" />
-        )}
-      </button>
-    </th>
-  );
+  }, [filteredRequestsList, projects]);
 
   return (
     <section className="space-y-6">
@@ -223,19 +231,43 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
       {/* ── Cards de resumen ejecutivo ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: "Por revisar", value: summary.porRevisar, icon: ShieldAlert, border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
-          { title: "Proyectos activos", value: summary.activos, icon: FolderOpenDot, border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
-          { title: "No pagados", value: summary.noPagados, icon: BadgeDollarSign, border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger" },
-          { title: "Rechazadas", value: summary.rechazadas, icon: AlertTriangle, border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
+          {
+            title: "Por revisar", value: summary.porRevisar, icon: ShieldAlert,
+            border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning",
+            onClick: () => onTabChange("requests"),
+          },
+          {
+            title: "Proyectos activos", value: summary.activos, icon: FolderOpenDot,
+            border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary",
+            onClick: () => onTabChange("open"),
+          },
+          {
+            title: "Pagados", value: summary.pagados, icon: BadgeCheck,
+            border: "border-[#2DBE7A]/20", iconBg: "bg-[#2DBE7A]/15 text-[#2DBE7A]", labelColor: "text-[#2DBE7A]", accent: "bg-[#2DBE7A]",
+            onClick: () => { onTabChange("all"); setPayFilter("Pagado"); },
+          },
+          {
+            title: "No pagados", value: summary.noPagados, icon: BadgeDollarSign,
+            border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger",
+            onClick: () => { onTabChange("all"); setPayFilter("No pagado"); },
+          },
         ].map((card) => (
-          <Card key={card.title} className={`relative overflow-hidden border bg-[#27272A] ${card.border}`}>
+          <Card
+            key={card.title}
+            onClick={card.onClick}
+            className={cn(
+              "relative overflow-hidden border bg-gradient-to-br from-[#2C2C30] to-[#212124] ring-1 ring-inset ring-white/[0.04] transition-all duration-200",
+              card.border,
+              "cursor-pointer hover:-translate-y-0.5 hover:border-opacity-70 hover:shadow-card-hover",
+            )}
+          >
             <div className={`absolute left-0 top-0 h-full w-1 ${card.accent}`} />
             <div className="flex items-start justify-between gap-3 pl-3">
               <div className="flex-1">
                 <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${card.labelColor}`}>{card.title}</p>
                 <p className="mt-3 text-4xl font-bold tabular-nums text-foreground">{card.value}</p>
               </div>
-              <div className={`rounded-2xl p-3 ${card.iconBg}`}><card.icon className="h-6 w-6" /></div>
+              <div className={`rounded-2xl p-3 ring-1 ring-inset ring-white/10 ${card.iconBg}`}><card.icon className="h-6 w-6" /></div>
             </div>
           </Card>
         ))}
@@ -245,6 +277,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
         value={tab}
         onValueChange={onTabChange}
         options={[
+          { key: "all", label: "Todos", count: projects.length },
           { key: "open", label: "No concluidos", count: projects.filter((p) => p.status !== "completed").length },
           { key: "closed", label: "Concluidos", count: projects.filter((p) => p.status === "completed").length },
           {
@@ -256,8 +289,8 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
         ]}
       />
 
-      {/* ── Proyectos (abiertos / cerrados) ── */}
-      {(tab === "open" || tab === "closed") ? (
+      {/* ── Proyectos (todos / abiertos / cerrados) ── */}
+      {(tab === "all" || tab === "open" || tab === "closed") ? (
         <>
           {/* Toolbar compacta */}
           <div className="flex flex-col gap-3 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 shadow-soft sm:p-5">
@@ -265,7 +298,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar proyectos…"
+                placeholder="Busca un proyecto"
                 className="flex-1 h-10"
               />
               {/* Vista toggle */}
@@ -310,27 +343,50 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                 >{y}</button>
               ))}
             </div>
-            {/* Filtros en línea */}
-            <div className="flex flex-wrap gap-2">
-              <CompactSelect label="Cliente" options={clients} value={clientFilter} onChange={setClientFilter} />
-              <CompactSelect label="Depto." options={departments} value={departmentFilter} onChange={setDepartmentFilter} />
-              <CompactSelect label="Tipo" options={types} value={typeFilter} onChange={setTypeFilter} />
-              <CompactSelect label="Urgencia" options={urgencyOptions} value={urgencyFilter} onChange={setUrgencyFilter} />
-              <CompactSelect label="Ingeniero" options={engineers} value={engineerFilter} onChange={setEngineerFilter} />
-              <CompactSelect label="Estado" options={statusOptions} value={statusFilter} onChange={setStatusFilter} />
-              <CompactSelect label="Estimación" options={estimOptions} value={estimFilter} onChange={setEstimFilter} />
-              <CompactSelect label="Cotización" options={cotizOptions} value={cotizFilter} onChange={setCotizFilter} />
-              <CompactSelect label="Pago" options={payOptions} value={payFilter} onChange={setPayFilter} />
-              <CompactSelect label="Fotos" options={fotosOptions} value={fotosFilter} onChange={setFotosFilter} />
-              <CompactSelect label="Ordenar" options={sortOptions} value={sortFilter} onChange={setSortFilter} />
+            {/* Operativo (Fase 1/2) — lo que ve tambien el ingeniero dia a dia */}
+            <FilterGroupAccordion variant="operativo" icon={Wrench} label="Operativo" open={openOperativo} onToggle={() => setOpenOperativo((o) => !o)}>
+              <CompactSelect layout="cell" variant="operativo" label="Cliente" options={clients} value={clientFilter} onChange={setClientFilter} />
+              <CompactSelect layout="cell" variant="operativo" label="Depto." options={departments} value={departmentFilter} onChange={setDepartmentFilter} />
+              <CompactSelect layout="cell" variant="operativo" label="Tipo" options={types} value={typeFilter} onChange={setTypeFilter} />
+              <CompactSelect layout="cell" variant="operativo" label="Urgencia" options={urgencyOptions} value={urgencyFilter} onChange={setUrgencyFilter} />
+              <CompactSelect layout="cell" variant="operativo" label="Ingeniero" options={engineers} value={engineerFilter} onChange={setEngineerFilter} />
+              <CompactSelect layout="cell" variant="operativo" label="Estado" options={statusOptions} value={statusFilter} onChange={setStatusFilter} />
+            </FilterGroupAccordion>
+            {/* Administrativo — revisiones de archivo por sección, no dinero */}
+            <FilterGroupAccordion variant="administrativo" icon={FileText} label="Administrativo" open={openAdministrativo} onToggle={() => setOpenAdministrativo((o) => !o)}>
+              <CompactSelect layout="cell" variant="administrativo" label="Estimación" options={estimOptions} value={estimFilter} onChange={setEstimFilter} />
+              <CompactSelect layout="cell" variant="administrativo" label="Cotización" options={cotizOptions} value={cotizFilter} onChange={setCotizFilter} />
+              <CompactSelect layout="cell" variant="administrativo" label="Fotos" options={fotosOptions} value={fotosFilter} onChange={setFotosFilter} />
+              <CompactSelect layout="cell" variant="administrativo" label="Reporte" options={reporteOptions} value={reporteFilter} onChange={setReporteFilter} />
+              <CompactSelect layout="cell" variant="administrativo" label="Subcontratados" options={subOptions} value={subFilter} onChange={setSubFilter} />
+            </FilterGroupAccordion>
+            {/* Financiero — dinero: pagos, facturas, MDP */}
+            <FilterGroupAccordion variant="finance" icon={DollarSign} label="Financiero" open={openFinanciero} onToggle={() => setOpenFinanciero((o) => !o)}>
+              <CompactSelect layout="cell" variant="finance" label="Pago" options={payOptions} value={payFilter} onChange={setPayFilter} />
+              <CompactSelect layout="cell" variant="finance" label="Facturas subcont." options={subFacturaOptions} value={subFacturaFilter} onChange={setSubFacturaFilter} />
+              <CompactSelect layout="cell" variant="finance" label="MDP" options={MDP_OPTIONS} value={mdpFilter} onChange={setMdpFilter} />
+              <CompactSelect layout="cell" variant="finance" label="Forma de pago" options={FORMAPAGO_OPTIONS} value={formaPagoFilter} onChange={setFormaPagoFilter} />
+              <CompactSelect layout="cell" variant="finance" label="Estatus pago final" options={pagoFinalOptions} value={pagoFinalFilter} onChange={setPagoFinalFilter} />
+            </FilterGroupAccordion>
+            {/* Pie: contador + Ordenar + Limpiar filtros */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <p className="text-xs text-[#888888]">
+                Mostrando {filteredProjects.length} de {projects.filter((p) => tab === "all" ? true : tab === "open" ? p.status !== "completed" : p.status === "completed").length} proyecto{projects.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <CompactSelect label="Ordenar" options={sortOptions} value={sortFilter} onChange={setSortFilter} />
+                {hasFilters ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex items-center gap-1.5 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-1.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-danger/40 hover:text-danger"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Limpiar filtros
+                  </button>
+                ) : null}
+              </div>
             </div>
-            {/* Contador siempre visible */}
-            <p className="text-xs text-[#888888]">
-              Mostrando {filteredProjects.length} de {projects.filter((p) => tab === "open" ? p.status !== "completed" : p.status === "completed").length} proyecto{projects.length !== 1 ? "s" : ""}
-              {hasFilters && (
-                <button type="button" onClick={clearFilters} className="ml-3 text-accent hover:underline">Limpiar filtros</button>
-              )}
-            </p>
           </div>
 
           {/* Resultados */}
@@ -400,10 +456,10 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
         <ProjectCalendar projects={projects} onOpenProject={onOpenProject} users={users} showSideList />
       ) : null}
 
-      {/* ── Solicitudes con ordenamiento ── */}
+      {/* ── Solicitudes — mismo formato de tarjeta que Administración, en solo lectura ── */}
       {tab === "requests" ? (
-        <div className="overflow-hidden rounded-[28px] border border-[#3F3F46] bg-[#27272A] shadow-panel">
-          <div className="flex flex-col gap-3 border-b border-[#3F3F46] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-bold text-foreground">Todas las solicitudes</h3>
             <div className="flex items-center gap-3">
               <Input
@@ -415,39 +471,24 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
               <span className="shrink-0 rounded-full bg-[#3F3F46] px-3 py-1 text-xs font-semibold text-[#A1A1AA]">Solo lectura</span>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#3F3F46]">
-                  <SortTh field="sequence" label="N° Proyecto" current={reqSort} setter={setReqSort} />
-                  <SortTh field="baseName" label="Proyecto" current={reqSort} setter={setReqSort} />
-                  <SortTh field="client" label="Cliente" current={reqSort} setter={setReqSort} />
-                  <SortTh field="status" label="Estado" current={reqSort} setter={setReqSort} />
-                  <SortTh field="createdAt" label="Fecha" current={reqSort} setter={setReqSort} />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#3F3F46]">
-                {sortedRequests.map((req) => (
-                  <tr key={req.id} className="hover:bg-[#313136] transition-colors">
-                    <td className="px-6 py-3 font-mono text-xs text-accent">{getRequestSequence(req, projects)}</td>
-                    <td className="px-6 py-3 font-medium text-foreground">{req.baseName}</td>
-                    <td className="px-6 py-3 text-[#A1A1AA]">{req.client}</td>
-                    <td className="px-6 py-3"><StatusBadge kind="request" value={req.status} /></td>
-                    <td className="px-6 py-3 text-[#888888]">
-                      {parseLocalDate(req.createdAt).toLocaleDateString("es-MX")}
-                    </td>
-                  </tr>
-                ))}
-                {sortedRequests.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-[#888888]">
-                      {requests.length === 0 ? "No hay solicitudes registradas" : "Sin resultados para la búsqueda"}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {sortedRequests.length === 0 ? (
+            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
+              <p className="text-sm font-semibold text-[#888888]">
+                {requests.length === 0 ? "No hay solicitudes registradas" : "Sin resultados para la búsqueda"}
+              </p>
+            </div>
+          ) : (
+            <div className="card-grid">
+              {sortedRequests.map((req) => (
+                <AdminReviewCard
+                  key={req.id}
+                  request={req}
+                  onOpen={(id) => onOpenRequest?.(id)}
+                  requesterName={users.find((user) => user.id === req.createdBy)?.name}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -455,7 +496,91 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   );
 }
 
-function CompactSelect({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+type FilterGroupVariant = "default" | "operativo" | "administrativo" | "finance";
+
+// Cada grupo lleva un tinte permanente — dorado (Operativo), morado (Administrativo),
+// azul (Financiero) — visible este o no seleccionado. "default" ya solo lo usa "Ordenar".
+// Clases completas y literales (no interpoladas) para que Tailwind las detecte al compilar.
+function filterBorderBg(variant: FilterGroupVariant, isActive: boolean): string {
+  if (variant === "finance") {
+    return isActive
+      ? "border-[#3B82F6]/60 bg-gradient-to-b from-[#3B82F6]/25 to-[#3B82F6]/10 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+      : "border-[#3B82F6]/30 bg-gradient-to-b from-[#3B82F6]/10 to-[#3B82F6]/[0.03] hover:border-[#3B82F6]/50";
+  }
+  if (variant === "administrativo") {
+    return isActive
+      ? "border-[#8B5CF6]/60 bg-gradient-to-b from-[#8B5CF6]/25 to-[#8B5CF6]/10 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+      : "border-[#8B5CF6]/30 bg-gradient-to-b from-[#8B5CF6]/10 to-[#8B5CF6]/[0.03] hover:border-[#8B5CF6]/50";
+  }
+  if (variant === "operativo") {
+    return isActive
+      ? "border-[#F5A524]/60 bg-gradient-to-b from-[#F5A524]/25 to-[#F5A524]/10 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+      : "border-[#F5A524]/30 bg-gradient-to-b from-[#F5A524]/10 to-[#F5A524]/[0.03] hover:border-[#F5A524]/50";
+  }
+  return isActive
+    ? "border-accent/40 bg-gradient-to-b from-accent/20 to-accent/5 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+    : "border-[#3F3F46] bg-gradient-to-b from-[#38383D] to-[#2C2C30] hover:border-white/20 hover:from-[#3D3D42]";
+}
+function filterLabelText(variant: FilterGroupVariant, isActive: boolean): string {
+  if (variant === "finance") return isActive ? "text-[#93C5FD]" : "text-[#60A5FA]";
+  if (variant === "administrativo") return isActive ? "text-[#C4B5FD]" : "text-[#A78BFA]";
+  if (variant === "operativo") return isActive ? "text-[#FDE68A]" : "text-[#E3A94F]";
+  return isActive ? "text-accent" : "text-[#888888]";
+}
+function filterValueText(variant: FilterGroupVariant, isActive: boolean): string {
+  if (variant === "finance") return isActive ? "text-[#BFDBFE]" : "text-[#93C5FD]";
+  if (variant === "administrativo") return isActive ? "text-[#DDD6FE]" : "text-[#C4B5FD]";
+  if (variant === "operativo") return isActive ? "text-[#FEF3C7]" : "text-[#FCD34D]";
+  return isActive ? "text-accent" : "text-foreground";
+}
+// Ícono de cabecera del acordeón — color solido (no tinte), para que resalte sobre el fondo.
+function filterHeaderIconBg(variant: FilterGroupVariant): string {
+  if (variant === "finance") return "bg-[#3B82F6]";
+  if (variant === "administrativo") return "bg-[#8B5CF6]";
+  if (variant === "operativo") return "bg-[#F5A524]";
+  return "bg-[#3F3F46]";
+}
+function filterHeaderChevronBg(variant: FilterGroupVariant): string {
+  if (variant === "finance") return "bg-[#3B82F6]/20 text-[#60A5FA]";
+  if (variant === "administrativo") return "bg-[#8B5CF6]/20 text-[#A78BFA]";
+  if (variant === "operativo") return "bg-[#F5A524]/20 text-[#E3A94F]";
+  return "bg-[#3F3F46] text-[#888888]";
+}
+
+// Acordeón de filtros — cabecera con ícono representativo del grupo, cerrado por
+// defecto; al abrir muestra sus CompactSelect (layout="cell") en cuadrícula.
+function FilterGroupAccordion({
+  variant, icon: Icon, label, open, onToggle, children,
+}: {
+  variant: FilterGroupVariant;
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <div className={`rounded-2xl border transition-colors duration-150 ${filterBorderBg(variant, open)}`}>
+      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ${filterHeaderIconBg(variant)}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="h-6 w-px shrink-0 bg-white/10" />
+        <span className="flex-1 text-sm font-bold text-foreground">{label}</span>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform duration-200 ${filterHeaderChevronBg(variant)} ${open ? "rotate-180" : ""}`}>
+          <ChevronDown className="h-4 w-4" />
+        </span>
+      </button>
+      {open ? (
+        <div className="grid grid-cols-2 gap-2 border-t border-white/[0.06] p-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CompactSelect({ label, options, value, onChange, variant = "default", layout = "pill" }: { label: string; options: string[]; value: string; onChange: (v: string) => void; variant?: FilterGroupVariant; layout?: "pill" | "cell" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const isActive = value !== options[0];
@@ -470,20 +595,30 @@ function CompactSelect({ label, options, value, onChange }: { label: string; opt
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors ${
-          isActive
-            ? "border-accent/40 bg-accent/10"
-            : "border-[#3F3F46] bg-[#313136] hover:border-white/20"
-        }`}
-      >
-        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-[#888888]"}`}>{label}</span>
-        <span className={`max-w-[140px] truncate text-xs font-semibold ${isActive ? "text-accent" : "text-foreground"}`}>{value}</span>
-        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-[#888888]"}`} />
-      </button>
+    <div ref={ref} className={`relative ${layout === "cell" ? "w-full" : ""}`}>
+      {layout === "cell" ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-all duration-150 ${filterBorderBg(variant, isActive)}`}
+        >
+          <span className="min-w-0 flex-1">
+            <span className={`block text-[9px] font-bold uppercase tracking-[0.12em] ${filterLabelText(variant, isActive)}`}>{label}</span>
+            <span className={`block truncate text-sm font-bold ${filterValueText(variant, isActive)}`}>{value}</span>
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${filterLabelText(variant, isActive)}`} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-all duration-150 ${filterBorderBg(variant, isActive)}`}
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${filterLabelText(variant, isActive)}`}>{label}</span>
+          <span className={`max-w-[140px] truncate text-xs font-semibold ${filterValueText(variant, isActive)}`}>{value}</span>
+          <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${filterLabelText(variant, isActive)}`} />
+        </button>
+      )}
 
       {open ? (
         <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">

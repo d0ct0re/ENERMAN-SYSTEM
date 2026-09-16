@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RequestItem } from "@/types";
 import { StatusBadge } from "@/components/common/status-badge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, maskRequestSequence } from "@/lib/utils";
 
 interface AdminReviewCardProps {
   request: RequestItem;
@@ -64,7 +64,13 @@ export function AdminReviewCard({
             {request.client} · {request.department}
           </p>
           <h3 className="text-[16px] font-bold leading-snug text-foreground">{request.baseName}</h3>
-          <p className="text-xs text-[#888888]">{request.structuredName || "Sin folio aún"}</p>
+          <p className="text-xs text-[#888888]">
+            {request.structuredName
+              ? request.status === "approved"
+                ? request.structuredName
+                : maskRequestSequence(request.structuredName)
+              : "Sin folio aún"}
+          </p>
         </div>
         <StatusBadge kind="request" value={request.status} />
       </div>

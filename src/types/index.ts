@@ -145,6 +145,11 @@ export interface UserItem {
   readNotifIds?: string[];
 }
 
+export interface NotificationRecipientState {
+  read: boolean;
+  dismissedAt?: string | null;
+}
+
 export interface NotificationItem {
   id: string;
   role: RoleKey;
@@ -155,6 +160,13 @@ export interface NotificationItem {
   isRead: boolean;
   relatedRequestId?: string;
   relatedProjectId?: string;
+  // Rediseño 2026-09: estado por destinatario embebido en la propia notificación, en vez de
+  // filas-marcador sueltas (isReadMarker/isDismissMarker). `isRead` arriba se conserva para
+  // compatibilidad con filas viejas que nunca tuvieron `recipients`.
+  updatedAt?: string;
+  groupKey?: string;
+  occurrenceCount?: number;
+  recipients?: Record<string, NotificationRecipientState>;
 }
 
 export interface ActivityLogItem {
@@ -187,7 +199,7 @@ export interface ProjectHistoryItem {
   author: string;
 }
 
-export type FileCategory = "fotos" | "estimacion" | "cotizacion" | "reporte" | "otros";
+export type FileCategory = "fotos" | "estimacion" | "cotizacion" | "reporte" | "otros" | "subcontratados" | "subcontratadosFacturas" | "pagoComprobante";
 export type FileStatus = "no" | "en-revision" | "si" | "rechazado";
 
 export interface ProjectFileItem {
@@ -198,6 +210,13 @@ export interface ProjectFileItem {
   uploadedAt: string;
   url?: string;
   category?: FileCategory;
+  // Aprobación por archivo individual — hoy solo la usa "subcontratadosFacturas"
+  // (la aprueba el supervisor). Las demás categorías siguen usando el status a
+  // nivel de carpeta completa (ej. reporteFileStatus en ProjectItem).
+  status?: FileStatus;
+  // Liga el archivo a un PagoProyecto especifico — solo lo usa "pagoComprobante"
+  // (Fase 4). El resto de categorias vive a nivel de proyecto, no de pago.
+  pagoId?: string;
 }
 
 export interface ProjectImportantDateItem {
@@ -222,13 +241,17 @@ export interface PagoProyecto {
   id: string;
   numeroPago: number;
   estado?: "pendiente" | "realizado";
-  promesaPago?: string;
-  tipoPagoAbono?: "PPD" | "PUE" | "Contado";
-  factura?: string;
+  cliente?: string;
+  monto: number;
   mdp?: "PPD" | "PUE";
+  folioFiscal?: string;
+  formaPago?: "Efectivo" | "Transferencia" | "Cheque";
+  fecha?: string;
+  serie?: string;
+  folio?: string;
+  // Etiqueta cambia segun mdp: "Complemento de Pago" (PPD) / "Factura Única" (PUE) /
+  // "Sin Definir" (sin mdp) — ver el render de Fase 4 en project-detail-dialog.tsx.
   complementoPago?: string;
-  fechaPago?: string;
-  subtotalAbono: number;
   createdAt: string;
 }
 
@@ -273,6 +296,8 @@ export interface ProjectItem {
   // F1 — Apertura
   lugar?: string;
   ubicacion?: UbicacionProyecto;
+  subcontratadoActivo?: boolean;
+  nombreSubcontratado?: string;
   // F2 — Ejecución
   fechaSolicitud?: string;
   fotos?: boolean;
@@ -281,6 +306,8 @@ export interface ProjectItem {
   cotizacionFileStatus?: FileStatus;
   reporteFileStatus?: FileStatus;
   otrosFileStatus?: FileStatus;
+  subcontratadosFileStatus?: FileStatus;
+  subcontratadosFacturasFileStatus?: FileStatus;
   reporte?: boolean;
   autorizador?: string;
   comentariosCampo?: string;

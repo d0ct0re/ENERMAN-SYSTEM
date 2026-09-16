@@ -8,7 +8,7 @@ import { ProjectCalendar } from "@/components/common/project-calendar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { CorrectionRequestDialog } from "@/components/dialogs/correction-request-dialog";
 import { ProjectItem, RequestItem } from "@/types";
-import { getRequestSequence, getRequestSequenceNumber, parseLocalDate } from "@/lib/utils";
+import { getRequestSequence, getRequestSequenceNumber, maskRequestSequence, parseLocalDate } from "@/lib/utils";
 
 export type EngineerTab = "all" | "active" | "completed" | "requests" | "correction" | "calendar";
 
@@ -164,7 +164,9 @@ export function EngineerView({
                 className="rounded-[20px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-2"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[10px] font-black text-accent">#{getRequestSequence(req, projects)}</span>
+                  <span className="font-mono text-[10px] font-black text-accent">
+                    #{req.status === "approved" ? getRequestSequence(req, projects) : "XXXX"}
+                  </span>
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
                     {req.client} · {req.department}
@@ -176,7 +178,11 @@ export function EngineerView({
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName}</p>
+                {/* El folio solo es definitivo una vez aprobada (ya es un proyecto real) —
+                    antes de eso se enmascara para no prometer un numero que puede cambiar. */}
+                <p className="text-xs text-[#888888]">
+                  {req.status === "approved" ? req.structuredName : maskRequestSequence(req.structuredName)}
+                </p>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-[#A1A1AA]">
                     {REQUEST_STATUS_LABELS[req.status] ?? req.status}
@@ -230,7 +236,9 @@ export function EngineerView({
               >
                 {/* Header */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[10px] font-black text-accent">#{getRequestSequence(req, projects)}</span>
+                  <span className="font-mono text-[10px] font-black text-accent">
+                    #{req.status === "approved" ? getRequestSequence(req, projects) : "XXXX"}
+                  </span>
                   <StatusBadge kind="request" value={req.status} />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
                     {req.client} · {req.department}
@@ -242,7 +250,7 @@ export function EngineerView({
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                <p className="text-xs text-[#888888]">{req.structuredName ? maskRequestSequence(req.structuredName) : "Sin folio"}</p>
 
                 {/* Motivo de corrección */}
                 {req.correctionReason ? (

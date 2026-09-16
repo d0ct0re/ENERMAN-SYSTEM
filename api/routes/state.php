@@ -5,81 +5,50 @@ declare(strict_types=1);
 if ($action === 'save_state') {
     requireAuth();
     $data = readJson();
-    foreach (['users', 'projects', 'requests', 'notifications'] as $key) {
+    foreach (['projects', 'requests', 'notifications'] as $key) {
         if (!isset($data[$key]) || !is_array($data[$key])) {
             throw new RuntimeException("Falta arreglo {$key}.");
         }
     }
 
-    // Preserve passwords — bootstrap strips them so they don't come back from the frontend
-    $beforeUsers = tableRows('app_users');
     $beforeProjects = tableRows('projects');
     // NOTA: requests NO se sincronizan aquí. save_state hace DELETE masivo ("id NOT IN ?")
     // lo que en un entorno multi-usuario destruye solicitudes de otros usuarios antes de que
     // el polling las traiga. Las solicitudes se gestionan sólo por endpoints atómicos:
     // create_request / update_request / delete_request.
+    // NOTA (2026-09-14): usuarios (app_users) TAMPOCO se sincronizan aquí — mismo criterio.
+    // Antes este endpoint reescribía la fila completa del usuario en cada ciclo (~4s en
+    // cualquier pestaña abierta), y aunque se le agregaron protecciones por updatedAt, seguía
+    // siendo una fuente de riesgo para datos tan sensibles como el correo de acceso: cualquier
+    // condición de carrera ahí revierte o corrompe una cuenta real. Los usuarios se gestionan
+    // 100% por endpoints atómicos: create_user / update_user / delete_user. Las claves de
+    // notificación que antes viajaban "de rebote" en el objeto de usuario (dismissedNotifKeys,
+    // readNotifKeys, dismissedNotifIds, readNotifIds) ahora se guardan directo via
+    // update_notif_prefs — ver notifications.php.
 
     // Ingenieros no pueden crear proyectos nuevos — se filtran silenciosamente
     // (no rechazar con 403 porque el debounce del frontend dispara bajo sesión ingeniero
     //  después de que el admin ya guardó el proyecto vía save inmediato; rechazar rompe apiReady)
     $sessionUser = sessionUser();
     if (($sessionUser['role'] ?? '') === 'engineer') {
-        $existingIds = array_column($beforeProjects, 'id');
-        $data['projects'] = array_values(array_filter($data['projects'], function($p) use ($existingIds) {
-            return in_array($p['id'] ?? '', $existingIds, true);
+        $sessionUserId = $sessionUser['id'] ?? '';
+        // Mapa por id de la version en BD (fuente de verdad de createdBy/participants —
+        // nunca confiar en el payload entrante para decidir pertenencia, un cliente
+        // manipulado podria mandarse a si mismo como participante de cualquier proyecto).
+        $beforeById = [];
+        foreach ($beforeProjects as $bp) {
+            if (isset($bp['id'])) $beforeById[$bp['id']] = $bp;
+        }
+        // Antes solo se filtraban proyectos nuevos (que el ingeniero no puede crear). Un
+        // ingeniero podia incluir en su payload modificaciones a CUALQUIER proyecto existente
+        // y save_state las aplicaba sin checar pertenencia — igual que el hueco ya cerrado
+        // en update_project/add_project_comment/etc, pero por esta puerta trasera legado.
+        $data['projects'] = array_values(array_filter($data['projects'], function ($p) use ($beforeById, $sessionUserId) {
+            $pid = $p['id'] ?? '';
+            if (!isset($beforeById[$pid])) return false; // no puede crear proyectos nuevos
+            return canSeeProject($beforeById[$pid], $sessionUserId, 'engineer');
         }));
     }
-
-    $existingUsers = tableRows('app_users');
-    $pwMap        = [];
-    $roleMap      = [];
-    $notifPrefsMap = [];
-    foreach ($existingUsers as $eu) {
-        $eid = $eu['id'] ?? null;
-        if (!$eid) continue;
-        if (isset($eu['password']))  $pwMap[$eid]   = $eu['password'];
-        if (isset($eu['role']))      $roleMap[$eid]  = ['role' => $eu['role'], 'roleLabel' => $eu['roleLabel'] ?? ''];
-        $notifPrefsMap[$eid] = [
-            'dismissedNotifKeys' => (array)($eu['dismissedNotifKeys'] ?? []),
-            'readNotifKeys'      => (array)($eu['readNotifKeys'] ?? []),
-            'dismissedNotifIds'  => (array)($eu['dismissedNotifIds']  ?? []),
-            'readNotifIds'       => (array)($eu['readNotifIds']       ?? []),
-        ];
-    }
-    $usersToSave = $data['users'];
-    foreach ($usersToSave as &$u) {
-        $uid = $u['id'] ?? '';
-        // Preservar contraseña desde la BD
-        if ($uid && isset($pwMap[$uid])) {
-            $u['password'] = $pwMap[$uid];
-        }
-        // Preservar rol desde la BD — los roles SOLO cambian via update_user_role
-        // Evita escalación de privilegios: cualquier usuario podría enviarse como system_admin
-        if ($uid && isset($roleMap[$uid])) {
-            $u['role']      = $roleMap[$uid]['role'];
-            $u['roleLabel'] = $roleMap[$uid]['roleLabel'];
-        }
-        // Fusionar prefs de notificación: BD + cliente → nunca perder claves ya guardadas
-        if ($uid && isset($notifPrefsMap[$uid])) {
-            $u['dismissedNotifKeys'] = array_values(array_unique(array_merge(
-                $notifPrefsMap[$uid]['dismissedNotifKeys'],
-                (array)($u['dismissedNotifKeys'] ?? [])
-            )));
-            $u['readNotifKeys'] = array_values(array_unique(array_merge(
-                $notifPrefsMap[$uid]['readNotifKeys'],
-                (array)($u['readNotifKeys'] ?? [])
-            )));
-            $u['dismissedNotifIds'] = array_values(array_unique(array_merge(
-                $notifPrefsMap[$uid]['dismissedNotifIds'],
-                (array)($u['dismissedNotifIds'] ?? [])
-            )));
-            $u['readNotifIds'] = array_values(array_unique(array_merge(
-                $notifPrefsMap[$uid]['readNotifIds'],
-                (array)($u['readNotifIds'] ?? [])
-            )));
-        }
-    }
-    unset($u);
 
     // Preserve fechaSolicitud (immutable) and recalculate IVA server-side
     $beforeProjectMap = [];
@@ -97,9 +66,18 @@ if ($action === 'save_state') {
             // (p.ej. admin via update_project) modificó este proyecto después del último
             // sync del cliente actual. En ese caso la BD gana para no revertir sus cambios.
             // Si el frontend es igual o más reciente, el frontend gana (caso normal).
+            // IMPORTANTE: comparar como TIEMPO real (strtotime), no como string. PHP emite
+            // '...+00:00' (gmdate('c')) y JS emite '...123Z' (toISOString()) — comparar los
+            // strings crudos hace que el de JS "gane" por formato cuando ambos caen en el
+            // mismo segundo, aunque el de PHP sea en realidad el más reciente. Esto causaba
+            // que ediciones atómicas (update_project) fueran revertidas por este safety-net
+            // unos segundos después, de forma intermitente (bug reportado: "a veces necesito
+            // Ctrl+R para ver los cambios de otro usuario").
             $frontendUpdatedAt = $proj['updatedAt'] ?? '';
             $dbUpdatedAt       = $before['updatedAt'] ?? '';
-            if (!empty($dbUpdatedAt) && !empty($frontendUpdatedAt) && $dbUpdatedAt > $frontendUpdatedAt) {
+            $dbTs = $dbUpdatedAt ? strtotime($dbUpdatedAt) : false;
+            $feTs = $frontendUpdatedAt ? strtotime($frontendUpdatedAt) : false;
+            if ($dbTs !== false && $feTs !== false && $dbTs > $feTs) {
                 // BD más reciente — preservar datos del otro usuario intactos
                 $proj = $before;
             } else {
@@ -129,6 +107,21 @@ if ($action === 'save_state') {
                     $proj['files'] = [];
                 }
             }
+            // Gastos, facturas, comentarios/historial, participantes y fechas importantes —
+            // todos tienen su propio endpoint atómico (add/delete_project_expense,
+            // add/update_project_invoice, add_project_comment, update_project). El merge de arriba solo compara el
+            // updatedAt DEL PROYECTO COMPLETO: si esta sesión hizo un cambio local distinto
+            // (ej. cambió la prioridad) DESPUÉS de que otra sesión agregó un gasto/factura/
+            // comentario pero ANTES de refrescar por polling, su updatedAt "gana" la comparación
+            // de arriba aunque su copia de estos arreglos esté desactualizada — y los pisaría
+            // con la versión vieja. Igual que files: la BD siempre gana para estos campos.
+            foreach (['expenses', 'invoices', 'comments', 'history', 'participants', 'importantDates'] as $atomicField) {
+                if (isset($before[$atomicField])) {
+                    $proj[$atomicField] = $before[$atomicField];
+                } elseif (empty($proj[$atomicField])) {
+                    $proj[$atomicField] = [];
+                }
+            }
         }
         // Recalculate IVA = totalSinIva * 0.16
         if (isset($proj['totalSinIva']) && is_numeric($proj['totalSinIva'])) {
@@ -136,15 +129,6 @@ if ($action === 'save_state') {
         }
     }
     unset($proj);
-
-    // ── Guardia anti-vaciado: rechaza solo si usuarios desaparecen (bug crítico) ──
-    // Los proyectos pueden llegar a 0 legítimamente cuando el gestor borra todos los de prueba.
-    // La eliminación real se hace vía delete_project (DELETE atómico por id), no por save_state.
-    if (count($usersToSave) === 0) {
-        http_response_code(400);
-        echo json_encode(['error' => 'SEGURIDAD: no se permite guardar 0 usuarios.'], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
 
     // Purgar entradas expiradas (>120s) del rastreador de eliminaciones recientes
     $now = time();
@@ -203,14 +187,13 @@ if ($action === 'save_state') {
 
     $pdo = db();
     $pdo->beginTransaction();
-    syncRows($pdo, 'app_users', $usersToSave);
     syncProjectRows($pdo, $projectsToSave);
     // Requests NO se sincronizan aquí — ver nota arriba.
+    // Usuarios NO se sincronizan aquí — ver nota arriba.
     // Notifications se gestionan por endpoints propios (create/delete/mark_read)
     // No se sincronizan aquí para evitar que múltiples sesiones se sobreescriban
     $pdo->commit();
 
-    logCollectionChanges('user', $beforeUsers, $usersToSave);
     logCollectionChanges('project', $beforeProjects, $projectsToSave);
 
     echo json_encode(['ok' => true]);

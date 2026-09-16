@@ -1,5 +1,13 @@
 import { ActivityLogItem, CommentItem, InvoiceItem, NotificationItem, ProjectExpenseItem, ProjectFileItem, ProjectHistoryItem, ProjectItem, RequestItem, UserItem } from "@/types";
 
+// Switches globales de "Funciones" (panel del Gestor del sistema). Al agregar un
+// switch nuevo, agregar su llave aca y el default correspondiente en el backend
+// (APP_SETTINGS_DEFAULTS en api/core/functions.php).
+export interface AppSettings {
+  facturasEnabled: boolean;
+  cobrosEnabled: boolean;
+}
+
 export interface AppStatePayload {
   users: UserItem[];
   projects: ProjectItem[];
@@ -7,6 +15,7 @@ export interface AppStatePayload {
   notifications: NotificationItem[];
   dismissedDateKeys?: string[];
   readDateKeys?: string[];
+  settings?: AppSettings;
 }
 
 export class SessionRequiredError extends Error {
@@ -56,7 +65,12 @@ export async function fetchAppState(): Promise<AppStatePayload> {
   return apiRequest<AppStatePayload>("bootstrap");
 }
 
-export async function saveAppState(payload: AppStatePayload): Promise<{ ok: true }> {
+// Usuarios YA NO viajan por save_state (2026-09-14) — se gestionan 100% por endpoints
+// atómicos (create_user/update_user/delete_user). Enviarlos aquí era la fuente del bug donde
+// un correo editado se revertía solo: este "respaldo" corre cada ~3s en cualquier pestaña
+// abierta, y reescribir la fila completa del usuario en cada ciclo es demasiado riesgoso para
+// un dato tan sensible como el correo de acceso.
+export async function saveAppState(payload: Omit<AppStatePayload, "users">): Promise<{ ok: true }> {
   return apiRequest<{ ok: true }>("save_state", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -140,6 +154,23 @@ export async function setSequenceCounter(value: number): Promise<void> {
   await apiRequest<{ ok: true }>("set_sequence_counter", {
     method: "POST",
     body: JSON.stringify({ value }),
+  });
+}
+
+/** Fija un switch de "Funciones" (solo gestor). Devuelve el set completo ya actualizado. */
+export async function setAppSetting(name: keyof AppSettings, value: boolean): Promise<AppSettings> {
+  const result = await apiRequest<{ ok: true; settings: AppSettings }>("set_app_setting", {
+    method: "POST",
+    body: JSON.stringify({ name, value }),
+  });
+  return result.settings;
+}
+
+/** Borra proyectos (folio < umbral o sin folio) y solicitudes huérfanas — irreversible. */
+export async function bulkDeleteBeforeFolio(folio: number): Promise<{ deletedProjects: number; deletedRequests: number }> {
+  return apiRequest<{ ok: true; deletedProjects: number; deletedRequests: number }>("bulk_delete_before_folio", {
+    method: "POST",
+    body: JSON.stringify({ folio, confirm: "ELIMINAR_PROYECTOS_ANTERIORES" }),
   });
 }
 
@@ -247,6 +278,23 @@ export async function createNotification(notification: NotificationItem): Promis
   });
 }
 
+/**
+ * Marca leído/descartado para el usuario actual en una notificación, de forma atómica
+ * (JSON_SET server-side sobre un solo campo). Usar esto — nunca createNotification — para
+ * leer/borrar: createNotification sobreescribe el payload completo, así que si dos personas
+ * actúan sobre la misma notificación compartida casi al mismo tiempo, la última en llegar
+ * borraría el cambio de la otra.
+ */
+export async function setNotificationRecipient(
+  notificationId: string,
+  state: { read: boolean; dismissedAt?: string | null },
+): Promise<void> {
+  await apiRequest<{ ok: true }>("set_notification_recipient", {
+    method: "POST",
+    body: JSON.stringify({ id: notificationId, read: state.read, dismissedAt: state.dismissedAt ?? null }),
+  });
+}
+
 export async function deleteNotification(id: string): Promise<void> {
   await apiRequest<{ ok: true }>("delete_notification", {
     method: "POST",
@@ -261,7 +309,12 @@ export async function markNotificationRead(id: string): Promise<void> {
   });
 }
 
-export async function updateNotifPrefs(opts: { dismissedDateKeys?: string[]; readDateKeys?: string[] }): Promise<void> {
+export async function updateNotifPrefs(opts: {
+  dismissedDateKeys?: string[];
+  readDateKeys?: string[];
+  dismissedNotifIds?: string[];
+  readNotifIds?: string[];
+}): Promise<void> {
   await apiRequest<{ ok: true }>("update_notif_prefs", {
     method: "POST",
     body: JSON.stringify(opts),
@@ -275,11 +328,18 @@ export async function markAllNotificationsRead(): Promise<void> {
   });
 }
 
-export async function uploadFile(projectId: string, file: File, category?: import("@/types").FileCategory): Promise<ProjectFileItem> {
+export async function uploadFile(
+  projectId: string,
+  file: File,
+  category?: import("@/types").FileCategory,
+  extra?: { displayName?: string; pagoId?: string },
+): Promise<ProjectFileItem> {
   const formData = new FormData();
   formData.append("project_id", projectId);
   formData.append("file", file);
   if (category) formData.append("category", category);
+  if (extra?.displayName) formData.append("display_name", extra.displayName);
+  if (extra?.pagoId) formData.append("pago_id", extra.pagoId);
 
   const response = await fetch(`${API_BASE_URL}/index.php?action=upload_file`, {
     method: "POST",
@@ -360,6 +420,17 @@ export async function deleteFile(fileId: string, projectId: string): Promise<voi
   await apiRequest<{ ok: true }>("delete_file", {
     method: "POST",
     body: JSON.stringify({ file_id: fileId, project_id: projectId }),
+  });
+}
+
+export async function setFileStatus(
+  projectId: string,
+  fileId: string,
+  status: import("@/types").FileStatus,
+): Promise<void> {
+  await apiRequest<{ ok: true }>("set_file_status", {
+    method: "POST",
+    body: JSON.stringify({ project_id: projectId, file_id: fileId, status }),
   });
 }
 

@@ -15,6 +15,25 @@ function db(): PDO
     return $pdo;
 }
 
+// Borra una carpeta y todo su contenido — usada al eliminar en bloque los archivos
+// subidos de un proyecto (uploads/projectra/{id}/). rmdir() nativo solo borra vacías.
+function deleteDirRecursive(string $dir): void
+{
+    if (!is_dir($dir)) return;
+    $items = scandir($dir);
+    if ($items === false) return;
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $path = $dir . '/' . $item;
+        if (is_dir($path)) {
+            deleteDirRecursive($path);
+        } else {
+            @unlink($path);
+        }
+    }
+    @rmdir($dir);
+}
+
 function readJson(): array
 {
     $raw  = file_get_contents('php://input');
@@ -57,6 +76,33 @@ function getUserNotifState(string $userId): array {
         'readIds'           => array_unique($readIds),
         'readDateKeys'      => array_unique($readDateKeys),
     ];
+}
+
+// ── Visibilidad de datos por rol ────────────────────────────────────────────
+// admin/system_admin/supervisor ven todo (regla de negocio ya usada en update_project
+// y replicada en el frontend: engineerCalendarProjects en App.tsx filtra exactamente
+// igual). engineer solo ve sus propios proyectos/solicitudes (creador o participante).
+// Antes de esto, bootstrap/poll mandaban TODOS los proyectos (financieros, clientes,
+// facturas) a CUALQUIER sesion autenticada y el frontend nomas los escondia — cualquiera
+// con la pestaña de red abierta veia la base de datos completa. Filtrar aqui es lo que
+// realmente protege el dato, no el filtro visual del cliente.
+function canSeeProject(array $project, string $userId, string $userRole): bool
+{
+    if (in_array($userRole, ['admin', 'system_admin', 'supervisor'], true)) {
+        return true;
+    }
+    if (($project['createdBy'] ?? '') === $userId) {
+        return true;
+    }
+    return in_array($userId, $project['participants'] ?? [], true);
+}
+
+function canSeeRequest(array $request, string $userId, string $userRole): bool
+{
+    if (in_array($userRole, ['admin', 'system_admin', 'supervisor'], true)) {
+        return true;
+    }
+    return ($request['createdBy'] ?? '') === $userId;
 }
 
 function tableRows(string $table): array
@@ -236,19 +282,21 @@ function syncRows(PDO $pdo, string $table, array $items): void
 // Igual que syncRows pero para proyectos: NO sobreescribe si la BD tiene un updatedAt más reciente.
 // Esto protege los cambios atómicos de apiUpdateProject cuando save_state llega con datos viejos
 // (ej. ingeniero en grace period que aún no recibió el cambio del admin por polling).
+//
+// La comparación se hace en PHP con strtotime(), NO como string en SQL: PHP emite
+// '...+00:00' (gmdate('c')) y JS emite '...123Z' (toISOString()), y comparar esos strings
+// crudos (ya sea en SQL con JSON_EXTRACT o con '>' en PHP) hacía que el timestamp de JS
+// "ganara" por formato cuando ambos caían en el mismo segundo, aunque el de PHP fuera en
+// realidad el más reciente — revirtiendo silenciosamente ediciones atómicas recientes.
 function syncProjectRows(PDO $pdo, array $items): void
 {
-    $ids  = [];
-    $stmt = $pdo->prepare(
+    $ids = [];
+    $selectStmt = $pdo->prepare("SELECT payload FROM projects WHERE id = :id LIMIT 1");
+    $upsertStmt = $pdo->prepare(
         "INSERT INTO projects (id, payload, sort_order, updated_at)
          VALUES (:id, :payload, :sort_order, NOW())
          ON DUPLICATE KEY UPDATE
-           payload    = IF(
-             COALESCE(JSON_UNQUOTE(JSON_EXTRACT(VALUES(payload), '$.updatedAt')), '') >=
-             COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload,         '$.updatedAt')), ''),
-             VALUES(payload),
-             payload
-           ),
+           payload    = VALUES(payload),
            sort_order = VALUES(sort_order),
            updated_at = NOW()"
     );
@@ -256,10 +304,26 @@ function syncProjectRows(PDO $pdo, array $items): void
         if (!isset($item['id'])) {
             throw new RuntimeException("Proyecto sin id.");
         }
-        $ids[] = (string) $item['id'];
-        $stmt->execute([
-            ':id'         => (string) $item['id'],
-            ':payload'    => json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        $id = (string) $item['id'];
+        $ids[] = $id;
+
+        $selectStmt->execute([':id' => $id]);
+        $currentPayloadRaw = $selectStmt->fetchColumn();
+        $payloadToWrite = $item;
+        if ($currentPayloadRaw !== false) {
+            $current = json_decode($currentPayloadRaw, true);
+            $currentUpdatedAt  = is_array($current) ? ($current['updatedAt'] ?? '') : '';
+            $incomingUpdatedAt = $item['updatedAt'] ?? '';
+            $currentTs  = $currentUpdatedAt  ? strtotime($currentUpdatedAt)  : false;
+            $incomingTs = $incomingUpdatedAt ? strtotime($incomingUpdatedAt) : false;
+            if ($currentTs !== false && $incomingTs !== false && $currentTs > $incomingTs) {
+                $payloadToWrite = $current; // BD más reciente — conservar, no revertir
+            }
+        }
+
+        $upsertStmt->execute([
+            ':id'         => $id,
+            ':payload'    => json_encode($payloadToWrite, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ':sort_order' => $i,
         ]);
     }
@@ -437,4 +501,101 @@ function getOrInitSequence(): int
     db()->prepare("INSERT INTO sequence_counters (name, value) VALUES ('projects', :v)")
         ->execute([':v' => $initial]);
     return $initial;
+}
+
+// ── Switches globales de "Funciones" (panel del Gestor del sistema) ───────────
+
+// Defaults centralizados — agregar un switch nuevo solo requiere una entrada aca
+// y su fila correspondiente en el panel "Funciones" de SystemAdminView.
+const APP_SETTINGS_DEFAULTS = [
+    'facturasEnabled' => false,
+    'cobrosEnabled'   => false,
+];
+
+function ensureSettingsTable(): void
+{
+    db()->exec(
+        "CREATE TABLE IF NOT EXISTS app_settings (
+            name       VARCHAR(80) NOT NULL PRIMARY KEY,
+            value      JSON        NOT NULL,
+            updated_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )"
+    );
+}
+
+/** Devuelve todos los switches con sus valores actuales, incluyendo los que aún no tienen fila (default). */
+function getAppSettings(): array
+{
+    ensureSettingsTable();
+    $settings = APP_SETTINGS_DEFAULTS;
+    $rows = db()->query("SELECT name, value FROM app_settings")->fetchAll();
+    foreach ($rows as $row) {
+        $settings[$row['name']] = json_decode($row['value'], true);
+    }
+    return $settings;
+}
+
+function setAppSetting(string $name, $value): void
+{
+    ensureSettingsTable();
+    $encoded = json_encode($value);
+    db()->prepare(
+        "INSERT INTO app_settings (name, value) VALUES (:n, :v)
+         ON DUPLICATE KEY UPDATE value = :v2"
+    )->execute([':n' => $name, ':v' => $encoded, ':v2' => $encoded]);
+}
+
+// ── Red de seguridad para borrado permanente ──────────────────────────────────
+
+function ensureDeletedArchiveTable(): void
+{
+    db()->exec(
+        "CREATE TABLE IF NOT EXISTS deleted_items_archive (
+            id              VARCHAR(50)  NOT NULL PRIMARY KEY,
+            entity_type     VARCHAR(20)  NOT NULL,
+            entity_id       VARCHAR(80)  NOT NULL,
+            payload         LONGTEXT     NOT NULL,
+            deleted_by      VARCHAR(80)  NULL,
+            deleted_by_name VARCHAR(255) NULL,
+            deleted_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_entity (entity_type, entity_id)
+        )"
+    );
+}
+
+/**
+ * Guarda una copia completa de un proyecto/solicitud ANTES de borrarlo para siempre.
+ * Mientras no exista un respaldo local/físico real, esta es la única forma de
+ * recuperar algo que se borró por error — se consulta a mano desde phpMyAdmin
+ * (tabla deleted_items_archive, columna payload).
+ */
+function archiveDeletedItem(string $entityType, string $entityId, array $payload): void
+{
+    ensureDeletedArchiveTable();
+    $actor = sessionUser();
+    db()->prepare(
+        "INSERT INTO deleted_items_archive (id, entity_type, entity_id, payload, deleted_by, deleted_by_name)
+         VALUES (:id, :type, :eid, :payload, :by, :byname)"
+    )->execute([
+        ':id'      => 'arch-' . bin2hex(random_bytes(12)),
+        ':type'    => $entityType,
+        ':eid'     => $entityId,
+        ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ':by'      => $actor['id'] ?? null,
+        ':byname'  => $actor['name'] ?? null,
+    ]);
+}
+
+/**
+ * Borra las notificaciones que apuntan a un proyecto/solicitud ya eliminado para
+ * siempre. Sin esto queda una "notificación fantasma": un ingeniero la ve, le hace
+ * clic, y el proyecto/solicitud ya no existe — la app no navega a ningún lado.
+ * $field es un nombre de campo fijo controlado en el código ('relatedProjectId' /
+ * 'relatedRequestId'), nunca input de usuario.
+ */
+function deleteNotificationsFor(string $field, string $entityId): void
+{
+    db()->prepare(
+        "DELETE FROM notifications WHERE JSON_UNQUOTE(JSON_EXTRACT(payload, :path)) = :id"
+    )->execute([':path' => '$.' . $field, ':id' => $entityId]);
 }

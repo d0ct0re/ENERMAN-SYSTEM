@@ -14,7 +14,7 @@ import { users as usersSeed } from "@/data/users";
 import { AdminView } from "@/features/admin/admin-view";
 import { EngineerView, EngineerTab } from "@/features/engineer/engineer-view";
 import { SupervisorView, SupervisorTab } from "@/features/supervisor/supervisor-view";
-import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead as apiMarkNotificationRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateNotifPrefs as apiUpdateNotifPrefs, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
+import { addProjectComment as apiAddProjectComment, addProjectExpense as apiAddProjectExpense, addProjectInvoice as apiAddProjectInvoice, AppSettings, bulkDeleteBeforeFolio as apiBulkDeleteBeforeFolio, bumpSequenceCounter as apiBumpSequence, createNotification as apiCreateNotification, createRequest as apiCreateRequest, createUser as apiCreateUser, deleteFile as apiDeleteFile, deleteNotification as apiDeleteNotification, deleteProject as apiDeleteProject, deleteProjectExpense as apiDeleteProjectExpense, deleteRequest as apiDeleteRequest, deleteUser as apiDeleteUser, downloadBackup, fetchActivityLogs, fetchAppState, getSequenceInfo as apiGetSequenceInfo, loginUser, logoutUser, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead as apiMarkNotificationRead, nextSequence as apiNextSequence, saveAppState, SessionRequiredError, setAppSetting as apiSetAppSetting, setFileStatus as apiSetFileStatus, setNotificationRecipient as apiSetNotificationRecipient, setSequenceCounter as apiSetSequenceCounter, switchSession as apiSwitchSession, updateNotifPrefs as apiUpdateNotifPrefs, updateProject as apiUpdateProject, updateProjectInvoice as apiUpdateProjectInvoice, updateRequest as apiUpdateRequest, updateUser as apiUpdateUser, uploadFile } from "@/lib/api";
 
 // ── Caché local: guarda el último estado conocido en localStorage ──────────────
 const CACHE_KEY = "amper-state-v1";
@@ -25,6 +25,9 @@ const CACHE_TTL = 48 * 60 * 60 * 1000; // 48 horas
 // La clave base es: important-date-{projectId}-{itemId}
 const DISMISSED_DATE_KEYS_KEY = "amper-dismissed-date-notifs";
 const READ_DATE_KEYS_KEY      = "amper-read-date-notifs";
+// Respaldo local (independiente de red) de notificaciones regulares eliminadas — evita que
+// reaparezcan tras un refresh/reconexión si el delete al servidor falló silenciosamente.
+const DISMISSED_NOTIF_IDS_KEY = "amper-dismissed-notif-ids";
 const loadLocalSet = (key: string): Set<string> => {
   try { return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]); }
   catch { return new Set(); }
@@ -50,8 +53,8 @@ function loadStateCache(): { ts: number; payload: import("@/lib/api").AppStatePa
 }
 import { realtime } from "@/lib/realtime";
 import { buildStructuredName, formatLocalDateKey } from "@/lib/utils";
-import { ActivityLogItem, NotificationItem, ProjectItem, RequestItem, RoleKey, UserItem } from "@/types";
-const splashLogoUrl = "/logo%20entrada.png";
+import { ActivityLogItem, NotificationItem, NotificationRecipientState, ProjectItem, RequestItem, RoleKey, UserItem } from "@/types";
+const splashLogoUrl = "/logo-entrada.jpg";
 const wordmarkLogoUrl = "/logo.png";
 
 type AdminTab = "review" | "allprojects" | "active" | "completed" | "cancelled" | "unpaid" | "rejected" | "correction" | "calendar" | "users" | "projects" | "requests" | "activity" | "cobros";
@@ -93,11 +96,18 @@ export default function App(): JSX.Element {
   const [loginEmail, setLoginEmail] = useState("");
   const [isOffline, setIsOffline] = useState(false);
   const [offlineSince, setOfflineSince] = useState<Date | null>(null);
+  // true cuando otra pestaña de este navegador inició sesión con otra cuenta — al compartir
+  // la cookie de PHP, esta pestaña quedó autenticada como alguien más sin saberlo.
+  const [sessionMismatch, setSessionMismatch] = useState(false);
   const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
   const [dismissedDateKeys, setDismissedDateKeys] = useState<Set<string>>(() => loadLocalSet(DISMISSED_DATE_KEYS_KEY));
   const [readDateKeys, setReadDateKeys] = useState<Set<string>>(() => loadLocalSet(READ_DATE_KEYS_KEY));
+  const [dismissedNotifIdsLocal, setDismissedNotifIdsLocal] = useState<Set<string>>(() => loadLocalSet(DISMISSED_NOTIF_IDS_KEY));
   // Contador de consecutivos — estado para el panel del gestor
   const [sequenceInfo, setSequenceInfo] = useState<{ current: number; next: number; display: string } | null>(null);
+  // Switches globales de "Funciones" (panel del Gestor) — default apagado hasta que
+  // llegue el bootstrap/poll real, para que nunca se muestre algo que debería estar oculto.
+  const [appSettings, setAppSettings] = useState<AppSettings>({ facturasEnabled: false, cobrosEnabled: false });
   // Timestamp de la última mutación local (global). Protege allIds-filtering durante grace period.
   const lastMutationAt = useRef(0);
   // Grace period por proyecto: solo bloquea updates del proyecto específico que se acaba de mutar,
@@ -216,14 +226,32 @@ export default function App(): JSX.Element {
   }, [projects, users, dismissedDateKeys, readDateKeys]);
 
   const allNotifications = [...notifications, ...dueImportantDateNotifications];
-  const visibleNotifications = allNotifications.filter((notification) => {
-    // Si es una notificación de fecha guardada en BD, aplicar el mismo filtro de dismiss que las computadas
-    if (notification.id.startsWith("important-date-")) {
-      const baseKey = notification.id.replace(/-\d{4}-\d{2}-\d{2}$/, "");
-      if (dismissedDateKeys.has(baseKey)) return false;
-    }
-    return notification.userIds ? notification.userIds.includes(activeUser.id) : notification.role === activeRole;
-  });
+  const visibleNotifications = allNotifications
+    .filter((notification) => {
+      // Si es una notificación de fecha guardada en BD, aplicar el mismo filtro de dismiss que las computadas
+      if (notification.id.startsWith("important-date-")) {
+        const baseKey = notification.id.replace(/-\d{4}-\d{2}-\d{2}$/, "");
+        if (dismissedDateKeys.has(baseKey)) return false;
+      }
+      const mine = notification.userIds ? notification.userIds.includes(activeUser.id) : notification.role === activeRole;
+      if (!mine) return false;
+      // Rediseño: el estado de leído/borrado por usuario vive DENTRO de la notificación
+      // (`recipients`) — fuente de verdad única, sin filas-marcador sueltas.
+      const myState = notification.recipients?.[activeUser.id];
+      if (myState) {
+        if (myState.dismissedAt) return false;
+      } else if (dismissedNotifIdsLocal.has(notification.id)) {
+        // Fallback solo para notificaciones creadas antes del rediseño (sin `recipients`).
+        return false;
+      }
+      return true;
+    })
+    .map((notification) => {
+      const myState = notification.recipients?.[activeUser.id];
+      return myState ? { ...notification, isRead: myState.read } : notification;
+    })
+    // Más recientes arriba, sin importar el orden de llegada (bootstrap/poll/reconexión).
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const adminReviewRequests = filteredRequests.filter((request) => request.status === "under-review");
   const adminRejectedRequests = filteredRequests.filter((request) => request.status === "rejected");
   const adminCorrectionRequests = filteredRequests.filter((request) => request.status === "needs-correction");
@@ -251,6 +279,7 @@ export default function App(): JSX.Element {
         setProjects(payload.projects);
         setRequests(payload.requests);
         setNotifications(payload.notifications);
+        if (payload.settings) setAppSettings(payload.settings);
         // Merge dismissed date keys del servidor con los de localStorage
         if (payload.dismissedDateKeys && payload.dismissedDateKeys.length > 0) {
           setDismissedDateKeys(prev => {
@@ -339,6 +368,10 @@ export default function App(): JSX.Element {
       return;
     }
     realtime.start();
+    realtime.setExpectedUser(activeUser.id);
+    const unsubSessionMismatch = realtime.onSessionMismatch(() => {
+      setSessionMismatch(true);
+    });
 
     const MUTATION_GRACE_MS = 8000;
     const withinGrace = () => Date.now() - lastMutationAt.current < MUTATION_GRACE_MS;
@@ -496,6 +529,12 @@ export default function App(): JSX.Element {
       }
     });
 
+    // Switches globales de "Funciones" — que un cambio del Gestor se refleje en las
+    // demás sesiones abiertas (admin/supervisor viendo Fase 4) sin recargar la página.
+    const unsubSettings = realtime.onSettingsUpdate((settings) => {
+      setAppSettings(prev => ({ ...prev, ...(settings as Partial<AppSettings>) }));
+    });
+
     // ── Detección de conectividad ─────────────────────────────────────────────
     const unsubStatus = realtime.onStatus((online) => {
       setIsOffline(!online);
@@ -519,9 +558,11 @@ export default function App(): JSX.Element {
       unsubProjects();
       unsubRequests();
       unsubNotifs();
+      unsubSettings();
       unsubStatus();
+      unsubSessionMismatch();
     };
-  }, [isLoggedOut, apiReady]);
+  }, [isLoggedOut, apiReady, activeUser.id]);
 
   useEffect(() => {
     if (!hasHydrated || !apiReady) {
@@ -529,9 +570,10 @@ export default function App(): JSX.Element {
     }
 
     const timeoutId = window.setTimeout(() => {
-      // save_state es ahora red de seguridad (full sync) — las mutaciones críticas usan
-      // endpoints atómicos (update_project, update_request, create_request, etc.)
-      saveAppState({ users, projects, requests, notifications }).catch((err: unknown) => {
+      // save_state es ahora red de seguridad (full sync) para proyectos — las mutaciones
+      // críticas usan endpoints atómicos (update_project, update_request, create_request,
+      // etc.). Usuarios YA NO viajan aquí (ver nota en saveAppState/api.ts).
+      saveAppState({ projects, requests, notifications }).catch((err: unknown) => {
         if (err instanceof SessionRequiredError) {
           // Sesión PHP expirada o desincronizada — forzar re-login
           logoutUser().catch(() => undefined);
@@ -547,13 +589,24 @@ export default function App(): JSX.Element {
     }, 3000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [apiReady, hasHydrated, notifications, projects, requests, users]);
+  }, [apiReady, hasHydrated, notifications, projects, requests]);
 
   const openProjectById = (projectId: string): void => {
+    // Defensa contra notificaciones "fantasma" — si el proyecto ya fue eliminado
+    // (permanentemente o por otra sesión), avisar en vez de abrir un diálogo vacío
+    // que no hace nada visible.
+    if (!projects.some((p) => p.id === projectId)) {
+      setToastMessage("Este proyecto ya no existe — fue eliminado.");
+      return;
+    }
     setSelectedProjectId(projectId);
   };
 
   const openRequestById = (requestId: string): void => {
+    if (!requests.some((r) => r.id === requestId)) {
+      setToastMessage("Esta solicitud ya no existe — fue eliminada.");
+      return;
+    }
     setSelectedRequestId(requestId);
   };
 
@@ -570,25 +623,50 @@ export default function App(): JSX.Element {
       setSelectedRequestId(null);
       setNewProjectOpen(false);
       setNewRequestOpen(false);
-      if (!apiReady) {
-        try {
-          const payload = await fetchAppState();
-          setUsers(normalizeUsers(payload.users.length > 0 ? payload.users : usersSeed));
-          setProjects(payload.projects);
-          setRequests(payload.requests);
-          setNotifications(payload.notifications);
-          setApiReady(true);
-        } catch {
-          // keep seed data; DB not reachable after login
-        }
+      // Siempre refrescar desde el servidor al iniciar sesión — no solo la primera vez.
+      // Antes esto se saltaba si apiReady ya era true (típico al volver a loguear tras un
+      // fullLogout, o al cambiar de cuenta), dejando en memoria la lista de usuarios/proyectos
+      // vieja de ANTES del logout — por eso un cambio de rol hecho por el Gestor mientras el
+      // usuario no tenía sesión no se reflejaba hasta un refresh manual del navegador (F5).
+      try {
+        const payload = await fetchAppState();
+        setUsers(normalizeUsers(payload.users.length > 0 ? payload.users : usersSeed));
+        setProjects(payload.projects);
+        setRequests(payload.requests);
+        setNotifications(payload.notifications);
+        setApiReady(true);
+      } catch {
+        // keep seed/cached data; DB not reachable after login
       }
       return null;
     } catch (err) {
-      if (err instanceof Error && err.message && err.message !== "Credenciales incorrectas.") {
-        return "No se pudo conectar con el servidor. Intenta de nuevo.";
+      // Antes: cualquier mensaje distinto a "Credenciales incorrectas." (ej. el aviso real
+      // de rate limit "Demasiados intentos fallidos. Espera X minuto(s).") se reemplazaba por
+      // un genérico "no se pudo conectar con el servidor" — ocultando la razón real (bloqueo
+      // temporal por intentos fallidos) y haciéndolo parecer una caída del sistema.
+      // Ahora: se muestra el mensaje específico del servidor cuando existe, y el genérico
+      // solo queda para fallos de red reales (fetch nunca llegó a responder).
+      const isRealServerMessage =
+        err instanceof Error && !!err.message && err.message !== "Failed to fetch" && !/^API error \d+$/.test(err.message);
+      if (isRealServerMessage) {
+        return (err as Error).message;
       }
-      return "Revisa el correo y la contrasena.";
+      return "No se pudo conectar con el servidor. Intenta de nuevo.";
     }
+  };
+
+  // Cierre de sesión completo — servidor, estado local y caché de disco. El sistema solo
+  // soporta una sesión real por navegador (PHP), así que "cambiar de cuenta" o "agregar cuenta"
+  // deben tratarse siempre como esto: nunca queda una segunda cuenta "guardada" a la que se
+  // pueda saltar sin contraseña, ni datos en caché de la cuenta anterior mostrándose por error.
+  const fullLogout = (): void => {
+    logoutUser().catch(() => undefined);
+    realtime.stop();
+    setSignedInUserIds([]);
+    setActiveUserId(null);
+    window.localStorage.removeItem(CACHE_KEY);
+    setCacheTimestamp(null);
+    setShowLogin(true);
   };
 
   const handleLogout = (): void => {
@@ -597,12 +675,7 @@ export default function App(): JSX.Element {
       return;
     }
 
-    logoutUser().catch(() => undefined);
-    setSignedInUserIds((current) => {
-      const next = current.filter((userId) => userId !== activeUserId);
-      setActiveUserId(next[0] ?? null);
-      return next;
-    });
+    fullLogout();
     setSearchQuery("");
     setSelectedProjectId(null);
     setSelectedRequestId(null);
@@ -652,10 +725,80 @@ export default function App(): JSX.Element {
     }
   };
 
-  // Agrega una notificación al estado local y la persiste en la BD de forma inmediata
+  const handleSetAppSetting = async (name: keyof AppSettings, value: boolean): Promise<void> => {
+    const previous = appSettings;
+    setAppSettings((prev) => ({ ...prev, [name]: value })); // optimista
+    try {
+      const settings = await apiSetAppSetting(name, value);
+      setAppSettings(settings);
+    } catch (err) {
+      setAppSettings(previous);
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setToastMessage(`Error al guardar el switch: ${msg}`);
+    }
+  };
+
+  // Limpieza de datos de prueba — irreversible. Tras borrar en el servidor, se recarga todo
+  // el estado desde el servidor en vez de intentar reconciliar arrays locales a mano.
+  const handleBulkDeleteBeforeFolio = async (folio: number): Promise<{ deletedProjects: number; deletedRequests: number }> => {
+    const result = await apiBulkDeleteBeforeFolio(folio);
+    const payload = await fetchAppState();
+    setUsers(normalizeUsers(payload.users.length > 0 ? payload.users : usersSeed));
+    setProjects(payload.projects);
+    setRequests(payload.requests);
+    setNotifications(payload.notifications);
+    saveStateCache(payload);
+    setCacheTimestamp(Date.now());
+    return result;
+  };
+
+  // Ventana para agrupar eventos repetidos del mismo `groupKey` (ej. chat de un proyecto) en
+  // una sola notificación que se actualiza, en vez de una fila nueva por cada evento.
+  const NOTIF_GROUP_WINDOW_MS = 15 * 60 * 1000;
+
+  // Agrega una notificación al estado local y la persiste en la BD de forma inmediata.
+  // Rediseño 2026-09: el estado por destinatario (leído/descartado) vive DENTRO de la propia
+  // notificación (`recipients`), no en filas-marcador aparte — ver artefacto
+  // "Rediseño de Notificaciones". Si `notif.groupKey` coincide con una notificación reciente
+  // sin resolver, se actualiza esa fila (suma occurrenceCount, reabre como no leída) en vez
+  // de crear una nueva — así 10 mensajes de chat seguidos no son 10 notificaciones sueltas.
   const addNotification = (notif: NotificationItem): void => {
-    setNotifications((current) => [notif, ...current]);
-    if (apiReady) apiCreateNotification(notif).catch((err) =>
+    const targets = notif.userIds ?? [];
+    if (notif.groupKey) {
+      const existing = notifications.find((n) =>
+        n.groupKey === notif.groupKey &&
+        Date.now() - new Date(n.updatedAt ?? n.createdAt).getTime() < NOTIF_GROUP_WINDOW_MS,
+      );
+      if (existing) {
+        // Un evento nuevo que se agrupa aquí es contenido genuinamente nuevo — si alguien ya
+        // había borrado esta notificación, se le vuelve a mostrar (igual que un chat: mensajes
+        // nuevos después de "borrar la conversación" sí deben avisar de nuevo). Esto NO es el
+        // bug de "lo que borré regresa" — es información distinta a la que borró.
+        const recipients = { ...existing.recipients };
+        for (const uid of targets) {
+          recipients[uid] = { read: false, dismissedAt: null };
+        }
+        const updated: NotificationItem = {
+          ...existing,
+          title: notif.title,
+          description: notif.description,
+          occurrenceCount: (existing.occurrenceCount ?? 1) + 1,
+          updatedAt: notif.createdAt,
+          isRead: false,
+          recipients,
+        };
+        setNotifications((current) => current.map((n) => (n.id === existing.id ? updated : n)));
+        if (apiReady) apiCreateNotification(updated).catch((err) =>
+          notifySaveError("No se pudo actualizar la notificación en el servidor", err),
+        );
+        return;
+      }
+    }
+    const recipients: Record<string, NotificationRecipientState> = {};
+    for (const uid of targets) recipients[uid] = { read: false, dismissedAt: null };
+    const fresh: NotificationItem = { ...notif, updatedAt: notif.createdAt, occurrenceCount: 1, recipients };
+    setNotifications((current) => [fresh, ...current]);
+    if (apiReady) apiCreateNotification(fresh).catch((err) =>
       notifySaveError("No se pudo guardar la notificación en el servidor", err),
     );
   };
@@ -669,30 +812,36 @@ export default function App(): JSX.Element {
         saveLocalSet(READ_DATE_KEYS_KEY, next);
         return next;
       });
-      // Tercera capa: actualizar el objeto del usuario para que save_state persista el key.
-      setUsers(prev => prev.map(u => {
-        if (u.id !== activeUser.id) return u;
-        const keys = new Set(u.readNotifKeys ?? []);
-        keys.add(baseKey);
-        return { ...u, readNotifKeys: [...keys] };
-      }));
       if (apiReady) apiUpdateNotifPrefs({ readDateKeys: [baseKey] }).catch((err) =>
         notifySaveError("No se pudo guardar la notificación leída", err),
       );
     } else {
+      const notif = notifications.find((n) => n.id === notificationId);
+      if (notif?.recipients) {
+        // Atómico server-side (JSON_SET) — no un upsert de todo el payload: si otro admin
+        // toca esta misma notificación compartida casi al mismo tiempo, un upsert completo
+        // pisaría su cambio con la copia local (posiblemente vieja) de este cliente.
+        const mine = notif.recipients[activeUser.id];
+        const nextState = { read: true, dismissedAt: mine?.dismissedAt ?? null };
+        const recipients = { ...notif.recipients, [activeUser.id]: nextState };
+        setNotifications((current) => current.map((n) => (n.id === notificationId ? { ...n, isRead: true, recipients } : n)));
+        if (apiReady) apiSetNotificationRecipient(notificationId, nextState).catch((err) =>
+          notifySaveError("No se pudo guardar la notificación como leída", err),
+        );
+        return;
+      }
+      // Fallback: notificación creada antes del rediseño (sin `recipients`).
       setNotifications((current) =>
         current.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
       );
-      // Tercera capa: persistir readNotifIds vía save_state.
-      setUsers(prev => prev.map(u => {
-        if (u.id !== activeUser.id) return u;
-        const ids = new Set(u.readNotifIds ?? []);
-        ids.add(notificationId);
-        return { ...u, readNotifIds: [...ids] };
-      }));
-      if (apiReady) apiMarkNotificationRead(notificationId).catch((err) =>
-        notifySaveError("No se pudo guardar la notificación como leída", err),
-      );
+      if (apiReady) {
+        apiMarkNotificationRead(notificationId).catch((err) =>
+          notifySaveError("No se pudo guardar la notificación como leída", err),
+        );
+        // Respaldo directo — antes se dejaba en el estado local de `users` para que
+        // save_state lo arrastrara; usuarios ya no pasan por ahí (2026-09-14).
+        apiUpdateNotifPrefs({ readNotifIds: [notificationId] }).catch(() => undefined);
+      }
     }
   };
 
@@ -858,14 +1007,21 @@ export default function App(): JSX.Element {
       return;
     }
 
-    // Consecutivo atómico del servidor — evita duplicados si dos admins aprueban al mismo tiempo
-    let serverSeq: string;
-    try {
-      serverSeq = await apiNextSequence();
-    } catch {
-      serverSeq = getNextSequence(requests, projects);
+    // Consecutivo atómico del servidor — SOLO si la solicitud no trae ya el suyo propio
+    // (se reserva desde que se crea, ver handleCreateRequest). Antes esto llamaba a
+    // next_sequence SIEMPRE, incluso cuando el resultado se iba a descartar dos líneas
+    // abajo — eso quemaba un folio real del contador global en cada aprobación de una
+    // solicitud que ya tenía número, sin usarlo nunca (folios que "desaparecían").
+    let nextSequence: string;
+    if (requestToApprove.sequence) {
+      nextSequence = requestToApprove.sequence;
+    } else {
+      try {
+        nextSequence = await apiNextSequence();
+      } catch {
+        nextSequence = getNextSequence(requests, projects);
+      }
     }
-    const nextSequence = serverSeq;
     const linkedProjectId = requestToApprove.linkedProjectId ?? crypto.randomUUID();
     const approvedStructuredName = requestToApprove.sequence
       ? requestToApprove.structuredName
@@ -1236,6 +1392,9 @@ export default function App(): JSX.Element {
       createdAt: new Date().toISOString(),
       isRead: false,
       relatedProjectId: projectId,
+      // Agrupa mensajes seguidos del mismo proyecto en una sola notificación (15 min) en vez
+      // de una fila nueva por cada mensaje — antes esto era el mayor generador de volumen.
+      groupKey: `chat:${projectId}`,
     });
   };
 
@@ -1435,17 +1594,23 @@ export default function App(): JSX.Element {
     };
 
     setUsers((current) => [newUser, ...current]);
-    setToastMessage("Usuario creado");
 
-    void apiCreateUser({ ...newUser, password: password ?? "ASBT2026!" }).catch((err) =>
-      notifySaveError("El usuario se creó localmente pero no se pudo guardar en el servidor", err),
-    );
+    apiCreateUser({ ...newUser, password: password ?? "ASBT2026!" })
+      .then((confirmed) => {
+        setUsers((current) => current.map((user) => (user.id === userId ? { ...user, ...confirmed } : user)));
+        setToastMessage("Usuario creado");
+      })
+      .catch((err) => {
+        // No se creó de verdad — quitarlo, no dejar un usuario "fantasma" solo en pantalla.
+        setUsers((current) => current.filter((user) => user.id !== userId));
+        notifySaveError("No se pudo crear el usuario en el servidor", err);
+      });
   };
 
-  const handleUpdateUser = (
+  const handleUpdateUser = async (
     userId: string,
     payload: Pick<UserItem, "firstName" | "lastName" | "email" | "department" | "role" | "isActive" | "password">,
-  ): void => {
+  ): Promise<void> => {
     const fullName = `${payload.firstName ?? ""} ${payload.lastName ?? ""}`.trim();
     const initials =
       fullName
@@ -1456,7 +1621,10 @@ export default function App(): JSX.Element {
         .toUpperCase() || "US";
 
     const { password, ...payloadWithoutPassword } = payload;
+    const previous = users.find((user) => user.id === userId);
 
+    // Optimista para que se sienta inmediato, pero YA NO es la palabra final — cuando el
+    // servidor responda, su versión (correo normalizado, etc.) pisa esta.
     setUsers((current) =>
       current.map((user) =>
         user.id === userId
@@ -1471,11 +1639,21 @@ export default function App(): JSX.Element {
           : user,
       ),
     );
-    setToastMessage("Usuario actualizado");
 
-    void apiUpdateUser(userId, { ...payloadWithoutPassword, ...(password ? { password } : {}) }).catch((err) =>
-      notifySaveError("No se pudo guardar los cambios del usuario en el servidor", err),
-    );
+    try {
+      const confirmed = await apiUpdateUser(userId, { ...payloadWithoutPassword, ...(password ? { password } : {}) });
+      // La BD es la autoridad — reemplaza el optimista por lo que el servidor de verdad guardó.
+      setUsers((current) => current.map((user) => (user.id === userId ? { ...user, ...confirmed } : user)));
+      setToastMessage("Usuario actualizado");
+    } catch (err) {
+      // Revertir: si no se guardó, la pantalla no debe seguir mostrando el cambio como si
+      // hubiera quedado — eso fue justo lo confuso del bug anterior.
+      if (previous) {
+        setUsers((current) => current.map((user) => (user.id === userId ? previous : user)));
+      }
+      notifySaveError("No se pudo guardar los cambios del usuario en el servidor", err);
+      throw err;
+    }
   };
 
   const handleDeleteUser = async (userId: string): Promise<void> => {
@@ -1636,9 +1814,16 @@ export default function App(): JSX.Element {
     // Retry incluido: si Hostinger corta la conexión, el segundo intento lo corrige.
     if (apiReady) {
       const bump = () => apiBumpSequence(Number.parseInt(sequence, 10));
-      bump().catch(() => setTimeout(() => bump().catch((err) =>
-        notifySaveError("No se pudo actualizar el consecutivo de folios", err),
-      ), 2000));
+      bump()
+        .then(() => {
+          // Refrescar el panel "Gestión de Consecutivos" (y el campo Consecutivo del alta
+          // manual) para que muestren el folio real ya actualizado, no el valor previo a
+          // esta alta — evita la confusión de ver "Siguiente folio" desactualizado.
+          if (activeRole === "system_admin") apiGetSequenceInfo().then(setSequenceInfo).catch(() => undefined);
+        })
+        .catch(() => setTimeout(() => bump().catch((err) =>
+          notifySaveError("No se pudo actualizar el consecutivo de folios", err),
+        ), 2000));
     }
   };
 
@@ -1705,6 +1890,9 @@ export default function App(): JSX.Element {
     permanentlyDeletedRequestIds.current.add(requestId);
     window.setTimeout(() => permanentlyDeletedRequestIds.current.delete(requestId), 300_000);
     setRequests((current) => current.filter((request) => request.id !== requestId));
+    // Quitar de inmediato las notificaciones que apuntaban a esta solicitud — mismo
+    // fix que en handlePermanentDeleteProject, evita la "notificación fantasma".
+    setNotifications((current) => current.filter((n) => n.relatedRequestId !== requestId));
     setSelectedRequestId(null);
     setToastMessage("Solicitud eliminada");
   };
@@ -1788,7 +1976,12 @@ export default function App(): JSX.Element {
     }
   };
 
-  const handleUploadFile = async (projectId: string, file: File, category?: import("@/types").FileCategory): Promise<void> => {
+  const handleUploadFile = async (
+    projectId: string,
+    file: File,
+    category?: import("@/types").FileCategory,
+    extra?: { displayName?: string; pagoId?: string },
+  ): Promise<void> => {
     const now = new Date().toISOString();
     // Marcar mutación ANTES del await para que el grace period cubra el polling
     // que pueda llegar mientras el archivo se está subiendo al servidor.
@@ -1796,7 +1989,7 @@ export default function App(): JSX.Element {
     lastProjectMutationAt.current.set(projectId, Date.now());
 
     try {
-      const fileItem = await uploadFile(projectId, file, category);
+      const fileItem = await uploadFile(projectId, file, category, extra);
       const newFileItem: import("@/types").ProjectFileItem = { ...fileItem, category };
 
       // Renovar el grace period al completar el upload
@@ -1815,7 +2008,7 @@ export default function App(): JSX.Element {
             updatedAt: now,
             files: [...project.files, newFileItem],
             history: [
-              { id: crypto.randomUUID(), createdAt: now, action: `Archivo subido: ${file.name}`, author: activeUser.name },
+              { id: crypto.randomUUID(), createdAt: now, action: `Archivo subido: ${fileItem.name}`, author: activeUser.name },
               ...project.history,
             ],
           };
@@ -1828,6 +2021,8 @@ export default function App(): JSX.Element {
         const categoryLabels: Record<string, string> = {
           fotos: "Fotos de evidencia", estimacion: "Estimación",
           cotizacion: "Cotización", reporte: "Reporte", otros: "Otro documento",
+          subcontratados: "Cotización de subcontratado", subcontratadosFacturas: "Factura de subcontratado",
+          pagoComprobante: "Comprobante de pago",
         };
         const categoryLabel = (category && categoryLabels[category]) || "Archivo";
         const gestorInvolved = new Set([uploadProject.createdBy, ...(uploadProject.participants ?? [])]);
@@ -1841,10 +2036,12 @@ export default function App(): JSX.Element {
             role: "admin",
             userIds: recipientIds,
             title: `Nuevo archivo subido: ${categoryLabel}`,
-            description: `${activeUser.name} subió "${file.name}" (${categoryLabel.toLowerCase()}) en ${uploadProject.structuredName ?? uploadProject.baseName}.`,
+            description: `${activeUser.name} subió "${fileItem.name}" (${categoryLabel.toLowerCase()}) en ${uploadProject.structuredName ?? uploadProject.baseName}.`,
             createdAt: now,
             isRead: false,
             relatedProjectId: projectId,
+            // Agrupa subidas seguidas del mismo proyecto en una sola notificación (15 min).
+            groupKey: `files:${projectId}`,
           });
         }
       }
@@ -1868,21 +2065,26 @@ export default function App(): JSX.Element {
     });
     const isLastInCategory = remainingInCat.length === 0;
 
-    // Mapeo correcto de categoría → campo de status (bug fix: "otros" → otrosFileStatus)
-    const statusFieldMap: Record<import("@/types").FileCategory, keyof import("@/types").ProjectItem> = {
+    // Mapeo correcto de categoría → campo de status (bug fix: "otros" → otrosFileStatus).
+    // Parcial: "pagoComprobante" (Fase 4) no tiene status de carpeta — vive por pago, no
+    // hay nada que resetear al borrar el último archivo de esa categoría.
+    const statusFieldMap: Partial<Record<import("@/types").FileCategory, keyof import("@/types").ProjectItem>> = {
       fotos:      "fotosStatus",
       estimacion: "estimacionFileStatus",
       cotizacion: "cotizacionFileStatus",
       reporte:    "reporteFileStatus",
       otros:      "otrosFileStatus",
+      subcontratados: "subcontratadosFileStatus",
+      subcontratadosFacturas: "subcontratadosFacturasFileStatus",
     };
+    const statusField = statusFieldMap[category];
 
     setProjects((current) =>
       current.map((project) => {
         if (project.id !== projectId) return project;
         const newFiles = (project.files ?? []).filter((f) => f.id !== fileId);
-        const resetFields: Partial<import("@/types").ProjectItem> = isLastInCategory
-          ? { [statusFieldMap[category]]: "no" }
+        const resetFields: Partial<import("@/types").ProjectItem> = isLastInCategory && statusField
+          ? { [statusField]: "no" }
           : {};
         return {
           ...project,
@@ -1903,11 +2105,69 @@ export default function App(): JSX.Element {
       );
       // Cuando se borra el último archivo de una sección, resetear el status atómicamente
       // para que otros usuarios vean el cambio de inmediato (no esperar save_state 3s).
-      if (isLastInCategory) {
-        apiUpdateProject(projectId, { [statusFieldMap[category]]: "no" } as Partial<import("@/types").ProjectItem>).catch((err) =>
+      if (isLastInCategory && statusField) {
+        apiUpdateProject(projectId, { [statusField]: "no" } as Partial<import("@/types").ProjectItem>).catch((err) =>
           notifySaveError("No se pudo actualizar el estado de la sección", err),
         );
       }
+    }
+  };
+
+  // Aprobación por archivo individual — la usan Subcontratados-Cotizaciones y
+  // Subcontratados-Facturas (la marca Administración en ambos casos).
+  const handleSetFileStatus = async (
+    projectId: string,
+    fileId: string,
+    status: import("@/types").FileStatus,
+  ): Promise<void> => {
+    lastMutationAt.current = Date.now();
+    lastProjectMutationAt.current.set(projectId, Date.now());
+
+    const targetProject = projects.find((p) => p.id === projectId);
+    const targetFile = targetProject?.files.find((f) => f.id === fileId);
+
+    setProjects((current) =>
+      current.map((project) => {
+        if (project.id !== projectId) return project;
+        return {
+          ...project,
+          files: (project.files ?? []).map((f) => (f.id === fileId ? { ...f, status } : f)),
+        };
+      }),
+    );
+
+    // Avisar a quien subió el archivo (creador + participantes del proyecto) cuando queda
+    // resuelto — antes de esto, Administración aprobaba/rechazaba en silencio y el ingeniero
+    // solo se enteraba si volvía a entrar al proyecto por su cuenta.
+    if (targetProject && targetFile && (status === "si" || status === "rechazado")) {
+      const now = new Date().toISOString();
+      const isFactura = targetFile.category === "subcontratadosFacturas";
+      const tipo = isFactura ? "Factura" : "Cotización";
+      const approvedWord = isFactura ? "pagada" : "aceptada";
+      const involvedIds = new Set([targetProject.createdBy, ...(targetProject.participants ?? [])]);
+      const recipientIds = [...involvedIds].filter((id) => id !== activeUser.id);
+      if (recipientIds.length > 0) {
+        addNotification({
+          id: crypto.randomUUID(),
+          role: "engineer",
+          userIds: recipientIds,
+          title: status === "si" ? `${tipo} de subcontratado ${approvedWord}` : `${tipo} de subcontratado rechazada`,
+          description: `${activeUser.name} marcó "${targetFile.name}" como ${status === "si" ? (isFactura ? "Pagada" : "Aceptada") : "Rechazada"} en ${targetProject.structuredName ?? targetProject.baseName}.`,
+          createdAt: now,
+          isRead: false,
+          relatedProjectId: projectId,
+          // Agrupa varias resoluciones seguidas del mismo proyecto Y categoría en una sola
+          // notificación (15 min) — separado por categoría para no mezclar "factura rechazada"
+          // con "cotización aceptada" en un mismo mensaje agrupado.
+          groupKey: `subcontratado-estatus:${targetFile.category}:${projectId}`,
+        });
+      }
+    }
+
+    if (apiReady) {
+      apiSetFileStatus(projectId, fileId, status).catch((err) =>
+        notifySaveError("No se pudo actualizar el estatus del archivo en el servidor", err),
+      );
     }
   };
 
@@ -1985,6 +2245,11 @@ export default function App(): JSX.Element {
     setRequests((current) =>
       current.map((r) => r.linkedProjectId === projectId ? { ...r, linkedProjectId: undefined } : r),
     );
+    // Quitar de inmediato las notificaciones que apuntaban a este proyecto — si no,
+    // se queda como "notificación fantasma" (visible pero sin nada a dónde navegar).
+    // El servidor las borra en el mismo delete_project, así otras sesiones dejan de
+    // verlas en su próximo bootstrap/refresh.
+    setNotifications((current) => current.filter((n) => n.relatedProjectId !== projectId));
     setSelectedProjectId(null);
     setToastMessage("Proyecto eliminado permanentemente");
     if (projectSnapshot) {
@@ -2035,6 +2300,27 @@ export default function App(): JSX.Element {
 
   return (
     <div className="dashboard-shell gap-6">
+      {/* ── Bloqueo: esta pestaña quedó con la sesión de otra cuenta ── */}
+      {sessionMismatch ? (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="max-w-md rounded-[24px] border border-[#F5A524]/30 bg-[#1E1E20] p-6 text-center shadow-panel">
+            <p className="text-lg font-bold text-[#F5A524]">Esta pestaña cambió de cuenta</p>
+            <p className="mt-2 text-sm text-[#A1A1AA]">
+              En otra pestaña de este navegador se inició sesión con otra cuenta y, al compartir
+              el inicio de sesión, esta pestaña ya no corresponde a {activeUser.name}. Recarga
+              para continuar con la cuenta correcta y evitar hacer cambios con permisos equivocados.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 w-full rounded-2xl bg-accent px-5 py-3 text-sm font-bold text-[#111111] transition hover:opacity-90"
+            >
+              Recargar página
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── Banner "sin conexión" — generador de emergencia ── */}
       {isOffline && (
         <div className="fixed inset-x-0 top-0 z-[9999] flex items-center justify-between gap-3 bg-[#1A0A00] px-4 py-2.5 text-sm shadow-lg border-b border-[#F5A524]/30">
@@ -2060,14 +2346,11 @@ export default function App(): JSX.Element {
         accounts={signedInAccounts}
         onAccountChange={(userId) => {
           if (userId !== activeUserId) {
-            // PHP solo soporta una sesión: cerrar la actual y pedir login del usuario seleccionado
+            // PHP solo soporta una sesión: cerrar la actual por completo y pedir
+            // contraseña del usuario seleccionado — nunca un salto silencioso.
             const targetUser = users.find((u) => u.id === userId);
-            logoutUser().catch(() => undefined);
-            realtime.stop();
+            fullLogout();
             setLoginEmail(targetUser?.email ?? "");
-            setSignedInUserIds([]);
-            setActiveUserId(null);
-            setShowLogin(true);
             return;
           }
           setSearchQuery("");
@@ -2076,12 +2359,35 @@ export default function App(): JSX.Element {
           setNewProjectOpen(false);
           setNewRequestOpen(false);
         }}
-        onAddAccount={() => setShowLogin(true)}
+        onAddAccount={() => {
+          // "Agregar cuenta" también cierra la sesión actual por completo: este sistema
+          // nunca mantiene dos cuentas abiertas a la vez en el mismo navegador.
+          fullLogout();
+          setLoginEmail("");
+        }}
         onLogout={handleLogout}
         notifications={visibleNotifications}
         projects={projects}
         onMarkAllRead={() => {
-          setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+          const myId = activeUser.id;
+          const touched: string[] = [];
+          setNotifications((prev) => prev.map((n) => {
+            if (n.recipients) {
+              const mine = n.recipients[myId];
+              const isMine = n.userIds ? n.userIds.includes(myId) : n.role === activeRole;
+              if (!isMine || mine?.read) return n;
+              touched.push(n.id);
+              return { ...n, isRead: true, recipients: { ...n.recipients, [myId]: { read: true, dismissedAt: mine?.dismissedAt ?? null } } };
+            }
+            return { ...n, isRead: true };
+          }));
+          // Rediseño: cada notificación con `recipients` se persiste con JSON_SET atómico
+          // (no un upsert de todo el payload — evita pisar el cambio de otro admin sobre la
+          // misma notificación compartida). apiMarkAllNotificationsRead() de abajo sigue
+          // cubriendo las notificaciones viejas sin `recipients`.
+          if (apiReady) touched.forEach((id) => {
+            apiSetNotificationRecipient(id, { read: true }).catch(() => undefined);
+          });
           // Marcar como leídas también las notificaciones de fecha visibles
           const next = new Set(readDateKeys);
           const newDateKeys: string[] = [];
@@ -2091,15 +2397,6 @@ export default function App(): JSX.Element {
           });
           setReadDateKeys(next);
           saveLocalSet(READ_DATE_KEYS_KEY, next);
-          if (newDateKeys.length > 0) {
-            // Tercera capa: persistir vía save_state actualizando el usuario en state.
-            setUsers(prev => prev.map(u => {
-              if (u.id !== activeUser.id) return u;
-              const keys = new Set(u.readNotifKeys ?? []);
-              newDateKeys.forEach(k => keys.add(k));
-              return { ...u, readNotifKeys: [...keys] };
-            }));
-          }
           if (apiReady) {
             apiMarkAllNotificationsRead().catch((err) =>
               notifySaveError("No se pudieron marcar todas las notificaciones como leídas", err),
@@ -2117,30 +2414,48 @@ export default function App(): JSX.Element {
             next.add(baseKey);
             setDismissedDateKeys(next);
             saveLocalSet(DISMISSED_DATE_KEYS_KEY, next);
-            // Tercera capa: actualizar el objeto del usuario en `users` para que
-            // save_state persista el key aunque apiUpdateNotifPrefs falle.
-            setUsers(prev => prev.map(u => {
-              if (u.id !== activeUser.id) return u;
-              const keys = new Set(u.dismissedNotifKeys ?? []);
-              keys.add(baseKey);
-              return { ...u, dismissedNotifKeys: [...keys] };
-            }));
             if (apiReady) apiUpdateNotifPrefs({ dismissedDateKeys: [baseKey] }).catch((err) =>
               notifySaveError("No se pudo descartar la notificación de fecha", err),
             );
           } else {
-            // Notificación regular (UUID): tercera capa vía save_state.
-            setUsers(prev => prev.map(u => {
-              if (u.id !== activeUser.id) return u;
-              const ids = new Set(u.dismissedNotifIds ?? []);
-              ids.add(id);
-              return { ...u, dismissedNotifIds: [...ids] };
-            }));
+            const notif = notifications.find((n) => n.id === id);
+            if (notif?.recipients) {
+              // Atómico server-side (JSON_SET) — igual que al marcar leído, para no pisar el
+              // cambio de otro admin sobre la misma notificación compartida.
+              const now = new Date().toISOString();
+              const nextState = { read: true, dismissedAt: now };
+              const recipients = { ...notif.recipients, [activeUser.id]: nextState };
+              setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, recipients } : n)));
+              if (apiReady) apiSetNotificationRecipient(id, nextState).catch((err) =>
+                notifySaveError("No se pudo eliminar la notificación en el servidor", err),
+              );
+              return;
+            }
+            // Fallback: notificación creada antes del rediseño (sin `recipients`) — conserva
+            // el camino viejo de marcador + localStorage hasta que caduque por antigüedad.
+            setDismissedNotifIdsLocal(prev => {
+              const next = new Set(prev);
+              next.add(id);
+              saveLocalSet(DISMISSED_NOTIF_IDS_KEY, next);
+              return next;
+            });
+            deletedNotificationIds.current.add(id);
+            window.setTimeout(() => { deletedNotificationIds.current.delete(id); }, 30_000);
+            setNotifications((prev) => prev.filter((n) => n.id !== id));
+            if (apiReady) {
+              apiDeleteNotification(id).catch((err) =>
+                notifySaveError("No se pudo eliminar la notificación en el servidor", err),
+              );
+              // Respaldo directo — antes se dejaba en el estado local de `users` para que
+              // save_state lo arrastrara; usuarios ya no pasan por ahí (2026-09-14).
+              apiUpdateNotifPrefs({ dismissedNotifIds: [id] }).catch(() => undefined);
+            }
+            return;
           }
-          // Registrar antes de limpiar: evita que el polling la re-agregue en los próximos 4s
+          // Rama de fecha importante: registrar antes de limpiar para que el polling no la
+          // re-agregue en los próximos 4s, igual que antes.
           deletedNotificationIds.current.add(id);
           window.setTimeout(() => { deletedNotificationIds.current.delete(id); }, 30_000);
-          // Siempre limpiar del estado local y de BD (puede haber quedado persistida por versión anterior)
           setNotifications((prev) => prev.filter((n) => n.id !== id));
           if (apiReady) apiDeleteNotification(id).catch((err) =>
             notifySaveError("No se pudo eliminar la notificación en el servidor", err),
@@ -2186,6 +2501,9 @@ export default function App(): JSX.Element {
           canManageUsers={activeRole === "system_admin"}
           sequenceInfo={sequenceInfo}
           onSetSequenceCounter={handleSetSequenceCounter}
+          appSettings={appSettings}
+          onSetAppSetting={handleSetAppSetting}
+          onBulkDeleteBeforeFolio={handleBulkDeleteBeforeFolio}
           onCreateProject={handleCreateProjectFromAdmin}
           onDeleteProject={handleDeleteProject}
           onRestoreProject={handleRestoreProject}
@@ -2213,7 +2531,7 @@ export default function App(): JSX.Element {
           requests={filteredRequests}
           users={users}
           onOpenProject={openProjectById}
-          onOpenNewRequest={() => setNewRequestOpen(true)}
+          onOpenRequest={openRequestById}
         />
       ) : null}
 
@@ -2268,12 +2586,14 @@ export default function App(): JSX.Element {
         canEditBudget={isAdminArea}
         canDeleteProject={activeRole === "system_admin"}
         canManageInvoices={isAdminArea}
+        facturasEnabled={appSettings.facturasEnabled}
         canAddExpense={isAdminArea || selectedProject?.createdBy === activeUser.id || (selectedProject?.participants ?? []).includes(activeUser.id)}
         onUpdateProject={handleUpdateProject}
         onAddComment={handleAddComment}
         onMessageSent={handleMessageSent}
         onUploadFile={handleUploadFile}
         onDeleteFile={handleDeleteFile}
+        onSetFileStatus={handleSetFileStatus}
         onDeleteProject={handleDeleteProject}
         onAddExpense={handleAddExpense}
         onDeleteExpense={handleDeleteExpense}
@@ -2350,6 +2670,8 @@ function SplashScreen({ onDone }: { onDone: () => void }): JSX.Element {
         <img
           src={splashLogoUrl}
           alt="AMPER"
+          width={1440}
+          height={960}
           className="h-auto w-[min(72vw,720px)] max-w-full object-contain"
           draggable={false}
         />
@@ -2402,6 +2724,8 @@ function LoginView({
               <img
                 src={wordmarkLogoUrl}
                 alt="AMPER"
+                width={640}
+                height={213}
                 className="block h-auto w-full"
                 draggable={false}
               />
@@ -2484,7 +2808,7 @@ function normalizeUsers(sourceUsers: UserItem[]): UserItem[] {
       firstName: incoming?.firstName ?? seed.firstName,
       lastName: incoming?.lastName ?? seed.lastName,
       name: `${incoming?.firstName ?? seed.firstName ?? ""} ${incoming?.lastName ?? seed.lastName ?? ""}`.trim() || incoming?.name || seed.name,
-      email: seed.email,
+      email: incoming?.email ?? seed.email,
       password: incoming?.password ?? seed.password,
       isActive: incoming?.isActive ?? seed.isActive ?? true,
     };

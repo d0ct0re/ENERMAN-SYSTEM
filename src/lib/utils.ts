@@ -128,6 +128,14 @@ export function getProjectSequence(project: Pick<ProjectItem, "structuredName">)
   return n >= 0 ? String(n).padStart(4, "0") : "—";
 }
 
+// La solicitud reserva un folio real desde que se crea (ver handleCreateRequest en App.tsx),
+// pero ese numero puede no coincidir con el que se vea "correcto" mientras la solicitud sigue
+// pendiente — mostrarlo como si ya fuera definitivo confunde a quien revisa. Se enmascara
+// como XXXX en toda vista de solo lectura hasta que la solicitud se aprueba y se vuelve proyecto.
+export function maskRequestSequence(structuredName: string): string {
+  return structuredName.replace(/^\d+/, "XXXX");
+}
+
 export function getRequestSequenceNumber(
   request: Pick<RequestItem, "sequence" | "linkedProjectId">,
   projects: Pick<ProjectItem, "id" | "structuredName">[],

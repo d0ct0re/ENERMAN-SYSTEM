@@ -15,6 +15,18 @@ if ($action === 'send_message') {
         exit;
     }
 
+    // Antes cualquier sesion autenticada podia mandar mensajes a CUALQUIER proyecto con
+    // solo saber/adivinar el project_id. Ahora se checa que realmente le pertenezca.
+    $projStmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    $projStmt->execute([$projectId]);
+    $projRow = $projStmt->fetch();
+    if (!$projRow) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Proyecto no encontrado.']);
+        exit;
+    }
+    requireProjectAccess(json_decode($projRow['payload'], true) ?? []);
+
     $user  = sessionUser();
     $now   = gmdate('c');
     $msgId = 'msg-' . bin2hex(random_bytes(12));
@@ -54,6 +66,17 @@ if ($action === 'get_messages') {
         echo json_encode(['error' => 'project_id requerido.']);
         exit;
     }
+
+    // Mismo checkeo que send_message — no cargar el historial de un proyecto ajeno.
+    $projStmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    $projStmt->execute([$projectId]);
+    $projRow = $projStmt->fetch();
+    if (!$projRow) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Proyecto no encontrado.']);
+        exit;
+    }
+    requireProjectAccess(json_decode($projRow['payload'], true) ?? []);
 
     $sinceMySQL = date('Y-m-d H:i:s', strtotime($since));
     $stmt = db()->prepare(

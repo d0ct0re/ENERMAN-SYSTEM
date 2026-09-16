@@ -2,8 +2,14 @@ CREATE TABLE IF NOT EXISTS app_users (
   id VARCHAR(80) NOT NULL PRIMARY KEY,
   payload JSON NOT NULL,
   sort_order INT NOT NULL DEFAULT 0,
+  -- Columna generada + índice único: última línea de defensa contra dos cuentas con el
+  -- mismo correo. La app ya valida esto en create_user/update_user, pero una restricción a
+  -- nivel de base de datos no depende de que el código de arriba se mantenga correcto para
+  -- siempre — si algo se cuela, MySQL/MariaDB rechaza el INSERT/UPDATE en vez de aceptarlo.
+  user_email VARCHAR(191) GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(payload, '$.email'))) STORED,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uniq_user_email (user_email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -23,6 +29,30 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS sequence_counters (
   name  VARCHAR(50)  NOT NULL PRIMARY KEY,
   value INT UNSIGNED NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Switches globales de "Funciones" que administra el Gestor del sistema (ver panel
+-- Funciones en SystemAdminView). Una fila por switch; si no existe fila, se usa el
+-- default en APP_SETTINGS_DEFAULTS (api/core/functions.php).
+CREATE TABLE IF NOT EXISTS app_settings (
+  name       VARCHAR(80) NOT NULL PRIMARY KEY,
+  value      JSON        NOT NULL,
+  updated_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Red de seguridad para borrado permanente: copia completa de cada proyecto/solicitud
+-- justo antes de eliminarlo para siempre (delete_project, delete_request,
+-- bulk_delete_before_folio). Recuperable a mano desde phpMyAdmin (columna payload)
+-- mientras no exista un respaldo local/físico real.
+CREATE TABLE IF NOT EXISTS deleted_items_archive (
+  id              VARCHAR(50)  NOT NULL PRIMARY KEY,
+  entity_type     VARCHAR(20)  NOT NULL,
+  entity_id       VARCHAR(80)  NOT NULL,
+  payload         LONGTEXT     NOT NULL,
+  deleted_by      VARCHAR(80)  NULL,
+  deleted_by_name VARCHAR(255) NULL,
+  deleted_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_entity (entity_type, entity_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS requests (

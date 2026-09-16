@@ -16,6 +16,10 @@ if ($action === 'delete_project') {
     foreach (tableRows('projects') as $candidate) {
         if (($candidate['id'] ?? '') === $projectId) { $project = $candidate; break; }
     }
+    // Respaldo completo antes de borrar para siempre — recuperable a mano en caso de error.
+    if ($project) {
+        archiveDeletedItem('project', $projectId, $project);
+    }
     // DELETE atómico por id — sin replaceRows para evitar condición de carrera
     $stmt = db()->prepare("DELETE FROM projects WHERE id = :id");
     $stmt->execute([':id' => $projectId]);
@@ -31,6 +35,15 @@ if ($action === 'delete_project') {
             $updStmt->execute([':p' => json_encode($req, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $row['id']]);
         }
     }
+    // Borrar el chat del proyecto — ya no hay proyecto al que pertenecer.
+    $pdo->prepare("DELETE FROM project_messages WHERE project_id = :id")->execute([':id' => $projectId]);
+    // Borrar notificaciones que apuntaban a este proyecto — evita el bug de "notificación
+    // fantasma" (un ingeniero la ve, le hace clic, y el proyecto ya no existe).
+    deleteNotificationsFor('relatedProjectId', $projectId);
+    // Borrar los archivos físicos subidos a este proyecto.
+    $safeProjectId = preg_replace('/[^a-zA-Z0-9\-_]/', '', $projectId);
+    $uploadDir = __DIR__ . '/../../uploads/projectra/' . $safeProjectId . '/';
+    if (is_dir($uploadDir)) deleteDirRecursive($uploadDir);
     logActivity('deleted', 'project', $projectId, $project ? itemName($project) : $projectId, ['source' => 'delete_project']);
     // Marcar como recién eliminado para que save_state no lo re-inserte si llega tarde
     if (!isset($_SESSION['recently_deleted'])) $_SESSION['recently_deleted'] = [];
@@ -175,15 +188,23 @@ if ($action === 'add_project_comment') {
         echo json_encode(['error' => 'project_id y comment.id requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    // Locking pesimista — igual que update_project: sin FOR UPDATE, dos comentarios (o un
+    // comentario y otro cambio cualquiera) casi simultáneos en el mismo proyecto hacen
+    // read-modify-write sin coordinarse y el segundo en escribir pisa por completo el payload
+    // que dejó el primero (ambos leen el mismo payload viejo antes de que cualquiera guarde).
+    $pdo = db();
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1 FOR UPDATE");
     $stmt->execute([$projectId]);
     $row = $stmt->fetch();
     if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Proyecto no encontrado.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $payload = json_decode($row['payload'], true) ?? [];
+    requireProjectAccess($payload);
     // Append al inicio (orden cronológico inverso, igual que el frontend)
     $comments = is_array($payload['comments'] ?? null) ? $payload['comments'] : [];
     array_unshift($comments, $comment);
@@ -194,8 +215,9 @@ if ($action === 'add_project_comment') {
         array_unshift($history, $histEntry);
         $payload['history'] = $history;
     }
-    db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+    $pdo->commit();
     echo json_encode(['ok' => true]);
     exit;
 }
@@ -212,15 +234,20 @@ if ($action === 'add_project_expense') {
         echo json_encode(['error' => 'project_id y expense.id requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    // Locking pesimista — ver nota en add_project_comment.
+    $pdo = db();
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1 FOR UPDATE");
     $stmt->execute([$projectId]);
     $row = $stmt->fetch();
     if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Proyecto no encontrado.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $payload  = json_decode($row['payload'], true) ?? [];
+    requireProjectAccess($payload);
     $expenses = is_array($payload['expenses'] ?? null) ? $payload['expenses'] : [];
     // Idempotencia: no duplicar si el mismo expense_id ya fue apendizado (reintento del cliente)
     $existingIds = array_column($expenses, 'id');
@@ -234,8 +261,9 @@ if ($action === 'add_project_expense') {
         array_unshift($history, $histEntry);
         $payload['history'] = $history;
     }
-    db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+    $pdo->commit();
     echo json_encode(['ok' => true]);
     exit;
 }
@@ -251,27 +279,36 @@ if ($action === 'delete_project_expense') {
         echo json_encode(['error' => 'project_id y expense_id requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    // Locking pesimista — ver nota en add_project_comment.
+    $pdo = db();
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1 FOR UPDATE");
     $stmt->execute([$projectId]);
     $row = $stmt->fetch();
     if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Proyecto no encontrado.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $payload  = json_decode($row['payload'], true) ?? [];
+    requireProjectAccess($payload);
     $expenses = is_array($payload['expenses'] ?? null) ? $payload['expenses'] : [];
     $payload['expenses']  = array_values(array_filter($expenses, fn($e) => ($e['id'] ?? '') !== $expenseId));
     $payload['updatedAt'] = gmdate('c');
-    db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+    $pdo->commit();
     echo json_encode(['ok' => true]);
     exit;
 }
 
 /* ── add_project_invoice — append atómico al array invoices ── */
 if ($action === 'add_project_invoice') {
-    requireAuth();
+    // Facturación es solo de admin/system_admin — igual que canManageInvoices={isAdminArea}
+    // en el frontend. Antes solo pedia requireAuth(): cualquier ingeniero podia agregar
+    // facturas a cualquier proyecto llamando la accion directo.
+    requireAdmin();
     $data      = readJson();
     $projectId = (string)($data['project_id'] ?? '');
     $invoice   = $data['invoice']  ?? null;
@@ -281,10 +318,14 @@ if ($action === 'add_project_invoice') {
         echo json_encode(['error' => 'project_id y invoice.id requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    // Locking pesimista — ver nota en add_project_comment.
+    $pdo = db();
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1 FOR UPDATE");
     $stmt->execute([$projectId]);
     $row = $stmt->fetch();
     if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Proyecto no encontrado.'], JSON_UNESCAPED_UNICODE);
         exit;
@@ -303,15 +344,17 @@ if ($action === 'add_project_invoice') {
         array_unshift($history, $histEntry);
         $payload['history'] = $history;
     }
-    db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+    $pdo->commit();
     echo json_encode(['ok' => true]);
     exit;
 }
 
 /* ── update_project_invoice — merge quirúrgico de una factura por id ── */
 if ($action === 'update_project_invoice') {
-    requireAuth();
+    // Mismo criterio que add_project_invoice: solo admin/system_admin.
+    requireAdmin();
     $data      = readJson();
     $projectId = (string)($data['project_id'] ?? '');
     $invoiceId = (string)($data['invoice_id'] ?? '');
@@ -321,10 +364,14 @@ if ($action === 'update_project_invoice') {
         echo json_encode(['error' => 'project_id, invoice_id y updates requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+    // Locking pesimista — ver nota en add_project_comment.
+    $pdo = db();
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1 FOR UPDATE");
     $stmt->execute([$projectId]);
     $row = $stmt->fetch();
     if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Proyecto no encontrado.'], JSON_UNESCAPED_UNICODE);
         exit;
@@ -341,14 +388,16 @@ if ($action === 'update_project_invoice') {
     }
     unset($inv);
     if (!$found) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Factura no encontrada.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $payload['invoices']  = $invoices;
     $payload['updatedAt'] = gmdate('c');
-    db()->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $projectId]);
+    $pdo->commit();
     echo json_encode(['ok' => true]);
     exit;
 }

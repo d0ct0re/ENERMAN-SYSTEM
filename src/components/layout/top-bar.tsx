@@ -1,5 +1,6 @@
 import { Bell, ChevronDown, LogIn, LogOut, Menu, Search, Trash2, UsersRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Avatar } from "@/components/ui/avatar";
 import { AmperLogo } from "@/components/ui/amper-logo";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,8 @@ export function TopBar({
   const [isHiddenOnMobile, setIsHiddenOnMobile] = useState(false);
   const lastScrollYRef = useRef(0);
   const notifRef = useRef<HTMLDivElement>(null);
+  const mobileNotifPanelRef = useRef<HTMLDivElement>(null);
+  const mobileNotifButtonRef = useRef<HTMLButtonElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
   const handleAccountChange = (userId: string): void => {
@@ -68,8 +71,11 @@ export function TopBar({
   // Cerrar dropdowns al hacer clic fuera
   useEffect(() => {
     const handleClick = (e: MouseEvent): void => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) setAccountMenuOpen(false);
+      const target = e.target as Node;
+      const insideMobilePanel = !!mobileNotifPanelRef.current && mobileNotifPanelRef.current.contains(target);
+      const onMobileButton = !!mobileNotifButtonRef.current && mobileNotifButtonRef.current.contains(target);
+      if (notifRef.current && !notifRef.current.contains(target) && !insideMobilePanel && !onMobileButton) setNotifOpen(false);
+      if (accountRef.current && !accountRef.current.contains(target)) setAccountMenuOpen(false);
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -98,8 +104,8 @@ export function TopBar({
     };
   }, [accountMenuOpen, mobileMenuOpen]);
 
-  const NotifDropdown = (): JSX.Element => (
-    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-96 rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel">
+  const NotifListContent = (): JSX.Element => (
+    <>
       <div className="flex items-center justify-between border-b border-[#3F3F46] px-4 py-3">
         <p className="text-sm font-bold text-foreground">Notificaciones</p>
         {unreadCount > 0 ? (
@@ -150,6 +156,11 @@ export function TopBar({
                       </span>
                     ) : null}
                     {n.title}
+                    {(n.occurrenceCount ?? 1) > 1 ? (
+                      <span className="ml-1.5 inline-flex items-center rounded-full bg-[#3F3F46] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#A1A1AA] align-middle">
+                        ×{n.occurrenceCount}
+                      </span>
+                    ) : null}
                   </span>
                   <span className="mt-0.5 block text-xs text-[#71717A]">{n.description}</span>
                   <span className="mt-1 block text-[11px] text-[#52525B]">{timeAgo(n.createdAt)}</span>
@@ -168,8 +179,33 @@ export function TopBar({
           })
         )}
       </div>
+    </>
+  );
+
+  const NotifDropdown = (): JSX.Element => (
+    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-96 rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel">
+      <NotifListContent />
     </div>
   );
+
+  // En mobile, el botón de campana vive dentro del menú hamburguesa, que a su vez
+  // está dentro del <header> con transform (isHiddenOnMobile) — eso rompe `position: fixed`
+  // normal, por eso se usa un portal a document.body para que el panel sí cubra la pantalla.
+  const MobileNotifOverlay = (): JSX.Element | null => {
+    if (typeof document === "undefined") return null;
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/70 p-4 pt-24 lg:hidden">
+        <div className="absolute inset-0" onClick={() => setNotifOpen(false)} aria-hidden="true" />
+        <div
+          ref={mobileNotifPanelRef}
+          className="relative z-10 max-h-[75vh] w-full max-w-md overflow-hidden rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel"
+        >
+          <NotifListContent />
+        </div>
+      </div>,
+      document.body,
+    );
+  };
 
   return (
     <header
@@ -184,7 +220,7 @@ export function TopBar({
           <AmperLogo onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
           <div className="hidden lg:block">
             <p className="text-xs font-medium leading-relaxed text-[#888888]">
-              Gestión centralizada de proyectos, pagos y solicitudes eléctricas
+              Gestión de Proyectos
             </p>
           </div>
         </div>
@@ -310,6 +346,7 @@ export function TopBar({
                 </div>
               </div>
               <button
+                ref={mobileNotifButtonRef}
                 type="button"
                 onClick={() => { setNotifOpen((p) => !p); setMobileMenuOpen(false); }}
                 className="flex cursor-pointer items-center gap-2 rounded-full bg-[#313136] px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent/10 hover:text-accent"
@@ -356,6 +393,8 @@ export function TopBar({
           </div>
         </div>
       ) : null}
+
+      {notifOpen ? <MobileNotifOverlay /> : null}
     </header>
   );
 }

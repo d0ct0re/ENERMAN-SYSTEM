@@ -13,3 +13,12 @@
   Header always set X-XSS-Protection "1; mode=block"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 </IfModule>
+
+<IfModule mod_headers.c>
+  # index.html no debe cachearse nunca: sin esto, el navegador puede quedarse con una
+  # copia vieja indefinidamente (no tenía Cache-Control) y seguir cargando el JS/CSS
+  # anterior aunque el deploy ya haya subido archivos nuevos con otro hash de nombre.
+  <FilesMatch "^index\.html$">
+    Header always set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>

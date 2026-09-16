@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // CORS — permite frontend en Vercel, ampr.site y localhost dev
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowedOrigins = ['https://ampr.site', 'http://localhost:5173', 'http://localhost:3000'];
+$allowedOrigins = ['https://ampr.site', 'https://www.ampr.site', 'http://localhost:5173', 'http://localhost:3000'];
 $isVercel = (bool) preg_match('/^https:\/\/[a-z0-9-]+\.vercel\.app$/', $origin);
 if ($isVercel || in_array($origin, $allowedOrigins, true)) {
     header("Access-Control-Allow-Origin: $origin");

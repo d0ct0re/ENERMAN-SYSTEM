@@ -87,19 +87,31 @@ if ($action === 'create_user') {
         'updatedAt'  => $now,
     ];
     $nextOrder = (int) db()->query('SELECT COALESCE(MAX(sort_order), -1) + 1 FROM app_users')->fetchColumn();
-    $stmt = db()->prepare(
-        "INSERT INTO app_users (id, payload, sort_order)
-         VALUES (:id, :payload, :so)
-         ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = NOW()"
-    );
-    $stmt->execute([':id' => $user['id'], ':payload' => json_encode($user, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':so' => $nextOrder]);
+    try {
+        $stmt = db()->prepare(
+            "INSERT INTO app_users (id, payload, sort_order)
+             VALUES (:id, :payload, :so)
+             ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = NOW()"
+        );
+        $stmt->execute([':id' => $user['id'], ':payload' => json_encode($user, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':so' => $nextOrder]);
+    } catch (\PDOException $e) {
+        // Última línea de defensa: el índice único uniq_user_email de la BD (ver schema.sql)
+        // rechaza el guardado si, por una condición de carrera, el correo ya quedó tomado
+        // entre la verificación de arriba y este INSERT.
+        if ($e->getCode() === '23000') {
+            http_response_code(409);
+            echo json_encode(['error' => 'Correo ya registrado.']);
+            exit;
+        }
+        throw $e;
+    }
     logActivity('created', 'user', $user['id'], $user['name'], ['role' => $user['role']]);
     unset($user['password']);
     echo json_encode(['ok' => true, 'user' => $user], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
-/* ── update_user ── */
+/* ── update_user — mutación atómica de un usuario, con locking igual que update_project ── */
 if ($action === 'update_user') {
     requireSystemAdmin();
     $data   = readJson();
@@ -109,15 +121,45 @@ if ($action === 'update_user') {
         echo json_encode(['error' => 'id requerido.']);
         exit;
     }
-    $existing = null;
-    foreach (tableRows('app_users') as $u) {
-        if ($u['id'] === $userId) { $existing = $u; break; }
-    }
-    if (!$existing) {
+
+    $pdo = db();
+    $pdo->beginTransaction();
+
+    // Locking pesimista: bloquea la fila hasta el commit, igual que update_project. Sin esto,
+    // dos guardados casi simultáneos del mismo usuario (ej. doble clic, o el Gestor editando
+    // en dos pestañas) hacen read-modify-write sin coordinarse y el segundo pisa al primero.
+    $stmt = $pdo->prepare("SELECT payload FROM app_users WHERE id = :id LIMIT 1 FOR UPDATE");
+    $stmt->execute([':id' => $userId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Usuario no encontrado.']);
         exit;
     }
+    $existing = json_decode($row['payload'], true) ?? [];
+
+    $newEmail = strtolower(trim($data['email'] ?? $existing['email'] ?? ''));
+    if ($newEmail === '') {
+        $pdo->rollBack();
+        http_response_code(400);
+        echo json_encode(['error' => 'El correo no puede quedar vacío.']);
+        exit;
+    }
+    // Verificar que el correo no esté ya en uso por OTRO usuario — antes solo se checaba al
+    // crear (create_user); editar podía dejar a dos cuentas con el mismo correo sin avisar,
+    // lo que rompe el login (verifyCredentials toma la primera coincidencia y listo).
+    if ($newEmail !== strtolower(trim($existing['email'] ?? ''))) {
+        $dupStmt = $pdo->prepare("SELECT id FROM app_users WHERE id != :id AND JSON_UNQUOTE(JSON_EXTRACT(payload, '\$.email')) = :email LIMIT 1");
+        $dupStmt->execute([':id' => $userId, ':email' => $newEmail]);
+        if ($dupStmt->fetch()) {
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode(['error' => 'Ese correo ya lo usa otra cuenta.']);
+            exit;
+        }
+    }
+
     $labels  = ['system_admin' => 'Gestor del sistema', 'supervisor' => 'Supervisor', 'admin' => 'Administracion', 'engineer' => 'Ingeniero'];
     $role    = $data['role'] ?? $existing['role'];
     $first   = trim($data['firstName'] ?? $existing['firstName'] ?? '');
@@ -127,7 +169,7 @@ if ($action === 'update_user') {
         'lastName'   => $last,
         'name'       => trim("$first $last") ?: $existing['name'],
         'avatar'     => strtoupper(substr($first, 0, 1) . substr($last, 0, 1)) ?: ($existing['avatar'] ?? ''),
-        'email'      => strtolower(trim($data['email'] ?? $existing['email'])),
+        'email'      => $newEmail,
         'role'       => $role,
         'roleLabel'  => $labels[$role] ?? $existing['roleLabel'],
         'department' => trim($data['department'] ?? $existing['department'] ?? ''),
@@ -137,8 +179,23 @@ if ($action === 'update_user') {
     if (!empty($data['password'])) {
         $merged['password'] = password_hash($data['password'], PASSWORD_BCRYPT, ['cost' => 10]);
     }
-    $stmt = db()->prepare("UPDATE app_users SET payload = :p, updated_at = NOW() WHERE id = :id");
-    $stmt->execute([':p' => json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $userId]);
+    try {
+        $pdo->prepare("UPDATE app_users SET payload = :p, updated_at = NOW() WHERE id = :id")
+            ->execute([':p' => json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $userId]);
+        $pdo->commit();
+    } catch (\PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        // Última línea de defensa: el índice único uniq_user_email de la BD (ver schema.sql)
+        // rechaza el guardado si, por una condición de carrera, el correo ya quedó tomado
+        // entre la verificación de arriba y este UPDATE.
+        if ($e->getCode() === '23000') {
+            http_response_code(409);
+            echo json_encode(['error' => 'Ese correo ya lo usa otra cuenta.']);
+            exit;
+        }
+        throw $e;
+    }
+
     logActivity('updated', 'user', $userId, $merged['name'], ['role' => $merged['role']]);
     unset($merged['password']);
     echo json_encode(['ok' => true, 'user' => $merged], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -166,6 +223,26 @@ if ($action === 'delete_user') {
         http_response_code(404);
         echo json_encode(['error' => 'Usuario no encontrado.']);
         exit;
+    }
+    // Quitar al usuario eliminado de "participants" en todos los proyectos donde aparezca.
+    // Antes esto solo se hacía en el estado local del frontend (App.tsx) y dependía de que
+    // save_state lo sincronizara — pero save_state ya no confía en el "participants" que manda
+    // el cliente para estos campos atómicos (ver nota en state.php), así que sin este paso la
+    // limpieza nunca llegaba a la BD y el usuario borrado reaparecía como participante al
+    // refrescar. Se hace aquí, atómico, igual que el resto de la limpieza en delete_project.
+    $pdo = db();
+    $projectRows = $pdo->query("SELECT id, payload FROM projects")->fetchAll();
+    $updStmt = $pdo->prepare("UPDATE projects SET payload = :p, updated_at = NOW() WHERE id = :id");
+    foreach ($projectRows as $row) {
+        $proj = json_decode($row['payload'], true);
+        if (!is_array($proj) || !in_array($userId, $proj['participants'] ?? [], true)) {
+            continue;
+        }
+        $proj['participants'] = array_values(array_filter(
+            $proj['participants'],
+            static fn($pid) => $pid !== $userId
+        ));
+        $updStmt->execute([':p' => json_encode($proj, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $row['id']]);
     }
     logActivity('deleted', 'user', $userId, $userId);
     echo json_encode(['ok' => true]);

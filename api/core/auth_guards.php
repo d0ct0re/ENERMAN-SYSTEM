@@ -30,3 +30,18 @@ function requireSystemAdmin(): void
         exit;
     }
 }
+
+// Igual que la regla ya usada dentro de update_project: admin/system_admin/supervisor
+// pasan siempre; engineer solo si es creador o participante del proyecto. Llamar
+// SIEMPRE después de requireAuth() y de tener el payload del proyecto ya decodificado
+// (para no dejar pasar comentarios/gastos/facturas/archivos/mensajes de un proyecto ajeno).
+function requireProjectAccess(array $project): void
+{
+    $userId   = $_SESSION['user_id']   ?? '';
+    $userRole = $_SESSION['user_role'] ?? '';
+    if (!canSeeProject($project, $userId, $userRole)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No tienes acceso a este proyecto.', 'code' => 403]);
+        exit;
+    }
+}

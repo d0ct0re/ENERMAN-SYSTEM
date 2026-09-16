@@ -26,7 +26,8 @@ if ($action === 'bootstrap') {
         echo json_encode(['ok' => false, 'error' => 'session_required']);
         exit;
     }
-    $bootstrapUserId = $_SESSION['user_id'] ?? '';
+    $bootstrapUserId   = $_SESSION['user_id']   ?? '';
+    $bootstrapUserRole = $_SESSION['user_role'] ?? '';
     session_write_close(); // solo lectura — liberar lock de sesión antes de las queries
     $state     = getUserNotifState($bootstrapUserId);
     $dismissed = array_flip($state['dismissedIds']);
@@ -61,13 +62,24 @@ if ($action === 'bootstrap') {
         $n['isRead'] = isset($readSet[$nid]) ? true : ($n['isRead'] ?? false);
         $regularNotifs[] = $n;
     }
+    // Filtrar por rol antes de mandar al cliente: engineer solo ve sus propios
+    // proyectos/solicitudes (creador o participante). Ver canSeeProject/canSeeRequest.
+    $visibleProjects = array_values(array_filter(
+        tableRows('projects'),
+        static fn(array $p): bool => canSeeProject($p, $bootstrapUserId, $bootstrapUserRole)
+    ));
+    $visibleRequests = array_values(array_filter(
+        tableRows('requests'),
+        static fn(array $r): bool => canSeeRequest($r, $bootstrapUserId, $bootstrapUserRole)
+    ));
     echo json_encode([
         'users'             => tableRowsUsers(),
-        'projects'          => tableRows('projects'),
-        'requests'          => tableRows('requests'),
+        'projects'          => $visibleProjects,
+        'requests'          => $visibleRequests,
         'notifications'     => $regularNotifs,
         'dismissedDateKeys' => $allDismissedDateKeys,
         'readDateKeys'      => $allReadDateKeys,
+        'settings'          => getAppSettings(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }

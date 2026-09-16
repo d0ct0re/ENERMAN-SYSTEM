@@ -1,7 +1,7 @@
 import {
   Camera, Check, ChevronDown, ChevronLeft, ChevronRight,
   Download, Eye, FileUp, Folder, FolderOpen,
-  MessageCircleMore, MoreVertical, Plus, Trash2, X, XCircle, ZoomIn,
+  MessageCircleMore, MoreVertical, Plus, Trash2, X, XCircle, Zap, ZoomIn,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type ChatMessage, realtime } from "@/lib/realtime";
@@ -96,13 +96,15 @@ interface PagoDraft {
   id: string;
   numeroPago: number;
   estado: "pendiente" | "realizado";
-  promesaPago: string;
-  tipoPagoAbono: "PPD" | "PUE" | "Contado";
-  factura: string;
-  mdp: "PPD" | "PUE";
+  cliente: string;
+  monto: string;
+  mdp: "" | "PPD" | "PUE";
+  folioFiscal: string;
+  formaPago: "" | "Efectivo" | "Transferencia" | "Cheque";
+  fecha: string;
+  serie: string;
+  folio: string;
   complementoPago: string;
-  fechaPago: string;
-  subtotalAbono: string;
   createdAt: string;
 }
 
@@ -111,13 +113,15 @@ function createEmptyPago(num: number): PagoDraft {
     id: crypto.randomUUID(),
     numeroPago: num,
     estado: "pendiente",
-    promesaPago: "",
-    tipoPagoAbono: "Contado",
-    factura: "",
-    mdp: "PPD",
+    cliente: "",
+    monto: "",
+    mdp: "",
+    folioFiscal: "",
+    formaPago: "",
+    fecha: "",
+    serie: "",
+    folio: "",
     complementoPago: "",
-    fechaPago: "",
-    subtotalAbono: "",
     createdAt: new Date().toISOString(),
   };
 }
@@ -127,13 +131,15 @@ function pagoDraftFromSaved(p: PagoProyecto): PagoDraft {
     id: p.id,
     numeroPago: p.numeroPago,
     estado: p.estado ?? "pendiente",
-    promesaPago: p.promesaPago ?? "",
-    tipoPagoAbono: p.tipoPagoAbono ?? "Contado",
-    factura: p.factura ?? "",
-    mdp: p.mdp ?? "PPD",
+    cliente: p.cliente ?? "",
+    monto: p.monto.toString(),
+    mdp: p.mdp ?? "",
+    folioFiscal: p.folioFiscal ?? "",
+    formaPago: p.formaPago ?? "",
+    fecha: p.fecha ?? "",
+    serie: p.serie ?? "",
+    folio: p.folio ?? "",
     complementoPago: p.complementoPago ?? "",
-    fechaPago: p.fechaPago ?? "",
-    subtotalAbono: p.subtotalAbono.toString(),
     createdAt: p.createdAt,
   };
 }
@@ -150,11 +156,15 @@ export interface ProjectDetailDialogProps {
   canEditBudget: boolean;
   canDeleteProject: boolean;
   canManageInvoices?: boolean;
+  // Switch global "Apartado facturas" (panel Funciones del Gestor) — oculta la
+  // sección sin borrar los datos ya guardados; default false (oculto).
+  facturasEnabled?: boolean;
   onUpdateProject: (projectId: string, fields: Partial<ProjectItem> & { assignedEngineerId?: string }) => Promise<void> | void;
   onAddComment: (projectId: string, message: string, isPriority: boolean, authorId: string) => void;
   onMessageSent?: (projectId: string, authorId: string, authorName: string, message: string, isPriority: boolean) => void;
-  onUploadFile?: (projectId: string, file: File, category?: FileCategory) => Promise<void>;
+  onUploadFile?: (projectId: string, file: File, category?: FileCategory, extra?: { displayName?: string; pagoId?: string }) => Promise<void>;
   onDeleteFile?: (projectId: string, fileId: string, category: FileCategory) => Promise<void>;
+  onSetFileStatus?: (projectId: string, fileId: string, status: FileStatus) => Promise<void>;
   onDeleteProject: (projectId: string) => void;
   clientOptions?: string[];
   departmentOptions?: string[];
@@ -203,11 +213,105 @@ function ReqLabel({ text, missing }: { text: string; missing: boolean }): JSX.El
   );
 }
 
+// ── Fase 4: comprobantes de pago — 10° campo. Cada pago puede guardar varios
+// archivos (PDF/XML), cada uno con un nombre que el usuario asigna al subirlo.
+function PagoComprobantes({
+  project, pagoId, onUploadFile, onDeleteFile,
+}: {
+  project: ProjectItem;
+  pagoId: string;
+  onUploadFile?: (projectId: string, file: File, category?: FileCategory, extra?: { displayName?: string; pagoId?: string }) => Promise<void>;
+  onDeleteFile?: (projectId: string, fileId: string, category: FileCategory) => Promise<void>;
+}): JSX.Element {
+  const [pendingName, setPendingName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const files = (project.files ?? []).filter((f) => f.category === "pagoComprobante" && f.pagoId === pagoId);
+  const canAttach = pendingName.trim().length > 0 && !uploading;
+
+  return (
+    <div className={FLD}>
+      <label className={LBL}>Archivos (PDF / XML)</label>
+      {files.length > 0 ? (
+        <div className="mb-1.5 space-y-1.5">
+          {files.map((f) => (
+            <div key={f.id} className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.07] bg-[#1F1F22] px-3 py-2">
+              <a
+                href={serveFileUrl(project.id, f.id, true)}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate text-xs font-semibold text-foreground hover:text-accent"
+                title={f.name}
+              >
+                {f.name}
+              </a>
+              {onDeleteFile ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setDeletingId(f.id);
+                    try { await onDeleteFile(project.id, f.id, "pagoComprobante"); }
+                    finally { setDeletingId(null); }
+                  }}
+                  disabled={deletingId === f.id}
+                  className="shrink-0 text-[#52525B] transition-colors hover:text-danger disabled:opacity-40"
+                >
+                  {deletingId === f.id
+                    ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-danger border-t-transparent" />
+                    : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="flex gap-2">
+        <input
+          className={INP}
+          value={pendingName}
+          onChange={(e) => setPendingName(e.target.value)}
+          placeholder="Nombre del archivo…"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!canAttach}
+          title={pendingName.trim() ? "Adjuntar archivo" : "Escribe un nombre antes de adjuntar"}
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent/10 px-3 text-xs font-bold text-accent ring-1 ring-accent/20 transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {uploading ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> : <FileUp className="h-3.5 w-3.5" />}
+          Adjuntar
+        </button>
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.xml"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file || !onUploadFile || !pendingName.trim()) return;
+          setUploading(true);
+          try {
+            await onUploadFile(project.id, file, "pagoComprobante", { displayName: pendingName.trim(), pagoId });
+            setPendingName("");
+          } finally {
+            setUploading(false);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Componente principal ───────────────────────────────────────
 export function ProjectDetailDialog({
   open, onOpenChange, project, users, currentUser,
-  canEditProject, canManageProjectStatus, canEditBudget, canDeleteProject, canManageInvoices,
-  onUpdateProject, onAddComment, onUploadFile, onDeleteFile, onDeleteProject, onMessageSent, onToast,
+  canEditProject, canManageProjectStatus, canEditBudget, canDeleteProject, canManageInvoices, facturasEnabled = false,
+  onUpdateProject, onAddComment, onUploadFile, onDeleteFile, onSetFileStatus, onDeleteProject, onMessageSent, onToast,
   onAddExpense, onDeleteExpense, onAddInvoice, onUpdateInvoice, onAddProjectImportantDate,
   clientOptions = [], departmentOptions = [],
 }: ProjectDetailDialogProps): JSX.Element | null {
@@ -227,6 +331,8 @@ export function ProjectDetailDialog({
   const [f1BaseName, setF1BaseName] = useState("");
   const [f1Description, setF1Description] = useState("");
   const [f1Ubicacion, setF1Ubicacion] = useState<UbicacionProyecto>({});
+  const [f1SubcontratadoActivo, setF1SubcontratadoActivo] = useState(false);
+  const [f1NombreSubcontratado, setF1NombreSubcontratado] = useState("");
 
   const [f1TotalContratado, setF1TotalContratado] = useState("");
 
@@ -250,6 +356,8 @@ export function ProjectDetailDialog({
   const [f2CotizFileStatus, setF2CotizFileStatus] = useState<FileStatus>("no");
   const [f2ReporteFileStatus, setF2ReporteFileStatus] = useState<FileStatus>("no");
   const [f2OtrosFileStatus, setF2OtrosFileStatus] = useState<FileStatus>("no");
+  const [f2SubcontratadosFileStatus, setF2SubcontratadosFileStatus] = useState<FileStatus>("no");
+  const [f2SubcontratadosFacturasFileStatus, setF2SubcontratadosFacturasFileStatus] = useState<FileStatus>("no");
   const [f2Reporte, setF2Reporte] = useState(false);
   const [f2Comentarios, setF2Comentarios] = useState("");
 
@@ -331,13 +439,15 @@ export function ProjectDetailDialog({
   const galleryPrev = () => { setGalleryBroken(false); setGalleryIndex(i => (i - 1 + galleryFiles.length) % galleryFiles.length); };
   const galleryNext = () => { setGalleryBroken(false); setGalleryIndex(i => (i + 1) % galleryFiles.length); };
   const [openSections, setOpenSections] = useState<Record<FileCategory, boolean>>({
-    fotos: true, estimacion: false, cotizacion: false, reporte: false, otros: false,
+    fotos: true, estimacion: false, cotizacion: false, reporte: false, otros: false, subcontratados: false, subcontratadosFacturas: false, pagoComprobante: false,
   });
   const fotosFileInputRef = useRef<HTMLInputElement>(null);
   const estimacionFileInputRef = useRef<HTMLInputElement>(null);
   const cotizacionFileInputRef = useRef<HTMLInputElement>(null);
   const reporteFileInputRef = useRef<HTMLInputElement>(null);
   const otrosFileInputRef = useRef<HTMLInputElement>(null);
+  const subcontratadosFileInputRef = useRef<HTMLInputElement>(null);
+  const subcontratadosFacturasFileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // ── Computed ──
@@ -370,7 +480,7 @@ export function ProjectDetailDialog({
   }, [f3TotalSinIva, f3Materiales, f3Servicios, f3Personal, f3SvoContratado, f3Comision, f3OtrosGastos]);
 
   const abonoTotal = useMemo(
-    () => pagoDrafts.filter((p) => p.estado === "realizado").reduce((s, p) => s + (parseFloat(p.subtotalAbono) || 0), 0),
+    () => pagoDrafts.filter((p) => p.estado === "realizado").reduce((s, p) => s + (parseFloat(p.monto) || 0), 0),
     [pagoDrafts],
   );
   const porCobrar = useMemo(
@@ -399,7 +509,7 @@ export function ProjectDetailDialog({
 
   // ── Archivos por sección ──
   const filesBySection = useMemo<Record<FileCategory, import("@/types").ProjectFileItem[]>>(() => {
-    const map: Record<FileCategory, import("@/types").ProjectFileItem[]> = { fotos: [], estimacion: [], cotizacion: [], reporte: [], otros: [] };
+    const map: Record<FileCategory, import("@/types").ProjectFileItem[]> = { fotos: [], estimacion: [], cotizacion: [], reporte: [], otros: [], subcontratados: [], subcontratadosFacturas: [], pagoComprobante: [] };
     for (const f of (project?.files ?? [])) {
       const cat: FileCategory = f.category ?? (/\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) ? "fotos" : "reporte");
       map[cat].push(f);
@@ -429,6 +539,8 @@ export function ProjectDetailDialog({
     setF1BaseName(project.baseName ?? "");
     setF1Description(project.description ?? "");
     setF1Ubicacion(project.ubicacion ?? {});
+    setF1SubcontratadoActivo(project.subcontratadoActivo ?? false);
+    setF1NombreSubcontratado(project.nombreSubcontratado ?? "");
     setF1TotalContratado(project.totalContratado?.toString() ?? "");
     setShowDateForm(false); setDateTitle(""); setDateValue(new Date().toISOString().slice(0, 10));
     // F2
@@ -446,6 +558,8 @@ export function ProjectDetailDialog({
     setF2CotizFileStatus(project.cotizacionFileStatus ?? "no");
     setF2ReporteFileStatus(project.reporteFileStatus ?? "no");
     setF2OtrosFileStatus(project.otrosFileStatus ?? "no");
+    setF2SubcontratadosFileStatus(project.subcontratadosFileStatus ?? "no");
+    setF2SubcontratadosFacturasFileStatus(project.subcontratadosFacturasFileStatus ?? "no");
     setF2Reporte(project.reporte ?? false);
     setF2Comentarios(project.comentariosCampo ?? "");
     // F3
@@ -509,6 +623,8 @@ export function ProjectDetailDialog({
     setF1BaseName(project.baseName ?? "");
     setF1Description(project.description ?? "");
     setF1Ubicacion(project.ubicacion ?? {});
+    setF1SubcontratadoActivo(project.subcontratadoActivo ?? false);
+    setF1NombreSubcontratado(project.nombreSubcontratado ?? "");
     setF1TotalContratado(project.totalContratado?.toString() ?? "");
   }, [
     project?.client,
@@ -527,6 +643,8 @@ export function ProjectDetailDialog({
     // ubicacion es objeto — serializar igual
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(project?.ubicacion),
+    project?.subcontratadoActivo,
+    project?.nombreSubcontratado,
     project?.totalContratado,
   ]);
 
@@ -619,12 +737,16 @@ export function ProjectDetailDialog({
     setF2CotizFileStatus(project.cotizacionFileStatus ?? "no");
     setF2ReporteFileStatus(project.reporteFileStatus ?? "no");
     setF2OtrosFileStatus(project.otrosFileStatus ?? "no");
+    setF2SubcontratadosFileStatus(project.subcontratadosFileStatus ?? "no");
+    setF2SubcontratadosFacturasFileStatus(project.subcontratadosFacturasFileStatus ?? "no");
   }, [
     project?.fotosStatus,
     project?.estimacionFileStatus,
     project?.cotizacionFileStatus,
     project?.reporteFileStatus,
     project?.otrosFileStatus,
+    project?.subcontratadosFileStatus,
+    project?.subcontratadosFacturasFileStatus,
     project?.fotos,
   ]);
 
@@ -664,12 +786,8 @@ export function ProjectDetailDialog({
   if (!project) return null;
 
   // ── Handler de envío de mensaje de chat ──────────────────────
-  const handleSendChatMessage = async (): Promise<void> => {
-    if (!message.trim() || chatSending) return;
-    const text = message.trim();
-    const priority = isPriority;
-    setMessage("");
-    setIsPriority(false);
+  const sendChatText = async (text: string, priority: boolean, restoreOnError?: () => void): Promise<void> => {
+    if (!text.trim() || chatSending) return;
     setChatSending(true);
     try {
       const sent = await realtime.sendMessage(project.id, text, priority);
@@ -681,11 +799,24 @@ export function ProjectDetailDialog({
         onMessageSent?.(project.id, currentUser.id, currentUser.name, text, priority);
       }
     } catch {
-      // Reestablecer el mensaje si falló
-      setMessage(text);
+      restoreOnError?.();
     } finally {
       setChatSending(false);
     }
+  };
+
+  const handleSendChatMessage = async (): Promise<void> => {
+    if (!message.trim() || chatSending) return;
+    const text = message.trim();
+    const priority = isPriority;
+    setMessage("");
+    setIsPriority(false);
+    await sendChatText(text, priority, () => setMessage(text));
+  };
+
+  // Envío rápido de un emoji (👍/⚡), sin tocar lo que el usuario esté escribiendo
+  const handleSendQuickEmoji = (emoji: string): void => {
+    void sendChatText(emoji, false);
   };
 
   // ── Handlers de guardado ──
@@ -703,6 +834,8 @@ export function ProjectDetailDialog({
         baseName: f1BaseName,
         description: f1Description,
         ubicacion: f1Ubicacion,
+        subcontratadoActivo: f1SubcontratadoActivo,
+        nombreSubcontratado: f1NombreSubcontratado || undefined,
         totalContratado: n(f1TotalContratado) ?? project.totalContratado,
         assignedEngineerId: f1EngineerId || undefined,
       });
@@ -765,13 +898,15 @@ export function ProjectDetailDialog({
         id: d.id,
         numeroPago: d.numeroPago,
         estado: d.estado,
-        promesaPago: d.promesaPago || undefined,
-        tipoPagoAbono: d.tipoPagoAbono,
-        factura: d.factura || undefined,
-        mdp: d.mdp,
+        cliente: d.cliente || undefined,
+        monto: parseFloat(d.monto) || 0,
+        mdp: d.mdp || undefined,
+        folioFiscal: d.folioFiscal || undefined,
+        formaPago: d.formaPago || undefined,
+        fecha: d.fecha || undefined,
+        serie: d.serie || undefined,
+        folio: d.folio || undefined,
         complementoPago: d.complementoPago || undefined,
-        fechaPago: d.fechaPago || undefined,
-        subtotalAbono: parseFloat(d.subtotalAbono) || 0,
         createdAt: d.createdAt,
       }));
       await onUpdateProject(project.id, {
@@ -795,7 +930,7 @@ export function ProjectDetailDialog({
         return {
           ...p,
           estado: next,
-          fechaPago: next === "realizado" && !p.fechaPago ? new Date().toISOString().slice(0, 10) : p.fechaPago,
+          fecha: next === "realizado" && !p.fecha ? new Date().toISOString().slice(0, 10) : p.fecha,
         };
       }),
     );
@@ -821,7 +956,7 @@ export function ProjectDetailDialog({
 
   const ubicacionFields: { key: keyof UbicacionProyecto; label: string; placeholder: string }[] = [
     { key: "calle", label: "Calle", placeholder: "Nombre de calle" },
-    { key: "planta", label: "Planta", placeholder: "Planta baja, 1er piso..." },
+    { key: "planta", label: "Planta", placeholder: "Campus" },
     { key: "edificio", label: "Edificio", placeholder: "Nombre o clave" },
     { key: "piso", label: "Piso", placeholder: "Número de piso" },
     { key: "puerta", label: "Puerta / Local", placeholder: "Puerta o local" },
@@ -969,6 +1104,48 @@ export function ProjectDetailDialog({
                 }
               }}
             >
+              {/* Subcontratado — visible para todos los perfiles. Lo pueden activar/desactivar
+                  ingeniero, supervisor y gestor del sistema; Administración solo lo ve (bloqueado). */}
+              {(() => {
+                const canToggleSubcontratado = canEditProject && currentUser.role !== "admin";
+                return (
+                  <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
+                    <button
+                      type="button"
+                      onClick={() => setF1SubcontratadoActivo((v) => !v)}
+                      disabled={!canToggleSubcontratado}
+                      title={f1SubcontratadoActivo ? "Subcontratado activado" : "Activar subcontratado"}
+                      className={`relative flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                        f1SubcontratadoActivo
+                          ? "bg-[#F5A524] shadow-[0_0_14px_rgba(245,165,36,0.55)]"
+                          : "bg-[#3F3F46]"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 ${
+                          f1SubcontratadoActivo ? "translate-x-6" : "translate-x-0"
+                        }`}
+                      >
+                        <Zap
+                          className={`h-3.5 w-3.5 ${f1SubcontratadoActivo ? "text-[#F5A524]" : "text-[#A1A1AA]"}`}
+                          fill="currentColor"
+                        />
+                      </span>
+                    </button>
+                    <div className="min-w-[220px] flex-1">
+                      <label className={LBL}>Nombre de subcontratado</label>
+                      <input
+                        className={INP}
+                        value={f1NombreSubcontratado}
+                        onChange={(e) => setF1NombreSubcontratado(e.target.value)}
+                        placeholder="nombre…"
+                        disabled={!canToggleSubcontratado || !f1SubcontratadoActivo}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="grid gap-3 sm:grid-cols-2">
                 {/* Consecutivo + fecha solicitud */}
                 <div className={fieldClass({ filled: isFilled(consecutivo) && consecutivo !== "—", missing: false })}>
@@ -1124,7 +1301,7 @@ export function ProjectDetailDialog({
                   />
                 </div>
                 <div className={fieldClass({ filled: isFilled(f1ContactUser), missing: f1MissingKeys.has("contactUser") })}>
-                  <ReqLabel text="Usuario de contacto (Agrega nombre)" missing={f1MissingKeys.has("contactUser")} />
+                  <ReqLabel text="Usuario de contacto (nombre)" missing={f1MissingKeys.has("contactUser")} />
                   <input
                     className={INP}
                     value={f1ContactUser}
@@ -1266,20 +1443,19 @@ export function ProjectDetailDialog({
                 <div className={fieldClass({ filled: isFilled(f2PaymentStatus), missing: !isFilled(f2PaymentStatus) })}>
                   <label className={LBL}>Estado pago</label>
                   <select className={INP} value={f2PaymentStatus} onChange={(e) => setF2PaymentStatus(e.target.value as PaymentStatus)} disabled={!canEditProject}>
-                    <option value="">— Sin definir</option>
                     <option value="unpaid">No pagado</option>
                     <option value="partial">Pago parcial</option>
                     <option value="paid">Pagado</option>
                   </select>
                 </div>
                 <div className={fieldClass({ filled: isFilled(f2FechaSolicitud), missing: false })}>
-                  <label className={LBL}>F. Solicitud</label>
+                  <label className={LBL}>Fecha de Solicitud</label>
                   <div className={`${INP_RO} flex items-center`}>
                     {f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : <span className="text-[#555]">Sin fecha</span>}
                   </div>
                 </div>
                 <div className={fieldClass({ filled: isFilled(f2StartDate), missing: f2MissingKeys.has("startDate") })}>
-                  <ReqLabel text="F. Inicio" missing={f2MissingKeys.has("startDate")} />
+                  <ReqLabel text="Fecha de Inicio" missing={f2MissingKeys.has("startDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2StartDate} onChange={setF2StartDate} />
                   ) : (
@@ -1289,7 +1465,7 @@ export function ProjectDetailDialog({
                   )}
                 </div>
                 <div className={fieldClass({ filled: isFilled(f2EndDate), missing: f2MissingKeys.has("endDate") })}>
-                  <ReqLabel text="F. Fin" missing={f2MissingKeys.has("endDate")} />
+                  <ReqLabel text="Fecha de Fin" missing={f2MissingKeys.has("endDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2EndDate} onChange={setF2EndDate} />
                   ) : (
@@ -1299,7 +1475,7 @@ export function ProjectDetailDialog({
                   )}
                 </div>
                 <div className={fieldClass({ filled: isFilled(f2CommitmentDate), missing: f2MissingKeys.has("commitmentDate") })}>
-                  <ReqLabel text="F. Compromiso" missing={f2MissingKeys.has("commitmentDate")} />
+                  <ReqLabel text="Fecha de Compromiso" missing={f2MissingKeys.has("commitmentDate")} />
                   {canEditProject ? (
                     <DatePickerMX value={f2CommitmentDate} onChange={setF2CommitmentDate} />
                   ) : (
@@ -1327,6 +1503,54 @@ export function ProjectDetailDialog({
                   </div>
                 </div>
               </div>
+
+              {/* Subcontratados-Cotizaciones — el ingeniero sube y ve el estatus; solo Administración acepta/rechaza */}
+              {project.subcontratadoActivo && !!project.nombreSubcontratado?.trim() ? (() => {
+                const cotizFiles = (project.files ?? []).filter((f) => f.category === "subcontratados");
+                const cotizTotal = cotizFiles.length;
+                const cotizApproved = cotizFiles.filter((f) => f.status === "si").length;
+                const cotizPct = cotizTotal > 0 ? (cotizApproved / cotizTotal) * 100 : 0;
+                const cotizAllApproved = cotizTotal > 0 && cotizApproved === cotizTotal;
+                return (
+                  <div className={fieldClass({ filled: cotizAllApproved, missing: false })}>
+                    <label className={LBL}>Subcontratados-Cotizaciones aceptadas</label>
+                    <div className={`${INP_RO} flex items-center justify-between gap-3`}>
+                      <span className={cotizTotal === 0 ? "text-[#555]" : cotizAllApproved ? "text-[#4ADE80]" : "text-[#F5A524]"}>
+                        {cotizTotal === 0 ? "No" : `${cotizApproved}/${cotizTotal} aceptadas`}
+                      </span>
+                      {cotizTotal > 0 ? (
+                        <div className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-[#3F3F46]">
+                          <div className="h-full rounded-full bg-[#4ADE80] transition-all" style={{ width: `${cotizPct}%` }} />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })() : null}
+
+              {/* Subcontratados-Facturas — el ingeniero sube y ve el estatus; solo Administración aprueba/rechaza */}
+              {project.subcontratadoActivo && !!project.nombreSubcontratado?.trim() ? (() => {
+                const facturasFiles = (project.files ?? []).filter((f) => f.category === "subcontratadosFacturas");
+                const facturasTotal = facturasFiles.length;
+                const facturasApproved = facturasFiles.filter((f) => f.status === "si").length;
+                const pct = facturasTotal > 0 ? (facturasApproved / facturasTotal) * 100 : 0;
+                const allApproved = facturasTotal > 0 && facturasApproved === facturasTotal;
+                return (
+                  <div className={fieldClass({ filled: allApproved, missing: false })}>
+                    <label className={LBL}>Subcontratados-Facturas pagadas</label>
+                    <div className={`${INP_RO} flex items-center justify-between gap-3`}>
+                      <span className={facturasTotal === 0 ? "text-[#555]" : allApproved ? "text-[#4ADE80]" : "text-[#F5A524]"}>
+                        {facturasTotal === 0 ? "No" : `${facturasApproved}/${facturasTotal} pagadas`}
+                      </span>
+                      {facturasTotal > 0 ? (
+                        <div className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-[#3F3F46]">
+                          <div className="h-full rounded-full bg-[#4ADE80] transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })() : null}
 
               {/* Comentarios del campo */}
               <div className={fieldClass({ filled: isFilled(f2Comentarios), missing: !isFilled(f2Comentarios) })}>
@@ -1578,10 +1802,10 @@ export function ProjectDetailDialog({
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
                   <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Total</p>
-                  <p className="text-base font-black tabular-nums text-foreground">{mxn(project.totalSinIva)}</p>
+                  <p className="text-base font-black tabular-nums text-foreground">{mxn(parseFloat(f3TotalSinIva) || 0)}</p>
                 </div>
                 <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Abono total</p>
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Abonado</p>
                   <p className="text-base font-black tabular-nums text-accent">{mxn(abonoTotal)}</p>
                 </div>
                 <div className="rounded-2xl bg-[#1E1E20] p-3 text-center">
@@ -1594,9 +1818,10 @@ export function ProjectDetailDialog({
               <div className="space-y-3">
                 {pagoDrafts.map((pago) => {
                   const isRealizado = pago.estado === "realizado";
-                  const fechaLabel = pago.fechaPago
-                    ? parseLocalDate(pago.fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
+                  const fechaLabel = pago.fecha
+                    ? parseLocalDate(pago.fecha).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
                     : null;
+                  const complementoLabel = pago.mdp === "PPD" ? "Complemento de Pago" : pago.mdp === "PUE" ? "Factura Única" : "Sin Definir";
                   return (
                     <div
                       key={pago.id}
@@ -1632,50 +1857,70 @@ export function ProjectDetailDialog({
                         ) : null}
                       </div>
 
-                      {/* Campos mínimos siempre visibles */}
+                      {/* 9 campos fijos — ninguno cambia segun el estatus del pago */}
                       <div className="grid gap-2.5 sm:grid-cols-3">
                         <div className={FLD}>
-                          <label className={LBL}>Promesa de pago</label>
-                          <DatePickerMX value={pago.promesaPago} onChange={(v) => updatePagoDraft(pago.id, "promesaPago", v)} />
+                          <label className={LBL}>Cliente</label>
+                          <input className={INP} value={pago.cliente} onChange={(e) => updatePagoDraft(pago.id, "cliente", e.target.value)} placeholder="Nombre cliente" />
                         </div>
                         <div className={FLD}>
-                          <label className={LBL}>Tipo</label>
-                          <select className={INP} value={pago.tipoPagoAbono} onChange={(e) => updatePagoDraft(pago.id, "tipoPagoAbono", e.target.value)}>
+                          <label className={LBL}>Monto</label>
+                          <input type="number" className={INP} value={pago.monto} onChange={(e) => updatePagoDraft(pago.id, "monto", e.target.value)} placeholder="0" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>MDP</label>
+                          <select className={INP} value={pago.mdp} onChange={(e) => updatePagoDraft(pago.id, "mdp", e.target.value)}>
+                            <option value="">Sin Definir</option>
                             <option value="PPD">PPD</option>
                             <option value="PUE">PUE</option>
-                            <option value="Contado">Contado</option>
                           </select>
                         </div>
                         <div className={FLD}>
-                          <label className={LBL}>{isRealizado ? "Subtotal abono" : "Monto esperado"}</label>
-                          <input type="number" className={INP} value={pago.subtotalAbono} onChange={(e) => updatePagoDraft(pago.id, "subtotalAbono", e.target.value)} placeholder="0" />
+                          <label className={LBL}>Folio Fiscal</label>
+                          <input className={INP} value={pago.folioFiscal} onChange={(e) => updatePagoDraft(pago.id, "folioFiscal", e.target.value)} placeholder="-" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Forma de Pago</label>
+                          <select className={INP} value={pago.formaPago} onChange={(e) => updatePagoDraft(pago.id, "formaPago", e.target.value)}>
+                            <option value="">Sin definir</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Cheque">Cheque</option>
+                          </select>
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Fecha</label>
+                          <DatePickerMX value={pago.fecha} onChange={(v) => updatePagoDraft(pago.id, "fecha", v)} />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Serie</label>
+                          <input className={INP} value={pago.serie} onChange={(e) => updatePagoDraft(pago.id, "serie", e.target.value)} placeholder="-" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>Folio</label>
+                          <input className={INP} value={pago.folio} onChange={(e) => updatePagoDraft(pago.id, "folio", e.target.value)} placeholder="-" />
+                        </div>
+                        <div className={FLD}>
+                          <label className={LBL}>{complementoLabel}</label>
+                          <input
+                            className={INP}
+                            value={pago.complementoPago}
+                            onChange={(e) => updatePagoDraft(pago.id, "complementoPago", e.target.value)}
+                            placeholder="-"
+                            disabled={!pago.mdp}
+                          />
                         </div>
                       </div>
 
-                      {/* Campos adicionales — solo cuando realizado */}
-                      {isRealizado ? (
-                        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
-                          <div className={FLD}>
-                            <label className={LBL}>Factura</label>
-                            <input className={INP} value={pago.factura} onChange={(e) => updatePagoDraft(pago.id, "factura", e.target.value)} placeholder="A-001" />
-                          </div>
-                          <div className={FLD}>
-                            <label className={LBL}>MDP</label>
-                            <select className={INP} value={pago.mdp} onChange={(e) => updatePagoDraft(pago.id, "mdp", e.target.value)}>
-                              <option value="PPD">PPD</option>
-                              <option value="PUE">PUE</option>
-                            </select>
-                          </div>
-                          <div className={FLD}>
-                            <label className={LBL}>Complemento pago</label>
-                            <input className={INP} value={pago.complementoPago} onChange={(e) => updatePagoDraft(pago.id, "complementoPago", e.target.value)} placeholder="—" />
-                          </div>
-                          <div className={`${FLD} sm:col-span-3`}>
-                            <label className={LBL}>Fecha de pago</label>
-                            <DatePickerMX value={pago.fechaPago} onChange={(v) => updatePagoDraft(pago.id, "fechaPago", v)} />
-                          </div>
-                        </div>
-                      ) : null}
+                      {/* 10° campo: archivos (PDF/XML) — cada uno con nombre asignado al subir */}
+                      <div className="mt-2.5">
+                        <PagoComprobantes
+                          project={project}
+                          pagoId={pago.id}
+                          onUploadFile={onUploadFile}
+                          onDeleteFile={onDeleteFile}
+                        />
+                      </div>
 
                       {/* Botón de toggle estado */}
                       <button
@@ -1722,13 +1967,16 @@ export function ProjectDetailDialog({
                   value={f4EstatusFinal}
                   onChange={(e) => setF4EstatusFinal(e.target.value as "Pendiente" | "Pagado")}
                 >
-                  <option value="Pendiente">Pendiente</option>
+                  {/* Mismo vocabulario que el filtro "Pago" de la lista de proyectos —
+                      "Pendiente" internamente (por compatibilidad con datos ya guardados),
+                      pero mostrado como "No pagado" para no tener dos palabras para lo mismo. */}
+                  <option value="Pendiente">No pagado</option>
                   <option value="Pagado">Pagado</option>
                 </select>
               </div>
 
               {/* ── Facturas ── */}
-              {(canManageInvoices || (project.invoices ?? []).length > 0) ? (
+              {facturasEnabled && (canManageInvoices || (project.invoices ?? []).length > 0) ? (
                 <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
                   <div className="mb-3 flex items-center justify-between">
                     <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Facturas</p>
@@ -1900,13 +2148,25 @@ export function ProjectDetailDialog({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => {
-                // Ctrl+Enter envía el mensaje
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && message.trim()) {
+                if (e.key !== "Enter") return;
+                if (e.ctrlKey || e.metaKey) {
+                  // Ctrl+Enter salta de línea (en el punto del cursor) para seguir escribiendo
+                  e.preventDefault();
+                  const el = e.currentTarget;
+                  const start = el.selectionStart;
+                  const end = el.selectionEnd;
+                  const next = `${message.slice(0, start)}\n${message.slice(end)}`;
+                  setMessage(next);
+                  requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = start + 1; });
+                  return;
+                }
+                // Enter envía el mensaje
+                if (message.trim()) {
                   e.preventDefault();
                   void handleSendChatMessage();
                 }
               }}
-              placeholder="Escribe un mensaje… (Ctrl+Enter para enviar)"
+              placeholder="Escribe un mensaje… (Enter para enviar, Ctrl+Enter para bajar de línea)"
               className={`${INP} h-auto min-h-[80px] resize-none py-2.5`}
               rows={3}
               disabled={chatSending}
@@ -1921,15 +2181,35 @@ export function ProjectDetailDialog({
                 />
                 Marcar como prioritario
               </label>
-              <button
-                type="button"
-                onClick={() => { void handleSendChatMessage(); }}
-                disabled={!message.trim() || chatSending}
-                className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-[#111111] transition hover:opacity-90 disabled:opacity-40"
-              >
-                <MessageCircleMore className="h-4 w-4" />
-                {chatSending ? "Enviando…" : "Enviar"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSendQuickEmoji("👍")}
+                  disabled={chatSending}
+                  title="Enviar 👍"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#3F3F46] text-lg transition hover:opacity-90 disabled:opacity-40"
+                >
+                  👍
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendQuickEmoji("⚡")}
+                  disabled={chatSending}
+                  title="Enviar ⚡"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#3F3F46] text-lg transition hover:opacity-90 disabled:opacity-40"
+                >
+                  ⚡
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void handleSendChatMessage(); }}
+                  disabled={!message.trim() || chatSending}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-accent px-5 py-2.5 text-sm font-bold text-[#111111] transition hover:opacity-90 disabled:opacity-40"
+                >
+                  <MessageCircleMore className="h-4 w-4" />
+                  {chatSending ? "Enviando…" : "Enviar"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1938,17 +2218,22 @@ export function ProjectDetailDialog({
       {/* ══════════════════ ARCHIVOS TAB ══════════════════ */}
       {mainTab === "archivos" ? (() => {
         const FOTOS_ACCEPT = "image/png,image/jpeg";
-        const ESTIMACION_ACCEPT = ".xlsx,.xls";
+        const ESTIMACION_ACCEPT = ".xlsx,.xlsm";
         const COTIZACION_ACCEPT = ".pdf";
-        const REPORTE_ACCEPT = ".pdf";
+        const REPORTE_ACCEPT = ".docx,.pdf";
         const OTROS_ACCEPT = "*/*";
+        const SUBCONTRATADOS_ACCEPT = ".xlsx,.xlsm,.pdf";
+        const SUBCONTRATADOS_FACTURAS_ACCEPT = ".pdf,.xml";
 
         const SECTION_EXTENSIONS: Record<FileCategory, string[] | null> = {
           fotos: ["png", "jpg", "jpeg"],
-          estimacion: ["xlsx", "xls"],
+          estimacion: ["xlsx", "xlsm"],
           cotizacion: ["pdf"],
-          reporte: ["pdf"],
+          reporte: ["docx", "pdf"],
           otros: null,
+          subcontratados: ["xlsx", "xlsm", "pdf"],
+          subcontratadosFacturas: ["pdf", "xml"],
+          pagoComprobante: ["pdf", "xml"],
         };
         
         const isValidExtension = (fileName: string, category: FileCategory): boolean => {
@@ -1959,21 +2244,32 @@ export function ProjectDetailDialog({
         };
 
         const SECTION_MAX_MB: Record<FileCategory, number> = {
-          fotos: 30, estimacion: 30, cotizacion: 30, reporte: 45, otros: 5,
+          fotos: 30, estimacion: 30, cotizacion: 30, reporte: 45, otros: 5, subcontratados: 30, subcontratadosFacturas: 30, pagoComprobante: 30,
         };
-        const FILE_SECTIONS: { key: FileCategory; label: string; accept: string; onlyImages: boolean; maxMB: number }[] = [
+        // Subcontratados (Cotizaciones y Facturas): ingeniero y supervisor suben/ven; Admin y
+        // Gestor tambien las ven porque son quienes aprueban/rechazan cada archivo — ambas
+        // carpetas se comportan igual, no solo Facturas.
+        const canSeeSubcontratados = ["supervisor", "engineer", "admin", "system_admin"].includes(currentUser.role);
+        const ALL_FILE_SECTIONS: { key: FileCategory; label: string; accept: string; onlyImages: boolean; maxMB: number }[] = [
           { key: "fotos",      label: "Fotos de evidencia", accept: FOTOS_ACCEPT,      onlyImages: true,  maxMB: 30 },
           { key: "estimacion", label: "Estimación",         accept: ESTIMACION_ACCEPT, onlyImages: false, maxMB: 30 },
           { key: "cotizacion", label: "Cotización",         accept: COTIZACION_ACCEPT, onlyImages: false, maxMB: 30 },
           { key: "reporte",    label: "Reporte",            accept: REPORTE_ACCEPT,    onlyImages: false, maxMB: 45 },
           { key: "otros",      label: "Otros",              accept: OTROS_ACCEPT,      onlyImages: false, maxMB: 5 },
+          { key: "subcontratados", label: "Subcontratados-Cotizaciones", accept: SUBCONTRATADOS_ACCEPT, onlyImages: false, maxMB: 30 },
+          { key: "subcontratadosFacturas", label: "Subcontratados-Facturas", accept: SUBCONTRATADOS_FACTURAS_ACCEPT, onlyImages: false, maxMB: 30 },
         ];
+        const FILE_SECTIONS = ALL_FILE_SECTIONS.filter((s) =>
+          (s.key === "subcontratados" || s.key === "subcontratadosFacturas") ? canSeeSubcontratados : true
+        );
 
         const getFileRef = (cat: FileCategory) => {
           if (cat === "fotos")      return fotosFileInputRef;
           if (cat === "estimacion") return estimacionFileInputRef;
           if (cat === "cotizacion") return cotizacionFileInputRef;
           if (cat === "reporte")    return reporteFileInputRef;
+          if (cat === "subcontratados") return subcontratadosFileInputRef;
+          if (cat === "subcontratadosFacturas") return subcontratadosFacturasFileInputRef;
           return otrosFileInputRef;
         };
 
@@ -1982,6 +2278,8 @@ export function ProjectDetailDialog({
           if (cat === "estimacion") return f2EstimFileStatus;
           if (cat === "cotizacion") return f2CotizFileStatus;
           if (cat === "reporte")    return f2ReporteFileStatus;
+          if (cat === "subcontratados") return f2SubcontratadosFileStatus;
+          if (cat === "subcontratadosFacturas") return f2SubcontratadosFacturasFileStatus;
           return f2OtrosFileStatus;
         };
         const setSectionStatus = (cat: FileCategory, val: FileStatus): void => {
@@ -1989,6 +2287,8 @@ export function ProjectDetailDialog({
           else if (cat === "estimacion") setF2EstimFileStatus(val);
           else if (cat === "cotizacion") setF2CotizFileStatus(val);
           else if (cat === "reporte")    setF2ReporteFileStatus(val);
+          else if (cat === "subcontratados") setF2SubcontratadosFileStatus(val);
+          else if (cat === "subcontratadosFacturas") setF2SubcontratadosFacturasFileStatus(val);
           else                           setF2OtrosFileStatus(val);
         };
         const statusFieldOf = (cat: FileCategory): keyof ProjectItem => {
@@ -1996,8 +2296,19 @@ export function ProjectDetailDialog({
           if (cat === "estimacion") return "estimacionFileStatus";
           if (cat === "cotizacion") return "cotizacionFileStatus";
           if (cat === "reporte")    return "reporteFileStatus";
+          if (cat === "subcontratados") return "subcontratadosFileStatus";
+          if (cat === "subcontratadosFacturas") return "subcontratadosFacturasFileStatus";
           return "otrosFileStatus";
         };
+
+        // Las dos carpetas de Subcontratados (Cotizaciones y Facturas) solo se pueden
+        // subir/borrar si en Fase 1 se activó el switch ⚡ y se llenó el nombre del subcontratado.
+        // Ya solo el supervisor llega a verlas (filtradas en FILE_SECTIONS arriba).
+        const subcontratadoListo = !!project.subcontratadoActivo && !!project.nombreSubcontratado?.trim();
+        const isSubcontratadosCat = (cat: FileCategory): boolean =>
+          cat === "subcontratados" || cat === "subcontratadosFacturas";
+        const canManageSection = (cat: FileCategory): boolean =>
+          isSubcontratadosCat(cat) ? canEditProject && subcontratadoListo : canEditProject;
 
         const handleUpload = async (files: File[], category: FileCategory): Promise<void> => {
           if (!files.length || !onUploadFile) return;
@@ -2044,16 +2355,20 @@ export function ProjectDetailDialog({
         };
 
         const isEngineer = currentUser.role === "engineer";
-        const canDeleteFiles = isEngineer || currentUser.role === "admin" || currentUser.role === "system_admin" || currentUser.role === "supervisor";
+        const canDeleteFilesBase = isEngineer || currentUser.role === "admin" || currentUser.role === "system_admin" || currentUser.role === "supervisor";
+        const canDeleteFiles = (cat: FileCategory): boolean =>
+          isSubcontratadosCat(cat) ? canDeleteFilesBase && subcontratadoListo : canDeleteFilesBase;
 
         return (
           <div className="mt-5 space-y-2.5">
             {/* Hidden inputs */}
             <input ref={fotosFileInputRef}      type="file" className="hidden" accept="image/png,image/jpeg"                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "fotos");      e.target.value = ""; }} />
-            <input ref={estimacionFileInputRef} type="file" className="hidden" accept=".xlsx,.xls"                                  multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "estimacion"); e.target.value = ""; }} />
+            <input ref={estimacionFileInputRef} type="file" className="hidden" accept=".xlsx,.xlsm"                                 multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "estimacion"); e.target.value = ""; }} />
             <input ref={cotizacionFileInputRef} type="file" className="hidden" accept=".pdf"                                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "cotizacion"); e.target.value = ""; }} />
-            <input ref={reporteFileInputRef}    type="file" className="hidden" accept=".pdf"                                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "reporte");    e.target.value = ""; }} />
+            <input ref={reporteFileInputRef}    type="file" className="hidden" accept=".docx,.pdf"                                  multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "reporte");    e.target.value = ""; }} />
             <input ref={otrosFileInputRef}      type="file" className="hidden" accept="*/*"                            multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "otros");       e.target.value = ""; }} />
+            <input ref={subcontratadosFileInputRef} type="file" className="hidden" accept="*/*"                        multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "subcontratados"); e.target.value = ""; }} />
+            <input ref={subcontratadosFacturasFileInputRef} type="file" className="hidden" accept="*/*"                multiple onChange={async (e) => { await handleUpload(Array.from(e.target.files ?? []), "subcontratadosFacturas"); e.target.value = ""; }} />
             <input ref={cameraInputRef} type="file" className="hidden" accept="image/*" capture="environment" onChange={async (e) => { const f = e.target.files?.[0]; if (f) await handleUpload([f], "fotos"); e.target.value = ""; }} />
 
             {uploadError ? (
@@ -2091,7 +2406,7 @@ export function ProjectDetailDialog({
                       ) : null}
                     </div>
                     <div className="flex items-center gap-2">
-                      {canEditProject ? (
+                      {canManageSection(section.key) ? (
                         <span
                           role="button"
                           tabIndex={0}
@@ -2101,6 +2416,13 @@ export function ProjectDetailDialog({
                         >
                           <Plus className="h-3 w-3" />
                           Agregar
+                        </span>
+                      ) : isSubcontratadosCat(section.key) && canEditProject ? (
+                        <span
+                          title="Activa el subcontratado y su nombre en Fase 1 para poder subir archivos aquí"
+                          className="inline-flex items-center gap-1 rounded-xl border border-[#3F3F46] bg-[#27272A] px-2.5 py-1 text-xs font-semibold text-[#52525B]"
+                        >
+                          🔒 Bloqueado
                         </span>
                       ) : null}
                       {section.key === "fotos" && canEditProject ? (
@@ -2129,6 +2451,11 @@ export function ProjectDetailDialog({
                         const noLabel = section.key === "fotos" ? "Sin fotos de evidencia" : `Sin archivos en ${section.label.toLowerCase()}`;
                         const approveExtra = section.key === "fotos" ? { fotos: true } : {};
                         const rejectExtra  = section.key === "fotos" ? { fotos: false } : {};
+                        // Este banner solo tiene sentido donde de verdad hay boton de Aprobar/
+                        // Rechazar (fotos, reporte). En las demas carpetas es puro ruido: decia
+                        // "En revision" sin ningun lugar donde actuar sobre eso. Subcontratados
+                        // ya tiene su propio indicador por archivo (mas preciso, ver mas abajo).
+                        if (!isApprovable) return null;
                         return (
                           <div className={`rounded-2xl px-4 py-3 text-sm font-semibold ${
                             st === "en-revision" ? "border border-[#F5A524]/25 bg-[#F5A524]/10 text-[#F5A524]" :
@@ -2219,7 +2546,11 @@ export function ProjectDetailDialog({
                       })()}
 
                       {/* Drop zone */}
-                      {canEditProject ? (
+                      {isSubcontratadosCat(section.key) && canEditProject && !subcontratadoListo ? (
+                        <div className="rounded-xl border-2 border-dashed border-[#3F3F46] bg-[#1E1E20]/50 px-4 py-2.5 text-xs text-[#888888]">
+                          Activa el subcontratado (⚡) y escribe su nombre en Fase 1 → Apertura para poder subir archivos aquí.
+                        </div>
+                      ) : canManageSection(section.key) ? (
                         <div
                           onDragOver={(e) => { e.preventDefault(); setDraggingSection(section.key); }}
                           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDraggingSection(null); }}
@@ -2291,7 +2622,7 @@ export function ProjectDetailDialog({
                                       </div>
                                     </a>
                                   ) : null}
-                                  {canDeleteFiles ? (
+                                  {canDeleteFiles(section.key) ? (
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); void handleDeleteFileInSection(file.id, section.key); }}
@@ -2323,6 +2654,44 @@ export function ProjectDetailDialog({
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
                                     <p className="text-xs text-[#888888]">{file.sizeLabel} · {formatDate(file.uploadedAt)}</p>
+                                    {section.key === "subcontratados" || section.key === "subcontratadosFacturas" ? (() => {
+                                      const isFacturas = section.key === "subcontratadosFacturas";
+                                      const approvedLabel = isFacturas ? "Pagada" : "Aceptada";
+                                      const approveActionLabel = isFacturas ? "Marcar pagada" : "Aceptar";
+                                      return (
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                            file.status === "si" ? "bg-[#166534]/30 text-[#4ADE80]" :
+                                            file.status === "rechazado" ? "bg-danger/15 text-danger" :
+                                            "bg-[#F5A524]/15 text-[#F5A524]"
+                                          }`}>
+                                            {file.status === "si" ? approvedLabel : file.status === "rechazado" ? "Rechazado" : "En revisión"}
+                                          </span>
+                                          {(currentUser.role === "admin" || currentUser.role === "system_admin") && onSetFileStatus ? (
+                                            <div className="flex gap-1">
+                                              {file.status !== "si" ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => void onSetFileStatus(project.id, file.id, "si")}
+                                                  className="rounded-lg bg-[#166534]/20 px-2 py-0.5 text-[10px] font-bold text-[#4ADE80] transition hover:bg-[#166534]/40"
+                                                >
+                                                  {approveActionLabel}
+                                                </button>
+                                              ) : null}
+                                              {file.status !== "rechazado" ? (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => void onSetFileStatus(project.id, file.id, "rechazado")}
+                                                  className="rounded-lg bg-danger/10 px-2 py-0.5 text-[10px] font-bold text-danger transition hover:bg-danger/20"
+                                                >
+                                                  Rechazar
+                                                </button>
+                                              ) : null}
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      );
+                                    })() : null}
                                   </div>
                                   <div className="flex shrink-0 gap-1.5">
                                     {file.url ? (() => {
@@ -2357,7 +2726,7 @@ export function ProjectDetailDialog({
                                         </>
                                       );
                                     })() : null}
-                                    {canDeleteFiles ? (
+                                    {canDeleteFiles(section.key) ? (
                                       <button
                                         type="button"
                                         onClick={() => void handleDeleteFileInSection(file.id, section.key)}

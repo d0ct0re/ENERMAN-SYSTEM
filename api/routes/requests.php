@@ -16,9 +16,16 @@ if ($action === 'delete_request') {
     foreach (tableRows('requests') as $candidate) {
         if (($candidate['id'] ?? '') === $requestId) { $request = $candidate; break; }
     }
+    // Respaldo completo antes de borrar para siempre — recuperable a mano en caso de error.
+    if ($request) {
+        archiveDeletedItem('request', $requestId, $request);
+    }
     // DELETE atómico por id — idempotente: si no estaba en BD, igualmente se considera eliminado
     $stmt = db()->prepare("DELETE FROM requests WHERE id = :id");
     $stmt->execute([':id' => $requestId]);
+    // Borrar notificaciones que apuntaban a esta solicitud — evita el bug de "notificación
+    // fantasma" (alguien la ve, le hace clic, y la solicitud ya no existe).
+    deleteNotificationsFor('relatedRequestId', $requestId);
     logActivity('deleted', 'request', $requestId, $request ? itemName($request) : $requestId, ['source' => 'delete_request']);
     // Marcar como recién eliminado para que save_state no lo re-inserte si llega tarde
     if (!isset($_SESSION['recently_deleted'])) $_SESSION['recently_deleted'] = [];
@@ -38,10 +45,17 @@ if ($action === 'update_request') {
         echo json_encode(['error' => 'request_id y fields requeridos.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $stmt = db()->prepare("SELECT payload FROM requests WHERE id = ? LIMIT 1");
+    // Locking pesimista — igual que update_project: sin esto, dos revisiones casi
+    // simultáneas de la misma solicitud (ej. dos admins aprobando/rechazando a la vez)
+    // hacen read-modify-write sin coordinarse y la segunda pisa a la primera por completo
+    // en vez de solo mezclar sus campos.
+    $pdo = db();
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT payload FROM requests WHERE id = ? LIMIT 1 FOR UPDATE");
     $stmt->execute([$requestId]);
     $row = $stmt->fetch();
     if (!$row) {
+        $pdo->rollBack();
         http_response_code(404);
         echo json_encode(['error' => 'Solicitud no encontrada.'], JSON_UNESCAPED_UNICODE);
         exit;
@@ -49,8 +63,9 @@ if ($action === 'update_request') {
     $current = json_decode($row['payload'], true) ?? [];
     $updated = array_merge($current, $fields);
     $updated['id'] = $requestId;
-    db()->prepare("UPDATE requests SET payload = :p, updated_at = NOW() WHERE id = :id")
+    $pdo->prepare("UPDATE requests SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $requestId]);
+    $pdo->commit();
     echo json_encode(['ok' => true]);
     exit;
 }

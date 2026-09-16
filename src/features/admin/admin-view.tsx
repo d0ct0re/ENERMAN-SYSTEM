@@ -1,7 +1,7 @@
-import { AlertTriangle, BadgeDollarSign, Check, ChevronDown, DatabaseBackup, Eye, FolderOpenDot, MoreVertical, Plus, RotateCcw, Save, ShieldAlert, Trash2, UploadCloud, UserPlus, UsersRound, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { cn, formatDate, isNewItem, parseLocalDate, getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
-import { downloadBackup, downloadFilesBackup, restoreBackup } from "@/lib/api";
+import { BadgeCheck, BadgeDollarSign, Check, ChevronDown, DatabaseBackup, DollarSign, Eye, FileText, FolderOpenDot, MoreVertical, Plus, RotateCcw, Save, ShieldAlert, Trash2, UploadCloud, UserPlus, UsersRound, Wrench, X } from "lucide-react";
+import { ComponentType, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { cn, formatDate, isNewItem, parseLocalDate, getProjectSequenceNumber, getRequestSequence, getRequestSequenceNumber, maskRequestSequence } from "@/lib/utils";
+import { AppSettings, downloadBackup, downloadFilesBackup, restoreBackup } from "@/lib/api";
 import { FIXED_CLIENTS } from "@/components/ui/client-input";
 import { SectionTitle } from "@/components/layout/section-title";
 import { Tabs } from "@/components/ui/tabs";
@@ -51,6 +51,9 @@ interface AdminViewProps {
   canManageUsers: boolean;
   sequenceInfo?: { current: number; next: number; display: string } | null;
   onSetSequenceCounter?: (value: number) => Promise<void>;
+  appSettings?: AppSettings;
+  onSetAppSetting?: (name: keyof AppSettings, value: boolean) => Promise<void>;
+  onBulkDeleteBeforeFolio?: (folio: number) => Promise<{ deletedProjects: number; deletedRequests: number }>;
   onCreateProject: (payload: {
     sequence: string;
     baseName: string;
@@ -80,7 +83,7 @@ interface AdminViewProps {
   }) => void;
   onDeleteRequest: (requestId: string) => void;
   onCreateUser: (payload: Omit<UserItem, "id" | "name" | "avatar" | "roleLabel" | "isActive" | "createdAt" | "updatedAt">) => void;
-  onUpdateUser: (userId: string, payload: Pick<UserItem, "firstName" | "lastName" | "email" | "department" | "role" | "isActive" | "password">) => void;
+  onUpdateUser: (userId: string, payload: Pick<UserItem, "firstName" | "lastName" | "email" | "department" | "role" | "isActive" | "password">) => Promise<void>;
   onDeleteUser: (userId: string) => void;
   onOpenRequest: (requestId: string) => void;
   onOpenProject: (projectId: string) => void;
@@ -108,6 +111,9 @@ function SystemAdminView({
   activityLogs,
   sequenceInfo,
   onSetSequenceCounter,
+  appSettings,
+  onSetAppSetting,
+  onBulkDeleteBeforeFolio,
   onCreateProject,
   onDeleteProject,
   onRestoreProject,
@@ -133,6 +139,10 @@ function SystemAdminView({
   const [seqInput, setSeqInput] = useState("");
   const [seqSaving, setSeqSaving] = useState(false);
   const [seqMsg, setSeqMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  // Estado para el panel de limpieza de datos de prueba (borrado masivo por folio)
+  const [cleanupInput, setCleanupInput] = useState("");
+  const [cleanupBusy, setCleanupBusy] = useState(false);
+  const [cleanupMsg, setCleanupMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [restoreMsg, setRestoreMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -398,6 +408,120 @@ function SystemAdminView({
         ) : null}
       </div>
 
+      {/* ── Panel Limpieza de datos de prueba (borrado masivo, irreversible) ── */}
+      <div className="rounded-2xl border border-danger/25 bg-[#1E1E20] p-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-danger">
+          Limpieza de datos de prueba
+        </p>
+        <p className="mb-3 text-xs leading-relaxed text-[#71717A]">
+          Borra permanentemente los proyectos con folio menor al que indiques (o sin folio asignado),
+          junto con sus archivos y chat, y las solicitudes que no queden ligadas a un proyecto que
+          sobreviva. Esta acción no se puede deshacer.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            placeholder="Ej. 4100"
+            value={cleanupInput}
+            onChange={(e) => { setCleanupInput(e.target.value.replace(/\D/g, "")); setCleanupMsg(null); }}
+            className="w-32 rounded-xl border border-[#3F3F46] bg-[#27272A] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-danger/50 focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={cleanupBusy || !cleanupInput || Number(cleanupInput) < 1 || !onBulkDeleteBeforeFolio}
+            onClick={async () => {
+              const threshold = Number(cleanupInput);
+              if (!threshold || threshold < 1 || !onBulkDeleteBeforeFolio) return;
+
+              const survivingIds = new Set(
+                projects.filter((p) => getProjectSequenceNumber(p) >= threshold).map((p) => p.id),
+              );
+              const willDeleteProjects = projects.filter((p) => getProjectSequenceNumber(p) < threshold).length;
+              const willDeleteRequests = requests.filter(
+                (r) => !r.linkedProjectId || !survivingIds.has(r.linkedProjectId),
+              ).length;
+
+              const sure = window.confirm(
+                `Vas a borrar PERMANENTEMENTE ${willDeleteProjects} proyecto(s) con folio menor a ${threshold} ` +
+                `y ${willDeleteRequests} solicitud(es) no ligadas a un proyecto que sobreviva.\n\n` +
+                `Incluye sus archivos y mensajes de chat. Esta acción NO se puede deshacer.\n\n` +
+                `¿Confirmas que quieres continuar?`,
+              );
+              if (!sure) return;
+
+              setCleanupBusy(true);
+              setCleanupMsg(null);
+              try {
+                const result = await onBulkDeleteBeforeFolio(threshold);
+                setCleanupMsg({
+                  text: `✓ Se borraron ${result.deletedProjects} proyecto(s) y ${result.deletedRequests} solicitud(es).`,
+                  ok: true,
+                });
+                setCleanupInput("");
+              } catch (err) {
+                setCleanupMsg({ text: err instanceof Error ? err.message : "Error al borrar. Intenta de nuevo.", ok: false });
+              } finally {
+                setCleanupBusy(false);
+              }
+            }}
+            className="rounded-xl bg-danger/15 px-4 py-2 text-sm font-bold text-danger ring-1 ring-danger/30 transition hover:bg-danger/25 disabled:opacity-40"
+          >
+            {cleanupBusy ? "Borrando…" : "Borrar anteriores a este folio"}
+          </button>
+        </div>
+        {cleanupMsg ? (
+          <p className={`mt-2 text-xs font-semibold ${cleanupMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+            {cleanupMsg.text}
+          </p>
+        ) : null}
+      </div>
+
+      {/* ── Panel Funciones — switches globales que solo el Gestor puede prender/apagar.
+          Por ahora solo "Apartado facturas"; futuros switches van como filas nuevas aca. ── */}
+      <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Funciones</p>
+        <p className="mb-3 text-xs leading-relaxed text-[#71717A]">
+          Switches globales que afectan lo que ven todos los perfiles. Se guardan en el servidor.
+        </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">Apartado facturas</span>
+            <button
+              type="button"
+              onClick={() => onSetAppSetting?.("facturasEnabled", !(appSettings?.facturasEnabled ?? false))}
+              title={appSettings?.facturasEnabled ? "Apartado facturas activado" : "Activar apartado facturas"}
+              className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                appSettings?.facturasEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+              }`}
+            >
+              <span
+                className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  appSettings?.facturasEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">Cobros</span>
+            <button
+              type="button"
+              onClick={() => onSetAppSetting?.("cobrosEnabled", !(appSettings?.cobrosEnabled ?? false))}
+              title={appSettings?.cobrosEnabled ? "Cobros activado" : "Activar Cobros"}
+              className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                appSettings?.cobrosEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+              }`}
+            >
+              <span
+                className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  appSettings?.cobrosEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <Tabs
         value={systemTab}
         onValueChange={onTabChange}
@@ -415,6 +539,7 @@ function SystemAdminView({
           trashedProjects={trashedProjects}
           trashTtlMs={TRASH_TTL_MS}
           users={users}
+          nextSequence={sequenceInfo?.next}
           onCreateProject={onCreateProject}
           onDeleteProject={onDeleteProject}
           onRestoreProject={onRestoreProject}
@@ -474,6 +599,7 @@ function ProjectsManager({
   trashedProjects,
   trashTtlMs,
   users,
+  nextSequence,
   onCreateProject,
   onDeleteProject,
   onRestoreProject,
@@ -484,6 +610,7 @@ function ProjectsManager({
   trashedProjects: ProjectItem[];
   trashTtlMs: number;
   users: UserItem[];
+  nextSequence?: number;
   onCreateProject: AdminViewProps["onCreateProject"];
   onDeleteProject: AdminViewProps["onDeleteProject"];
   onRestoreProject?: (id: string) => void;
@@ -508,6 +635,17 @@ function ProjectsManager({
     totalContratado: "",
     assignedEngineerId: "",
   });
+
+  // Autocompleta el Consecutivo con el siguiente folio real (mismo valor que muestra el
+  // panel "Gestión de Consecutivos"). Antes este campo era texto libre desconectado del
+  // contador, lo que causaba folios manuales que no coincidían con lo que el gestor acababa
+  // de fijar ahí. Solo llena si el campo está vacío — no pisa un valor que el usuario ya
+  // esté escribiendo, y se re-dispara cada vez que nextSequence avanza (tras crear otro
+  // proyecto o ajustar el contador manualmente).
+  useEffect(() => {
+    if (nextSequence == null) return;
+    setDraft((current) => (current.sequence === "" ? { ...current, sequence: String(nextSequence) } : current));
+  }, [nextSequence]);
 
   const sortedProjects = useMemo(
     () =>
@@ -828,12 +966,14 @@ function RequestsManager({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-black text-accent">#{getRequestSequence(request, projects)}</span>
+                  <span className="font-mono text-xs font-black text-accent">#{request.status === "approved" ? getRequestSequence(request, projects) : "XXXX"}</span>
                   <StatusBadge kind="request" value={request.status} />
                   <span className="text-xs font-semibold text-[#888888]">{parseLocalDate(request.createdAt).toLocaleDateString("es-MX")}</span>
                 </div>
                 <p className="mt-2 text-base font-semibold text-foreground">{request.baseName}</p>
-                <p className="mt-1 text-sm text-[#888888]">{request.client} · {request.department} · {request.structuredName}</p>
+                <p className="mt-1 text-sm text-[#888888]">
+                  {request.client} · {request.department} · {request.status === "approved" ? request.structuredName : maskRequestSequence(request.structuredName)}
+                </p>
                 <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2 lg:grid-cols-4">
                   <span>Solicitó: {users.find((user) => user.id === request.createdBy)?.name ?? request.createdBy}</span>
                   <span>Tipo: {request.type}</span>
@@ -927,6 +1067,7 @@ function LegacyAdminView({
   projects,
   requests,
   users,
+  appSettings,
   onOpenRequest,
   onOpenProject,
   onApproveRequest,
@@ -934,6 +1075,7 @@ function LegacyAdminView({
   onCorrectionRequest,
   onReactivateRequest,
 }: AdminViewProps): JSX.Element {
+  const cobrosEnabled = appSettings?.cobrosEnabled ?? false;
   const CLOSED_STATUSES_ADMIN = ["completed", "cancelled", "no-autorizado", "cierre-por-sistema"];
   // Directo desde `projects` (todos, sin filtrar por status) en vez de unir activos+terminados+
   // cancelados: un proyecto con un status que no cae en ninguna de esas 3 categorias (dato raro)
@@ -942,7 +1084,7 @@ function LegacyAdminView({
   const terminatedProjects = allNonDeletedProjects.filter((p) => CLOSED_STATUSES_ADMIN.includes(p.status));
   const onlyActiveProjects = allNonDeletedProjects.filter((p) => !CLOSED_STATUSES_ADMIN.includes(p.status));
 
-  const adminProjectTab: AdminTab = tab === "active" || tab === "completed" || tab === "review" || tab === "cobros" || tab === "correction" || tab === "calendar" ? tab : "allprojects";
+  const adminProjectTab: AdminTab = tab === "active" || tab === "completed" || tab === "review" || (tab === "cobros" && cobrosEnabled) || tab === "correction" || tab === "calendar" ? tab : "allprojects";
 
   const cobrosProjects = allNonDeletedProjects.filter((p) => (p.invoices?.length ?? 0) > 0);
   const activeInvoiceCount = cobrosProjects.reduce(
@@ -950,11 +1092,40 @@ function LegacyAdminView({
     0,
   );
 
+  // Filtro de Pago que las tarjetas "Pagados"/"No pagados" empujan hacia "Todos los proyectos".
+  // `payFilterNonce` fuerza un remount de ProjectsFilterTab (via key) aunque ya estemos en esa
+  // pestaña, porque su estado de filtros es interno y solo se inicializa una vez al montar.
+  const [pendingPayFilter, setPendingPayFilter] = useState<string | undefined>(undefined);
+  const [payFilterNonce, setPayFilterNonce] = useState(0);
+  const goToAllProjectsWithPayFilter = (value: string): void => {
+    onTabChange("allprojects");
+    setPendingPayFilter(value);
+    setPayFilterNonce((n) => n + 1);
+  };
+
   const summaryCards = [
-    { title: "Solicitudes pendientes", value: reviewRequests.length, icon: ShieldAlert, bg: "bg-[#27272A]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning" },
-    { title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot, bg: "bg-[#27272A]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary" },
-    { title: "Pagados", value: paidProjects.length, icon: BadgeDollarSign, bg: "bg-[#27272A]", border: "border-[#4ADE80]/20", iconBg: "bg-[#4ADE80]/15 text-[#4ADE80]", labelColor: "text-[#4ADE80]", accent: "bg-[#4ADE80]" },
-    { title: "No pagados", value: unpaidProjects.length, icon: AlertTriangle, bg: "bg-[#27272A]", border: "border-[#3F3F46]", iconBg: "bg-[#3F3F46] text-[#888888]", labelColor: "text-[#888888]", accent: "bg-[#52525B]" },
+    {
+      title: "Por revisar", value: reviewRequests.length, icon: ShieldAlert,
+      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning",
+      onClick: () => onTabChange("review"),
+    },
+    {
+      title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot,
+      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary",
+      onClick: () => onTabChange("active"),
+    },
+    {
+      // Mismos color/icono que "Pagados" del Supervisor — los 4 indicadores deben
+      // verse identicos entre ambos roles.
+      title: "Pagados", value: paidProjects.length, icon: BadgeCheck,
+      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-[#2DBE7A]/20", iconBg: "bg-[#2DBE7A]/15 text-[#2DBE7A]", labelColor: "text-[#2DBE7A]", accent: "bg-[#2DBE7A]",
+      onClick: () => goToAllProjectsWithPayFilter("Pagado"),
+    },
+    {
+      title: "No pagados", value: unpaidProjects.length, icon: BadgeDollarSign,
+      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger",
+      onClick: () => goToAllProjectsWithPayFilter("No pagado"),
+    },
   ];
 
   return (
@@ -962,14 +1133,23 @@ function LegacyAdminView({
       <SectionTitle eyebrow={`Espacio de trabajo de ${activeUserName}`} title="Centro de revision administrativa" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
-          <Card key={card.title} className={`relative overflow-hidden border ${card.bg} ${card.border}`}>
+          <Card
+            key={card.title}
+            onClick={card.onClick}
+            className={cn(
+              "relative overflow-hidden border ring-1 ring-inset ring-white/[0.04] transition-all duration-200",
+              card.bg,
+              card.border,
+              "cursor-pointer hover:-translate-y-0.5 hover:border-opacity-70 hover:shadow-card-hover",
+            )}
+          >
             <div className={`absolute left-0 top-0 h-full w-1 ${card.accent}`} />
             <div className="flex items-start justify-between gap-3 pl-3">
               <div className="flex-1">
                 <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${card.labelColor}`}>{card.title}</p>
                 <p className="mt-3 text-4xl font-bold tabular-nums text-foreground">{card.value}</p>
               </div>
-              <div className={`rounded-2xl p-3 ${card.iconBg}`}><card.icon className="h-6 w-6" /></div>
+              <div className={`rounded-2xl p-3 ring-1 ring-inset ring-white/10 ${card.iconBg}`}><card.icon className="h-6 w-6" /></div>
             </div>
           </Card>
         ))}
@@ -978,16 +1158,24 @@ function LegacyAdminView({
         value={adminProjectTab}
         onValueChange={onTabChange}
         options={[
-          { key: "allprojects", label: "Todos los proyectos", count: allNonDeletedProjects.length },
-          { key: "active", label: "Activos", count: onlyActiveProjects.length },
-          { key: "completed", label: "Terminados", count: terminatedProjects.length },
-          { key: "cobros", label: "Cobros", count: activeInvoiceCount },
+          { key: "allprojects", label: "Todos", count: allNonDeletedProjects.length },
+          { key: "active", label: "No concluidos", count: onlyActiveProjects.length },
+          { key: "completed", label: "Concluidos", count: terminatedProjects.length },
+          ...(cobrosEnabled ? [{ key: "cobros" as const, label: "Cobros", count: activeInvoiceCount }] : []),
           { key: "review", label: "Solicitudes", count: reviewRequests.length },
           { key: "correction", label: "En corrección", count: correctionRequests?.length ?? 0 },
           { key: "calendar", label: "Calendario", count: allNonDeletedProjects.reduce((n, p) => n + (p.endDate ? 1 : 0) + (p.commitmentDate ? 1 : 0) + (p.startDate ? 1 : 0) + (p.fechaSolicitud ? 1 : 0) + (p.importantDates?.length ?? 0), 0) },
         ]}
       />
-      {adminProjectTab === "allprojects" ? <ProjectsFilterTab projects={allNonDeletedProjects} users={users} onOpenProject={onOpenProject} /> : null}
+      {adminProjectTab === "allprojects" ? (
+        <ProjectsFilterTab
+          key={payFilterNonce}
+          projects={allNonDeletedProjects}
+          users={users}
+          onOpenProject={onOpenProject}
+          initialPayFilter={pendingPayFilter}
+        />
+      ) : null}
       {adminProjectTab === "active" ? <ProjectsFilterTab projects={onlyActiveProjects} users={users} onOpenProject={onOpenProject} /> : null}
       {adminProjectTab === "completed" ? <ProjectsFilterTab projects={terminatedProjects} users={users} onOpenProject={onOpenProject} /> : null}
       {adminProjectTab === "cobros" ? <CobrosTab projects={allNonDeletedProjects} onOpenProject={onOpenProject} /> : null}
@@ -1029,7 +1217,7 @@ function LegacyAdminView({
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                <p className="text-xs text-[#888888]">{req.structuredName ? maskRequestSequence(req.structuredName) : "Sin folio"}</p>
                 {req.correctionReason ? (
                   <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
                     <span className="font-bold text-[#0EA5E9]">Corrección solicitada: </span>
@@ -1091,7 +1279,10 @@ function ReviewTab({
           onReject={onRejectRequest}
           onCorrection={onCorrectionRequest}
           requesterName={usersById[req.createdBy]?.name}
-          suggestedSequence={nextSeq}
+          // La solicitud ya reserva su propio folio desde que se crea (ver handleCreateRequest
+          // en App.tsx) — mostrar eso, no "el siguiente disponible" calculado aqui, que ademas
+          // era el MISMO numero para todas las tarjetas sin importar cual solicitud fuera.
+          suggestedSequence={req.sequence ?? nextSeq}
         />
       ))}
     </div>
@@ -1134,6 +1325,21 @@ const FOTOS_DISPLAY: Record<string, string> = {
   rechazado: "Rechazado",
 };
 
+// Mismos 4 estados que Fotos — ligado a reporteFileStatus de Fase 2 ("Reporte generado").
+const REPORTE_DISPLAY: Record<string, string> = {
+  no: "No",
+  "en-revision": "En revisión",
+  si: "Si",
+  rechazado: "Rechazado",
+};
+
+const SUBFACT_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado: "Pagado" };
+// Mismas etiquetas que en Fase 4 del proyecto — "Sin Definir" es la ausencia de valor, no un
+// texto libre, para que el filtro encuentre exactamente lo que se ve en el proyecto.
+const MDP_OPTIONS = ["Todos", "Sin Definir", "PPD", "PUE"];
+const FORMAPAGO_OPTIONS = ["Todos", "Sin definir", "Efectivo", "Transferencia", "Cheque"];
+const PAGOFINAL_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado: "Pagado" };
+
 function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
   const priorityMap: Record<string, string> = { low: "Bajo", medium: "Medio", high: "Alto", critical: "Crítica" };
   const fmt = (d?: string) => (d ? new Date(d).toLocaleDateString("es-MX") : "");
@@ -1165,7 +1371,7 @@ function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
     const engineer = users.find(
       (u) => u.role === "engineer" && (u.id === p.createdBy || (p.participants ?? []).includes(u.id)),
     );
-    const totalAbonado = (p.pagosProyecto ?? []).reduce((t, pg) => t + (pg.subtotalAbono ?? 0), 0);
+    const totalAbonado = (p.pagosProyecto ?? []).reduce((t, pg) => t + (pg.monto ?? 0), 0);
     return [
       q(p.structuredName?.split("-")[0] ?? ""),
       q(p.baseName), q(p.client), q(p.department), q(p.type),
@@ -1203,11 +1409,12 @@ function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
 }
 
 function ProjectsFilterTab({
-  projects, users, onOpenProject,
+  projects, users, onOpenProject, initialPayFilter,
 }: {
   projects: ProjectItem[];
   users: UserItem[];
   onOpenProject: (id: string) => void;
+  initialPayFilter?: string;
 }): JSX.Element {
   const [query, setQuery] = useState("");
   const [clientF, setClientF] = useState("Todos");
@@ -1218,10 +1425,20 @@ function ProjectsFilterTab({
   const [statusF, setStatusF] = useState("Todos");
   const [estimF, setEstimF] = useState("Todos");
   const [cotizF, setCotizF] = useState("Todos");
-  const [payF, setPayF] = useState("Todos");
+  const [payF, setPayF] = useState(initialPayFilter ?? "Todos");
   const [fotosF, setFotosF] = useState("Todos");
+  const [reporteF, setReporteF] = useState("Todos");
+  const [subF, setSubF] = useState("Todos");
+  const [subFacturaF, setSubFacturaF] = useState("Todos");
+  const [mdpF, setMdpF] = useState("Todos");
+  const [formaPagoF, setFormaPagoF] = useState("Todos");
+  const [pagoFinalF, setPagoFinalF] = useState("Todos");
   const [yearF, setYearF] = useState("Todos");
   const [sortF, setSortF] = useState("Reciente ↓");
+  // Acordeones de filtros — cerrados por defecto, cada grupo se abre/cierra independiente.
+  const [openOperativo, setOpenOperativo] = useState(false);
+  const [openAdministrativo, setOpenAdministrativo] = useState(false);
+  const [openFinanciero, setOpenFinanciero] = useState(false);
 
   const usersById = useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
   const engineerUsers = useMemo(() => users.filter((u) => u.role === "engineer" && u.isActive !== false), [users]);
@@ -1244,7 +1461,11 @@ function ProjectsFilterTab({
   const cotizOptions = ["Todos", "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información"];
   const payOptions = ["Todos", ...Object.values(PAYMENT_DISPLAY)];
   const fotosOptions = ["Todos", ...Object.values(FOTOS_DISPLAY)];
-  const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑", "Compromiso ↑"];
+  const reporteOptions = ["Todos", ...Object.values(REPORTE_DISPLAY)];
+  const subOptions = ["Todos", "Sí", "No"];
+  const subFacturaOptions = ["Todos", ...Object.values(SUBFACT_DISPLAY)];
+  const pagoFinalOptions = ["Todos", ...Object.values(PAGOFINAL_DISPLAY)];
+  const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑"];
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1276,27 +1497,63 @@ function ProjectsFilterTab({
         const actual = p.fotosStatus ?? (p.fotos ? "si" : "no");
         if (actual !== key) return false;
       }
-      if (q && ![p.baseName, p.client, p.structuredName, p.department, p.oc ?? "", p.description].some((f) => f.toLowerCase().includes(q))) return false;
+      if (reporteF !== "Todos") {
+        const key = Object.keys(REPORTE_DISPLAY).find((k) => REPORTE_DISPLAY[k] === reporteF);
+        const actual = p.reporteFileStatus ?? "no";
+        if (actual !== key) return false;
+      }
+      if (subF !== "Todos" && !!p.subcontratadoActivo !== (subF === "Sí")) return false;
+      if (subFacturaF !== "Todos") {
+        if (!p.subcontratadoActivo) return false;
+        // Pagado real: se calcula de los archivos de Subcontratados-Facturas, no de un campo
+        // aparte — asi el filtro siempre coincide con lo que se ve en la ficha del proyecto.
+        const facturasFiles = (p.files ?? []).filter((f) => f.category === "subcontratadosFacturas");
+        const allPaid = facturasFiles.length > 0 && facturasFiles.every((f) => f.status === "si");
+        const wantPaid = subFacturaF === "Pagado";
+        if (allPaid !== wantPaid) return false;
+      }
+      // MDP y Forma de pago viven por cada pago de Fase 4, no a nivel proyecto — un proyecto
+      // puede tener varios pagos con distintos valores, asi que el filtro busca "algun pago
+      // que cumpla", igual que ya se hace con Facturas subcont.
+      if (mdpF !== "Todos") {
+        const pagos = p.pagosProyecto ?? [];
+        if (!pagos.some((pg) => (mdpF === "Sin Definir" ? !pg.mdp : pg.mdp === mdpF))) return false;
+      }
+      if (formaPagoF !== "Todos") {
+        const pagos = p.pagosProyecto ?? [];
+        if (!pagos.some((pg) => (formaPagoF === "Sin definir" ? !pg.formaPago : pg.formaPago === formaPagoF))) return false;
+      }
+      if (pagoFinalF !== "Todos") {
+        const key = Object.keys(PAGOFINAL_DISPLAY).find((k) => PAGOFINAL_DISPLAY[k] === pagoFinalF);
+        if ((p.estatusPagoFinal ?? "Pendiente") !== key) return false;
+      }
+      // El buscador tambien encuentra por los datos de cada pago (Cliente, Folio Fiscal,
+      // Serie, Folio) — asi Administracion puede pegar un folio fiscal y llegar directo
+      // al proyecto sin tener que saber en cual esta.
+      const pagoTextMatch = (p.pagosProyecto ?? []).some((pg) =>
+        [pg.cliente, pg.folioFiscal, pg.serie, pg.folio].some((f) => (f ?? "").toLowerCase().includes(q))
+      );
+      if (q && !pagoTextMatch && ![p.baseName, p.client, p.structuredName, p.department, p.oc ?? "", p.description].some((f) => f.toLowerCase().includes(q))) return false;
       return true;
     });
     result.sort((a, b) => {
       switch (sortF) {
         case "Antiguo ↑": return a.createdAt.localeCompare(b.createdAt);
-        case "Monto ↓": return (b.totalContratado ?? 0) - (a.totalContratado ?? 0);
-        case "Monto ↑": return (a.totalContratado ?? 0) - (b.totalContratado ?? 0);
-        case "Compromiso ↑": return (a.commitmentDate ?? "9999").localeCompare(b.commitmentDate ?? "9999");
+        case "Monto ↓": return (b.totalSinIva ?? 0) - (a.totalSinIva ?? 0);
+        case "Monto ↑": return (a.totalSinIva ?? 0) - (b.totalSinIva ?? 0);
         default: return b.createdAt.localeCompare(a.createdAt);
       }
     });
     return result;
-  }, [projects, query, yearF, clientF, deptF, typeF, urgencyF, statusF, engineerF, estimF, cotizF, payF, fotosF, sortF, users]);
+  }, [projects, query, yearF, clientF, deptF, typeF, urgencyF, statusF, engineerF, estimF, cotizF, payF, fotosF, reporteF, subF, subFacturaF, mdpF, formaPagoF, pagoFinalF, sortF, users]);
 
-  const hasFilters = !!(query || yearF !== "Todos" || clientF !== "Todos" || deptF !== "Todos" || typeF !== "Todos" || urgencyF !== "Todos" || engineerF !== "Todos" || statusF !== "Todos" || estimF !== "Todos" || cotizF !== "Todos" || payF !== "Todos" || fotosF !== "Todos");
+  const hasFilters = !!(query || yearF !== "Todos" || clientF !== "Todos" || deptF !== "Todos" || typeF !== "Todos" || urgencyF !== "Todos" || engineerF !== "Todos" || statusF !== "Todos" || estimF !== "Todos" || cotizF !== "Todos" || payF !== "Todos" || fotosF !== "Todos" || reporteF !== "Todos" || subF !== "Todos" || subFacturaF !== "Todos" || mdpF !== "Todos" || formaPagoF !== "Todos" || pagoFinalF !== "Todos");
 
   const clearFilters = (): void => {
     setQuery(""); setYearF("Todos"); setClientF("Todos"); setDeptF("Todos"); setTypeF("Todos");
     setUrgencyF("Todos"); setEngineerF("Todos"); setStatusF("Todos");
-    setEstimF("Todos"); setCotizF("Todos"); setPayF("Todos"); setFotosF("Todos");
+    setEstimF("Todos"); setCotizF("Todos"); setPayF("Todos"); setFotosF("Todos"); setReporteF("Todos"); setSubF("Todos"); setSubFacturaF("Todos");
+    setMdpF("Todos"); setFormaPagoF("Todos"); setPagoFinalF("Todos");
   };
 
   return (
@@ -1304,7 +1561,7 @@ function ProjectsFilterTab({
       <div className="rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-3">
         {/* Búsqueda + CSV */}
         <div className="flex gap-2">
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, cliente, folio, depto., OC, descripción…" className="h-10 flex-1" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busca un proyecto" className="h-10 flex-1" />
           <button
             type="button"
             onClick={() => exportProjectsCSV(filtered, users)}
@@ -1331,27 +1588,50 @@ function ProjectsFilterTab({
             >{y}</button>
           ))}
         </div>
-        {/* Filtros + ordenamiento */}
-        <div className="flex flex-wrap gap-2">
-          <CompactSelect label="Cliente" options={clients} value={clientF} onChange={setClientF} />
-          <CompactSelect label="Depto." options={departments} value={deptF} onChange={setDeptF} />
-          <CompactSelect label="Tipo" options={types} value={typeF} onChange={setTypeF} />
-          <CompactSelect label="Urgencia" options={urgencyOptions} value={urgencyF} onChange={setUrgencyF} />
-          <CompactSelect label="Ingeniero" options={engineers} value={engineerF} onChange={setEngineerF} />
-          <CompactSelect label="Estado" options={statusOptions} value={statusF} onChange={setStatusF} />
-          <CompactSelect label="Estimación" options={estimOptions} value={estimF} onChange={setEstimF} />
-          <CompactSelect label="Cotización" options={cotizOptions} value={cotizF} onChange={setCotizF} />
-          <CompactSelect label="Pago" options={payOptions} value={payF} onChange={setPayF} />
-          <CompactSelect label="Fotos" options={fotosOptions} value={fotosF} onChange={setFotosF} />
-          <CompactSelect label="Ordenar" options={sortOptions} value={sortF} onChange={setSortF} />
+        {/* Operativo (Fase 1/2) — lo que ve tambien el ingeniero dia a dia */}
+        <FilterGroupAccordion variant="operativo" icon={Wrench} label="Operativo" open={openOperativo} onToggle={() => setOpenOperativo((o) => !o)}>
+          <CompactSelect layout="cell" variant="operativo" label="Cliente" options={clients} value={clientF} onChange={setClientF} />
+          <CompactSelect layout="cell" variant="operativo" label="Depto." options={departments} value={deptF} onChange={setDeptF} />
+          <CompactSelect layout="cell" variant="operativo" label="Tipo" options={types} value={typeF} onChange={setTypeF} />
+          <CompactSelect layout="cell" variant="operativo" label="Urgencia" options={urgencyOptions} value={urgencyF} onChange={setUrgencyF} />
+          <CompactSelect layout="cell" variant="operativo" label="Ingeniero" options={engineers} value={engineerF} onChange={setEngineerF} />
+          <CompactSelect layout="cell" variant="operativo" label="Estado" options={statusOptions} value={statusF} onChange={setStatusF} />
+        </FilterGroupAccordion>
+        {/* Administrativo — revisiones de archivo por sección, no dinero */}
+        <FilterGroupAccordion variant="administrativo" icon={FileText} label="Administrativo" open={openAdministrativo} onToggle={() => setOpenAdministrativo((o) => !o)}>
+          <CompactSelect layout="cell" variant="administrativo" label="Estimación" options={estimOptions} value={estimF} onChange={setEstimF} />
+          <CompactSelect layout="cell" variant="administrativo" label="Cotización" options={cotizOptions} value={cotizF} onChange={setCotizF} />
+          <CompactSelect layout="cell" variant="administrativo" label="Fotos" options={fotosOptions} value={fotosF} onChange={setFotosF} />
+          <CompactSelect layout="cell" variant="administrativo" label="Reporte" options={reporteOptions} value={reporteF} onChange={setReporteF} />
+          <CompactSelect layout="cell" variant="administrativo" label="Subcontratados" options={subOptions} value={subF} onChange={setSubF} />
+        </FilterGroupAccordion>
+        {/* Financiero — dinero: pagos, facturas, MDP */}
+        <FilterGroupAccordion variant="finance" icon={DollarSign} label="Financiero" open={openFinanciero} onToggle={() => setOpenFinanciero((o) => !o)}>
+          <CompactSelect layout="cell" variant="finance" label="Pago" options={payOptions} value={payF} onChange={setPayF} />
+          <CompactSelect layout="cell" variant="finance" label="Facturas subcont." options={subFacturaOptions} value={subFacturaF} onChange={setSubFacturaF} />
+          <CompactSelect layout="cell" variant="finance" label="MDP" options={MDP_OPTIONS} value={mdpF} onChange={setMdpF} />
+          <CompactSelect layout="cell" variant="finance" label="Forma de pago" options={FORMAPAGO_OPTIONS} value={formaPagoF} onChange={setFormaPagoF} />
+          <CompactSelect layout="cell" variant="finance" label="Estatus pago final" options={pagoFinalOptions} value={pagoFinalF} onChange={setPagoFinalF} />
+        </FilterGroupAccordion>
+        {/* Pie: contador + Ordenar + Limpiar filtros */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <p className="text-xs text-[#888888]">
+            Mostrando {filtered.length} de {projects.length} proyecto{projects.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <CompactSelect label="Ordenar" options={sortOptions} value={sortF} onChange={setSortF} />
+            {hasFilters ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="flex items-center gap-1.5 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-1.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-danger/40 hover:text-danger"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Limpiar filtros
+              </button>
+            ) : null}
+          </div>
         </div>
-        {/* Contador siempre visible */}
-        <p className="text-xs text-[#888888]">
-          Mostrando {filtered.length} de {projects.length} proyecto{projects.length !== 1 ? "s" : ""}
-          {hasFilters && (
-            <button type="button" onClick={clearFilters} className="ml-3 text-accent hover:underline">Limpiar filtros</button>
-          )}
-        </p>
       </div>
 
       {filtered.length > 0 ? (
@@ -1371,7 +1651,93 @@ function ProjectsFilterTab({
   );
 }
 
-function CompactSelect({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }): JSX.Element {
+type FilterGroupVariant = "default" | "operativo" | "administrativo" | "finance";
+
+// Cada grupo lleva un tinte permanente — dorado (Operativo), morado (Administrativo),
+// azul (Financiero) — visible este o no seleccionado, para que la agrupación se note de un
+// vistazo sin depender del estado activo. "default" ya solo lo usa "Ordenar", que no
+// pertenece a ningún grupo. Clases completas y literales (no interpoladas) para que
+// Tailwind las detecte al compilar.
+function filterBorderBg(variant: FilterGroupVariant, isActive: boolean): string {
+  if (variant === "finance") {
+    return isActive
+      ? "border-[#3B82F6]/60 bg-gradient-to-b from-[#3B82F6]/25 to-[#3B82F6]/10 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+      : "border-[#3B82F6]/30 bg-gradient-to-b from-[#3B82F6]/10 to-[#3B82F6]/[0.03] hover:border-[#3B82F6]/50";
+  }
+  if (variant === "administrativo") {
+    return isActive
+      ? "border-[#8B5CF6]/60 bg-gradient-to-b from-[#8B5CF6]/25 to-[#8B5CF6]/10 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+      : "border-[#8B5CF6]/30 bg-gradient-to-b from-[#8B5CF6]/10 to-[#8B5CF6]/[0.03] hover:border-[#8B5CF6]/50";
+  }
+  if (variant === "operativo") {
+    return isActive
+      ? "border-[#F5A524]/60 bg-gradient-to-b from-[#F5A524]/25 to-[#F5A524]/10 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+      : "border-[#F5A524]/30 bg-gradient-to-b from-[#F5A524]/10 to-[#F5A524]/[0.03] hover:border-[#F5A524]/50";
+  }
+  return isActive
+    ? "border-accent/40 bg-gradient-to-b from-accent/20 to-accent/5 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
+    : "border-[#3F3F46] bg-gradient-to-b from-[#38383D] to-[#2C2C30] hover:border-white/20 hover:from-[#3D3D42]";
+}
+function filterLabelText(variant: FilterGroupVariant, isActive: boolean): string {
+  if (variant === "finance") return isActive ? "text-[#93C5FD]" : "text-[#60A5FA]";
+  if (variant === "administrativo") return isActive ? "text-[#C4B5FD]" : "text-[#A78BFA]";
+  if (variant === "operativo") return isActive ? "text-[#FDE68A]" : "text-[#E3A94F]";
+  return isActive ? "text-accent" : "text-[#888888]";
+}
+function filterValueText(variant: FilterGroupVariant, isActive: boolean): string {
+  if (variant === "finance") return isActive ? "text-[#BFDBFE]" : "text-[#93C5FD]";
+  if (variant === "administrativo") return isActive ? "text-[#DDD6FE]" : "text-[#C4B5FD]";
+  if (variant === "operativo") return isActive ? "text-[#FEF3C7]" : "text-[#FCD34D]";
+  return isActive ? "text-accent" : "text-foreground";
+}
+// Ícono de cabecera del acordeón — color solido (no tinte), para que resalte sobre el fondo.
+function filterHeaderIconBg(variant: FilterGroupVariant): string {
+  if (variant === "finance") return "bg-[#3B82F6]";
+  if (variant === "administrativo") return "bg-[#8B5CF6]";
+  if (variant === "operativo") return "bg-[#F5A524]";
+  return "bg-[#3F3F46]";
+}
+function filterHeaderChevronBg(variant: FilterGroupVariant): string {
+  if (variant === "finance") return "bg-[#3B82F6]/20 text-[#60A5FA]";
+  if (variant === "administrativo") return "bg-[#8B5CF6]/20 text-[#A78BFA]";
+  if (variant === "operativo") return "bg-[#F5A524]/20 text-[#E3A94F]";
+  return "bg-[#3F3F46] text-[#888888]";
+}
+
+// Acordeón de filtros — cabecera con ícono representativo del grupo, cerrado por
+// defecto; al abrir muestra sus CompactSelect (layout="cell") en cuadrícula.
+function FilterGroupAccordion({
+  variant, icon: Icon, label, open, onToggle, children,
+}: {
+  variant: FilterGroupVariant;
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <div className={`rounded-2xl border transition-colors duration-150 ${filterBorderBg(variant, open)}`}>
+      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ${filterHeaderIconBg(variant)}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="h-6 w-px shrink-0 bg-white/10" />
+        <span className="flex-1 text-sm font-bold text-foreground">{label}</span>
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform duration-200 ${filterHeaderChevronBg(variant)} ${open ? "rotate-180" : ""}`}>
+          <ChevronDown className="h-4 w-4" />
+        </span>
+      </button>
+      {open ? (
+        <div className="grid grid-cols-2 gap-2 border-t border-white/[0.06] p-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CompactSelect({ label, options, value, onChange, variant = "default", layout = "pill" }: { label: string; options: string[]; value: string; onChange: (v: string) => void; variant?: FilterGroupVariant; layout?: "pill" | "cell" }): JSX.Element {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const isActive = value !== options[0];
@@ -1386,20 +1752,30 @@ function CompactSelect({ label, options, value, onChange }: { label: string; opt
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors ${
-          isActive
-            ? "border-accent/40 bg-accent/10"
-            : "border-[#3F3F46] bg-[#313136] hover:border-white/20"
-        }`}
-      >
-        <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isActive ? "text-accent" : "text-[#888888]"}`}>{label}</span>
-        <span className={`max-w-[120px] truncate text-xs font-semibold ${isActive ? "text-accent" : "text-foreground"}`}>{value}</span>
-        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${isActive ? "text-accent" : "text-[#888888]"}`} />
-      </button>
+    <div ref={ref} className={`relative ${layout === "cell" ? "w-full" : ""}`}>
+      {layout === "cell" ? (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left transition-all duration-150 ${filterBorderBg(variant, isActive)}`}
+        >
+          <span className="min-w-0 flex-1">
+            <span className={`block text-[9px] font-bold uppercase tracking-[0.12em] ${filterLabelText(variant, isActive)}`}>{label}</span>
+            <span className={`block truncate text-sm font-bold ${filterValueText(variant, isActive)}`}>{value}</span>
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${filterLabelText(variant, isActive)}`} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-all duration-150 ${filterBorderBg(variant, isActive)}`}
+        >
+          <span className={`text-[10px] font-bold uppercase tracking-[0.14em] ${filterLabelText(variant, isActive)}`}>{label}</span>
+          <span className={`max-w-[120px] truncate text-xs font-semibold ${filterValueText(variant, isActive)}`}>{value}</span>
+          <ChevronDown className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""} ${filterLabelText(variant, isActive)}`} />
+        </button>
+      )}
 
       {open ? (
         <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
@@ -1435,8 +1811,8 @@ function UnpaidTab({
   const sorted = useMemo(
     () =>
       [...projects].sort((a, b) => {
-        const abal = (a.totalSinIva ?? a.totalContratado) - (a.pagosProyecto ?? []).reduce((s, p) => s + p.subtotalAbono, 0);
-        const bbal = (b.totalSinIva ?? b.totalContratado) - (b.pagosProyecto ?? []).reduce((s, p) => s + p.subtotalAbono, 0);
+        const abal = (a.totalSinIva ?? a.totalContratado) - (a.pagosProyecto ?? []).reduce((s, p) => s + p.monto, 0);
+        const bbal = (b.totalSinIva ?? b.totalContratado) - (b.pagosProyecto ?? []).reduce((s, p) => s + p.monto, 0);
         return bbal - abal;
       }),
     [projects],
@@ -1453,7 +1829,7 @@ function UnpaidTab({
   return (
     <div className="space-y-3">
       {sorted.map((project) => {
-        const abonoTotal = (project.pagosProyecto ?? []).reduce((s, p) => s + p.subtotalAbono, 0);
+        const abonoTotal = (project.pagosProyecto ?? []).reduce((s, p) => s + p.monto, 0);
         const base = project.totalSinIva ?? project.totalContratado;
         const porCobrar = base - abonoTotal;
         const isOverdue = project.commitmentDate && parseLocalDate(project.commitmentDate) < new Date();
@@ -1663,12 +2039,28 @@ function UsersAdminPanel({
 }): JSX.Element {
   const [draft, setDraft] = useState({ firstName: "", lastName: "", email: "", password: "", department: "", role: "engineer" as RoleKey });
   const [editing, setEditing] = useState<Record<string, Pick<UserItem, "firstName" | "lastName" | "email" | "department" | "role" | "isActive" | "password">>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
   const handleCreate = (): void => {
     if (!draft.firstName.trim() || !draft.lastName.trim() || !draft.email.trim() || !draft.password.trim()) return;
     onCreateUser({ firstName: draft.firstName.trim(), lastName: draft.lastName.trim(), email: draft.email.trim(), password: draft.password, department: draft.department.trim() || "General", role: draft.role });
     setDraft({ firstName: "", lastName: "", email: "", password: "", department: "", role: "engineer" });
   };
   const editableFor = (user: UserItem) => editing[user.id] ?? { firstName: user.firstName ?? user.name.split(" ")[0] ?? "", lastName: user.lastName ?? user.name.split(" ").slice(1).join(" "), email: user.email, department: user.department, role: user.role, isActive: user.isActive !== false, password: user.password ?? "" };
+  const handleSaveRow = (userId: string, value: ReturnType<typeof editableFor>): void => {
+    setSavingId(userId);
+    onUpdateUser(userId, value)
+      .then(() => {
+        // Confirmado por el servidor — limpiar el borrador local para que la fila vuelva a
+        // reflejar el dato real de `users` (incluye el correo tal cual quedó normalizado).
+        setEditing((current) => {
+          const next = { ...current };
+          delete next[userId];
+          return next;
+        });
+      })
+      .catch(() => undefined) // el toast de error ya lo muestra App.tsx
+      .finally(() => setSavingId((current) => (current === userId ? null : current)));
+  };
 
   return (
     <div className="space-y-4">
@@ -1703,7 +2095,12 @@ function UsersAdminPanel({
                   {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
                 <button type="button" disabled={!canManageUsers} onClick={() => setEditing((current) => ({ ...current, [user.id]: { ...value, isActive: !value.isActive } }))} className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition disabled:opacity-70 ${value.isActive ? "border-success/30 bg-success/10 text-success" : "border-[#3F3F46] bg-[#313136] text-[#888888]"}`}><UsersRound className="h-4 w-4" />{value.isActive ? "Activo" : "Inactivo"}</button>
-                <div className="flex gap-2"><Button size="icon" variant="outline" disabled={!canManageUsers} onClick={() => onUpdateUser(user.id, value)}><Save className="h-4 w-4" /></Button><Button size="icon" variant="danger" disabled={!canManageUsers} onClick={() => onDeleteUser(user.id)}><Trash2 className="h-4 w-4" /></Button></div>
+                <div className="flex gap-2">
+                  <Button size="icon" variant="outline" disabled={!canManageUsers || savingId === user.id} onClick={() => handleSaveRow(user.id, value)}>
+                    {savingId === user.id ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="danger" disabled={!canManageUsers || savingId === user.id} onClick={() => onDeleteUser(user.id)}><Trash2 className="h-4 w-4" /></Button>
+                </div>
               </div>
             </Card>
           );

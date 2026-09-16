@@ -14,6 +14,16 @@ if ($action === 'poll') {
 
     $sinceMySQL = date('Y-m-d H:i:s', strtotime($since));
 
+    // Retención: barrido probabilístico (~1 de cada 200 polls) que borra notificaciones de
+    // más de 60 días — evita correr un DELETE en cada poll de cada usuario cada 4s, pero
+    // mantiene la tabla acotada sin depender de un cron aparte. Parte del rediseño 2026-09
+    // que reemplaza filas-marcador por `recipients` embebido en la propia notificación.
+    if (random_int(1, 200) === 1) {
+        // updated_at (no created_at): una notificación agrupada que sigue recibiendo eventos
+        // nuevos actualiza su updated_at en cada merge — no debe caducar mientras siga activa.
+        db()->exec("DELETE FROM notifications WHERE updated_at < (NOW() - INTERVAL 60 DAY)");
+    }
+
     // Decodifica payloads y descarta los que no dieron un array (JSON corrupto/vacio) — bajo
     // strict_types, un solo registro asi tumbaba con 500 CADA poll (cada 4s, para todos).
     $decodeRows = static function (array $rows): array {
@@ -21,35 +31,66 @@ if ($action === 'poll') {
         return array_values(array_filter($decoded, static fn($r) => is_array($r)));
     };
 
-    // Nuevos mensajes del proyecto abierto
+    // Nuevos mensajes del proyecto abierto — solo si el usuario tiene acceso a ese proyecto.
+    // Antes se mandaba el chat de CUALQUIER project_id que el cliente pidiera, sin checar
+    // que el usuario en sesion realmente perteneciera a ese proyecto.
     $messages = [];
     if ($projectId) {
-        $stmt = db()->prepare(
-            "SELECT payload FROM project_messages WHERE project_id = :pid AND created_at > :since ORDER BY created_at ASC"
-        );
-        $stmt->execute([':pid' => $projectId, ':since' => $sinceMySQL]);
-        $messages = $decodeRows($stmt->fetchAll());
+        $projStmt = db()->prepare("SELECT payload FROM projects WHERE id = ? LIMIT 1");
+        $projStmt->execute([$projectId]);
+        $projRow = $projStmt->fetch();
+        $projForAccess = $projRow ? (json_decode($projRow['payload'], true) ?? []) : null;
+        if ($projForAccess && canSeeProject($projForAccess, $userId, $userRole)) {
+            $stmt = db()->prepare(
+                "SELECT payload FROM project_messages WHERE project_id = :pid AND created_at > :since ORDER BY created_at ASC"
+            );
+            $stmt->execute([':pid' => $projectId, ':since' => $sinceMySQL]);
+            $messages = $decodeRows($stmt->fetchAll());
+        }
     }
 
-    // Proyectos modificados desde `since`
+    // Proyectos modificados desde `since` — filtrados por rol (ver canSeeProject). Antes se
+    // mandaba el payload completo de TODOS los proyectos a cualquier sesion autenticada, y el
+    // frontend nomas lo escondia visualmente: cualquiera con la pestaña de red del navegador
+    // abierta podia ver clientes, montos y facturas de proyectos ajenos.
     $stmt = db()->prepare("SELECT payload FROM projects WHERE updated_at > :since");
     $stmt->execute([':since' => $sinceMySQL]);
-    $updatedProjects = $decodeRows($stmt->fetchAll());
+    $updatedProjects = array_values(array_filter(
+        $decodeRows($stmt->fetchAll()),
+        static fn(array $p): bool => canSeeProject($p, $userId, $userRole)
+    ));
 
-    // IDs de todos los proyectos actuales (para detectar eliminados en el frontend)
-    $allProjectIds = array_column(
-        db()->query("SELECT id FROM projects")->fetchAll(),
-        'id'
-    );
+    // IDs de todos los proyectos VISIBLES para este usuario (para detectar eliminados en el
+    // frontend). admin/supervisor/system_admin ven todo — consulta ligera de solo IDs, igual
+    // que antes. engineer necesita el payload (createdBy/participants) para poder filtrar,
+    // asi que solo ESE caso paga el costo de decodificar la tabla completa cada poll.
+    $isPrivilegedRole = in_array($userRole, ['admin', 'system_admin', 'supervisor'], true);
+    if ($isPrivilegedRole) {
+        $allProjectIds = array_column(db()->query("SELECT id FROM projects")->fetchAll(), 'id');
+    } else {
+        $allProjectIds = array_column(
+            array_values(array_filter(
+                tableRows('projects'),
+                static fn(array $p): bool => canSeeProject($p, $userId, $userRole)
+            )),
+            'id'
+        );
+    }
 
-    // Solicitudes modificadas desde `since`
+    // Solicitudes modificadas desde `since` — mismo filtro por rol.
     $stmt = db()->prepare("SELECT payload FROM requests WHERE updated_at > :since");
     $stmt->execute([':since' => $sinceMySQL]);
-    $updatedRequests = $decodeRows($stmt->fetchAll());
+    $updatedRequests = array_values(array_filter(
+        $decodeRows($stmt->fetchAll()),
+        static fn(array $r): bool => canSeeRequest($r, $userId, $userRole)
+    ));
 
-    // IDs de todas las solicitudes actuales
+    // IDs de todas las solicitudes VISIBLES para este usuario
     $allRequestIds = array_column(
-        db()->query("SELECT id FROM requests")->fetchAll(),
+        array_values(array_filter(
+            tableRows('requests'),
+            static fn(array $r): bool => canSeeRequest($r, $userId, $userRole)
+        )),
         'id'
     );
 
@@ -106,6 +147,11 @@ if ($action === 'poll') {
 
     echo json_encode([
         'ok'                        => true,
+        // Identidad real de la sesión del servidor — el frontend la compara contra la cuenta
+        // que cree tener activa. Si difieren, esta pestaña quedó "vieja" (otra pestaña del mismo
+        // navegador inició sesión con otra cuenta y, al compartir cookie, cambió la sesión de
+        // TODAS las pestañas). Evita que se actúe por error con los permisos de otra cuenta.
+        'sessionUserId'             => $userId,
         'messages'                  => $messages,
         'updatedProjects'           => $updatedProjects,
         'allProjectIds'             => $allProjectIds,
@@ -116,6 +162,7 @@ if ($action === 'poll') {
         'readNotificationIds'       => array_values(array_unique($readNow)),
         'dismissedDateKeys'         => array_values(array_unique($pollUserDismissedDateKeys)),
         'readDateKeys'              => array_values(array_unique($pollUserReadDateKeys)),
+        'settings'                  => getAppSettings(),
         'serverTime'                => gmdate('c'),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
