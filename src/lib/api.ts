@@ -6,6 +6,10 @@ import { ActivityLogItem, CommentItem, InvoiceItem, NotificationItem, ProjectExp
 export interface AppSettings {
   facturasEnabled: boolean;
   cobrosEnabled: boolean;
+  kpiEmailEnabled: boolean;
+  kpiRecipients: string[];
+  approvalEmailEnabled: boolean;
+  approvalEmailRecipients: string[];
 }
 
 export interface AppStatePayload {
@@ -157,8 +161,8 @@ export async function setSequenceCounter(value: number): Promise<void> {
   });
 }
 
-/** Fija un switch de "Funciones" (solo gestor). Devuelve el set completo ya actualizado. */
-export async function setAppSetting(name: keyof AppSettings, value: boolean): Promise<AppSettings> {
+/** Fija un switch/valor de "Funciones" (solo gestor). Devuelve el set completo ya actualizado. */
+export async function setAppSetting(name: keyof AppSettings, value: boolean | string[]): Promise<AppSettings> {
   const result = await apiRequest<{ ok: true; settings: AppSettings }>("set_app_setting", {
     method: "POST",
     body: JSON.stringify({ name, value }),

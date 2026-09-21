@@ -508,8 +508,12 @@ function getOrInitSequence(): int
 // Defaults centralizados — agregar un switch nuevo solo requiere una entrada aca
 // y su fila correspondiente en el panel "Funciones" de SystemAdminView.
 const APP_SETTINGS_DEFAULTS = [
-    'facturasEnabled' => false,
-    'cobrosEnabled'   => false,
+    'facturasEnabled'         => false,
+    'cobrosEnabled'           => false,
+    'kpiEmailEnabled'         => false,
+    'kpiRecipients'           => [],
+    'approvalEmailEnabled'    => false,
+    'approvalEmailRecipients' => [],
 ];
 
 function ensureSettingsTable(): void
@@ -598,4 +602,274 @@ function deleteNotificationsFor(string $field, string $entityId): void
     db()->prepare(
         "DELETE FROM notifications WHERE JSON_UNQUOTE(JSON_EXTRACT(payload, :path)) = :id"
     )->execute([':path' => '$.' . $field, ':id' => $entityId]);
+}
+
+// ── Correo KPI diario — mailer SMTP mínimo + armado del digest ────────────────
+// Sin librerías (no hay Composer/vendor en este backend): un cliente SMTP a mano
+// via socket TLS, suficiente para el volumen bajo de este envío (unos pocos
+// destinatarios, una vez al dia). Las credenciales viven en config.php del
+// servidor (SMTP_HOST/PORT/USER/PASS/FROM), nunca en el repo.
+
+function encodeMailHeader(string $text): string
+{
+    return '=?UTF-8?B?' . base64_encode($text) . '?=';
+}
+
+/**
+ * Manda un correo HTML por SMTP autenticado (TLS implícito) a uno o más destinatarios
+ * en una sola conexión. Lanza RuntimeException con el detalle si algún paso del
+ * protocolo falla — el caller decide qué hacer (ej. responder 500 en el cron).
+ */
+function sendSmtpMail(array $recipients, string $subject, string $htmlBody): void
+{
+    if (!defined('SMTP_HOST') || !defined('SMTP_USER') || !defined('SMTP_PASS') || !defined('SMTP_FROM')) {
+        throw new RuntimeException('SMTP no configurado en config.php (faltan constantes SMTP_*).');
+    }
+    $recipients = array_values(array_filter($recipients, static fn($r) => is_string($r) && filter_var($r, FILTER_VALIDATE_EMAIL)));
+    if (empty($recipients)) {
+        throw new RuntimeException('Sin destinatarios válidos.');
+    }
+
+    $host     = SMTP_HOST;
+    $port     = defined('SMTP_PORT') ? (int) SMTP_PORT : 465;
+    $fromMail = SMTP_FROM;
+    $fromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'ENERMAN-SYSTEM';
+
+    $ctx  = stream_context_create(['ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
+    $sock = @stream_socket_client("ssl://{$host}:{$port}", $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $ctx);
+    if (!$sock) {
+        throw new RuntimeException("No se pudo conectar a SMTP {$host}:{$port} — {$errstr} ({$errno})");
+    }
+
+    $readLine = static function () use ($sock): string {
+        $data = '';
+        while (($line = fgets($sock, 515)) !== false) {
+            $data .= $line;
+            if (strlen($line) < 4 || $line[3] !== '-') break; // "250 " = última línea, "250-" = sigue
+        }
+        return $data;
+    };
+    $expect = static function (string $code) use ($readLine): void {
+        $data = $readLine();
+        if (strncmp($data, $code, strlen($code)) !== 0) {
+            throw new RuntimeException("SMTP: se esperaba {$code}, llegó: " . trim($data));
+        }
+    };
+    $cmd = static function (string $line) use ($sock): void {
+        fwrite($sock, $line . "\r\n");
+    };
+
+    try {
+        $expect('220');
+        $cmd('EHLO ' . (parse_url('https://' . $host, PHP_URL_HOST) ?: 'localhost'));
+        $expect('250');
+        $cmd('AUTH LOGIN');
+        $expect('334');
+        $cmd(base64_encode(SMTP_USER));
+        $expect('334');
+        $cmd(base64_encode(SMTP_PASS));
+        $expect('235');
+
+        $cmd('MAIL FROM:<' . $fromMail . '>');
+        $expect('250');
+        foreach ($recipients as $to) {
+            $cmd('RCPT TO:<' . $to . '>');
+            $expect('250');
+        }
+
+        $cmd('DATA');
+        $expect('354');
+
+        $headers = [
+            'From: ' . encodeMailHeader($fromName) . ' <' . $fromMail . '>',
+            'To: <' . implode('>, <', $recipients) . '>',
+            'Subject: ' . encodeMailHeader($subject),
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=UTF-8',
+            'Content-Transfer-Encoding: 8bit',
+            'Date: ' . date('r'),
+        ];
+        // Punto solo al inicio de línea hay que duplicarlo — es el fin-de-DATA del protocolo (RFC 5321 4.5.2).
+        $escapedBody = preg_replace('/^\./m', '..', $htmlBody);
+        $cmd(implode("\r\n", $headers) . "\r\n\r\n" . $escapedBody . "\r\n.");
+        $expect('250');
+
+        $cmd('QUIT');
+    } finally {
+        fclose($sock);
+    }
+}
+
+/**
+ * Arma los 3 bloques del digest diario de KPIs. Solo lee la BD, nunca escribe nada
+ * — si algo sale mal aquí, en el peor caso el correo sale vacío o falla, jamás
+ * corrompe un registro.
+ */
+function buildKpiDigest(): array
+{
+    $terminalStatuses = ['completed', 'no-autorizado', 'cierre-por-sistema'];
+    $todayTs = strtotime('today');
+
+    $paidCount   = 0;
+    $unpaidCount = 0;
+    $overdue     = [];
+
+    foreach (tableRows('projects') as $p) {
+        $status = $p['status'] ?? '';
+        if (in_array($status, ['no-autorizado', 'cierre-por-sistema'], true)) {
+            continue; // cancelados/cerrados no cuentan para los KPIs de pago
+        }
+        if (($p['paymentStatus'] ?? 'unpaid') === 'paid') {
+            $paidCount++;
+        } else {
+            $unpaidCount++;
+        }
+        $commitment = $p['commitmentDate'] ?? null;
+        if ($commitment && !in_array($status, $terminalStatuses, true)) {
+            $ts = strtotime((string) $commitment);
+            if ($ts !== false && $ts < $todayTs) {
+                $overdue[] = [
+                    'name'       => $p['structuredName'] ?? ($p['baseName'] ?? ($p['id'] ?? '')),
+                    'client'     => $p['client'] ?? '',
+                    'commitment' => $commitment,
+                    'daysLate'   => (int) floor(($todayTs - $ts) / 86400),
+                ];
+            }
+        }
+    }
+    usort($overdue, static fn($a, $b) => $b['daysLate'] <=> $a['daysLate']);
+
+    $approved = [];
+    $stmt = db()->query(
+        "SELECT payload FROM requests
+         WHERE JSON_UNQUOTE(JSON_EXTRACT(payload, '\$.status')) = 'approved'
+           AND updated_at >= (NOW() - INTERVAL 1 DAY)"
+    );
+    foreach ($stmt->fetchAll() as $row) {
+        $r = json_decode($row['payload'], true);
+        if (!is_array($r)) continue;
+        $approved[] = [
+            'name'   => $r['structuredName'] ?? ($r['baseName'] ?? ($r['id'] ?? '')),
+            'client' => $r['client'] ?? '',
+        ];
+    }
+
+    return [
+        'paidCount'   => $paidCount,
+        'unpaidCount' => $unpaidCount,
+        'overdue'     => $overdue,
+        'approved'    => $approved,
+        'generatedAt' => gmdate('c'),
+    ];
+}
+
+/** Convierte el digest en el HTML del correo — tabla simple, sin dependencias externas. */
+function renderKpiDigestHtml(array $digest): string
+{
+    $esc = static fn($s): string => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+
+    $rowsOverdue = '';
+    foreach ($digest['overdue'] as $o) {
+        $rowsOverdue .= '<tr>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333">' . $esc($o['name']) . '</td>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333">' . $esc($o['client']) . '</td>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333">' . $esc($o['commitment']) . '</td>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333;color:#c62828">' . (int) $o['daysLate'] . 'd</td>'
+            . '</tr>';
+    }
+    if ($rowsOverdue === '') {
+        $rowsOverdue = '<tr><td colspan="4" style="padding:8px;color:#888">Ningún proyecto vencido.</td></tr>';
+    }
+
+    $rowsApproved = '';
+    foreach ($digest['approved'] as $a) {
+        $rowsApproved .= '<tr>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333">' . $esc($a['name']) . '</td>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333">' . $esc($a['client']) . '</td>'
+            . '</tr>';
+    }
+    if ($rowsApproved === '') {
+        $rowsApproved = '<tr><td colspan="2" style="padding:8px;color:#888">Sin aprobaciones en las últimas 24h.</td></tr>';
+    }
+
+    $fecha      = $esc(date('d/m/Y'));
+    $paidCount  = (int) $digest['paidCount'];
+    $unpaidCount = (int) $digest['unpaidCount'];
+
+    return <<<HTML
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#111">
+      <h2 style="margin-bottom:4px">Resumen diario — ENERMAN-SYSTEM</h2>
+      <p style="color:#666;margin-top:0">{$fecha}</p>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+        <tr>
+          <td style="padding:12px;background:#e8f5e9;border-radius:6px;text-align:center">
+            <div style="font-size:24px;font-weight:bold;color:#2e7d32">{$paidCount}</div>
+            <div style="font-size:12px;color:#555">Proyectos pagados</div>
+          </td>
+          <td style="width:12px"></td>
+          <td style="padding:12px;background:#fff3e0;border-radius:6px;text-align:center">
+            <div style="font-size:24px;font-weight:bold;color:#e65100">{$unpaidCount}</div>
+            <div style="font-size:12px;color:#555">Proyectos no pagados</div>
+          </td>
+        </tr>
+      </table>
+
+      <h3>Proyectos vencidos (fecha de compromiso ya pasó)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="text-align:left;color:#888"><th>Proyecto</th><th>Cliente</th><th>Compromiso</th><th>Atraso</th></tr>
+        {$rowsOverdue}
+      </table>
+
+      <h3 style="margin-top:24px">Solicitudes aprobadas (últimas 24h)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="text-align:left;color:#888"><th>Proyecto</th><th>Cliente</th></tr>
+        {$rowsApproved}
+      </table>
+
+      <p style="color:#999;font-size:11px;margin-top:24px">Generado automáticamente por ENERMAN-SYSTEM. No respondas a este correo.</p>
+    </div>
+    HTML;
+}
+
+// ── Correo inmediato al aprobar una solicitud ──────────────────────────────────
+
+/** Resuelve el nombre para mostrar de un usuario por id — para correos/logs que solo tienen el id. */
+function resolveUserName(?string $userId): string
+{
+    if (!$userId) return 'Desconocido';
+    $stmt = db()->prepare("SELECT payload FROM app_users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch();
+    if (!$row) return $userId;
+    $u = json_decode($row['payload'], true);
+    return is_array($u) ? ($u['name'] ?? $userId) : $userId;
+}
+
+/** Correo inmediato cuando una solicitud pasa a "approved": quién la pidió, quién la aprobó, hora y folio. */
+function renderApprovalEmailHtml(array $request, string $requesterName, string $approverName): string
+{
+    $esc = static fn($s): string => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+
+    $name         = $esc($request['structuredName'] ?? ($request['baseName'] ?? ($request['id'] ?? '')));
+    $client       = $esc($request['client'] ?? '');
+    $folio        = $esc($request['sequence'] ?? '—');
+    $hora         = $esc(date('d/m/Y H:i'));
+    $requesterEsc = $esc($requesterName);
+    $approverEsc  = $esc($approverName);
+
+    return <<<HTML
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111">
+      <h2 style="margin-bottom:4px">Proyecto aprobado</h2>
+      <p style="color:#666;margin-top:0">{$hora}</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <tr><td style="padding:4px 0;color:#888;width:140px">Proyecto</td><td style="padding:4px 0;font-weight:bold">{$name}</td></tr>
+        <tr><td style="padding:4px 0;color:#888">Cliente</td><td style="padding:4px 0">{$client}</td></tr>
+        <tr><td style="padding:4px 0;color:#888">Folio</td><td style="padding:4px 0">{$folio}</td></tr>
+        <tr><td style="padding:4px 0;color:#888">Solicitado por</td><td style="padding:4px 0">{$requesterEsc}</td></tr>
+        <tr><td style="padding:4px 0;color:#888">Aprobado por</td><td style="padding:4px 0">{$approverEsc}</td></tr>
+      </table>
+      <p style="color:#999;font-size:11px;margin-top:24px">Generado automáticamente por ENERMAN-SYSTEM. No respondas a este correo.</p>
+    </div>
+    HTML;
 }

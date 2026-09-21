@@ -107,7 +107,14 @@ export default function App(): JSX.Element {
   const [sequenceInfo, setSequenceInfo] = useState<{ current: number; next: number; display: string } | null>(null);
   // Switches globales de "Funciones" (panel del Gestor) — default apagado hasta que
   // llegue el bootstrap/poll real, para que nunca se muestre algo que debería estar oculto.
-  const [appSettings, setAppSettings] = useState<AppSettings>({ facturasEnabled: false, cobrosEnabled: false });
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    facturasEnabled: false,
+    cobrosEnabled: false,
+    kpiEmailEnabled: false,
+    kpiRecipients: [],
+    approvalEmailEnabled: false,
+    approvalEmailRecipients: [],
+  });
   // Timestamp de la última mutación local (global). Protege allIds-filtering durante grace period.
   const lastMutationAt = useRef(0);
   // Grace period por proyecto: solo bloquea updates del proyecto específico que se acaba de mutar,
@@ -725,7 +732,7 @@ export default function App(): JSX.Element {
     }
   };
 
-  const handleSetAppSetting = async (name: keyof AppSettings, value: boolean): Promise<void> => {
+  const handleSetAppSetting = async (name: keyof AppSettings, value: boolean | string[]): Promise<void> => {
     const previous = appSettings;
     setAppSettings((prev) => ({ ...prev, [name]: value })); // optimista
     try {

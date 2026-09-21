@@ -52,7 +52,7 @@ interface AdminViewProps {
   sequenceInfo?: { current: number; next: number; display: string } | null;
   onSetSequenceCounter?: (value: number) => Promise<void>;
   appSettings?: AppSettings;
-  onSetAppSetting?: (name: keyof AppSettings, value: boolean) => Promise<void>;
+  onSetAppSetting?: (name: keyof AppSettings, value: boolean | string[]) => Promise<void>;
   onBulkDeleteBeforeFolio?: (folio: number) => Promise<{ deletedProjects: number; deletedRequests: number }>;
   onCreateProject: (payload: {
     sequence: string;
@@ -143,6 +143,68 @@ function SystemAdminView({
   const [cleanupInput, setCleanupInput] = useState("");
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [cleanupMsg, setCleanupMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  // Destinatarios del resumen diario por correo — estado local con "dirty" flag: el
+  // polling refresca `appSettings` cada pocos segundos, y sin esto cualquier tecleo del
+  // Gestor se borraría solo a media edición. Solo se resincroniza desde el servidor
+  // cuando NO hay cambios sin guardar.
+  const [kpiRecipientsInput, setKpiRecipientsInput] = useState(() => (appSettings?.kpiRecipients ?? []).join("\n"));
+  const [kpiRecipientsDirty, setKpiRecipientsDirty] = useState(false);
+  const [kpiRecipientsBusy, setKpiRecipientsBusy] = useState(false);
+  const [kpiRecipientsMsg, setKpiRecipientsMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (kpiRecipientsDirty) return;
+    setKpiRecipientsInput((appSettings?.kpiRecipients ?? []).join("\n"));
+  }, [appSettings?.kpiRecipients, kpiRecipientsDirty]);
+
+  const handleSaveKpiRecipients = async () => {
+    const emails = kpiRecipientsInput
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setKpiRecipientsBusy(true);
+    setKpiRecipientsMsg(null);
+    try {
+      await onSetAppSetting?.("kpiRecipients", emails);
+      setKpiRecipientsDirty(false);
+      setKpiRecipientsMsg({ text: "Destinatarios guardados.", ok: true });
+    } catch (err) {
+      setKpiRecipientsMsg({ text: err instanceof Error ? err.message : "Error al guardar.", ok: false });
+    } finally {
+      setKpiRecipientsBusy(false);
+    }
+  };
+
+  // Aviso instantáneo de aprobación — misma lógica de "dirty" que kpiRecipients, para que
+  // el polling cada pocos segundos no borre lo que el Gestor está escribiendo.
+  const [approvalRecipientsInput, setApprovalRecipientsInput] = useState(() => (appSettings?.approvalEmailRecipients ?? []).join("\n"));
+  const [approvalRecipientsDirty, setApprovalRecipientsDirty] = useState(false);
+  const [approvalRecipientsBusy, setApprovalRecipientsBusy] = useState(false);
+  const [approvalRecipientsMsg, setApprovalRecipientsMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (approvalRecipientsDirty) return;
+    setApprovalRecipientsInput((appSettings?.approvalEmailRecipients ?? []).join("\n"));
+  }, [appSettings?.approvalEmailRecipients, approvalRecipientsDirty]);
+
+  const handleSaveApprovalRecipients = async () => {
+    const emails = approvalRecipientsInput
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setApprovalRecipientsBusy(true);
+    setApprovalRecipientsMsg(null);
+    try {
+      await onSetAppSetting?.("approvalEmailRecipients", emails);
+      setApprovalRecipientsDirty(false);
+      setApprovalRecipientsMsg({ text: "Destinatarios guardados.", ok: true });
+    } catch (err) {
+      setApprovalRecipientsMsg({ text: err instanceof Error ? err.message : "Error al guardar.", ok: false });
+    } finally {
+      setApprovalRecipientsBusy(false);
+    }
+  };
   const [restoreMsg, setRestoreMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -518,6 +580,104 @@ function SystemAdminView({
                 }`}
               />
             </button>
+          </div>
+
+          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-foreground">Resumen diario por correo</span>
+              <button
+                type="button"
+                onClick={() => onSetAppSetting?.("kpiEmailEnabled", !(appSettings?.kpiEmailEnabled ?? false))}
+                title={appSettings?.kpiEmailEnabled ? "Resumen diario activado" : "Activar resumen diario"}
+                className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                  appSettings?.kpiEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                    appSettings?.kpiEmailEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+              Correos que reciben cada mañana el resumen de proyectos pagados/no pagados, vencidos
+              y solicitudes aprobadas. Uno por línea.
+            </p>
+            <Textarea
+              value={kpiRecipientsInput}
+              onChange={(e) => {
+                setKpiRecipientsInput(e.target.value);
+                setKpiRecipientsDirty(true);
+              }}
+              rows={4}
+              placeholder={"gerardo@ejemplo.com\nsupervisor@ejemplo.com"}
+              className="mt-2 min-h-0 text-sm"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveKpiRecipients}
+                disabled={kpiRecipientsBusy || !kpiRecipientsDirty}
+                className="rounded-lg bg-[#F5A524] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#F5A524]/90 disabled:opacity-40"
+              >
+                {kpiRecipientsBusy ? "Guardando…" : "Guardar destinatarios"}
+              </button>
+              {kpiRecipientsMsg ? (
+                <span className={`text-xs font-semibold ${kpiRecipientsMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+                  {kpiRecipientsMsg.text}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-foreground">Aviso instantáneo de aprobación</span>
+              <button
+                type="button"
+                onClick={() => onSetAppSetting?.("approvalEmailEnabled", !(appSettings?.approvalEmailEnabled ?? false))}
+                title={appSettings?.approvalEmailEnabled ? "Aviso de aprobación activado" : "Activar aviso de aprobación"}
+                className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                  appSettings?.approvalEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                    appSettings?.approvalEmailEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+              Correos que reciben un aviso en el momento exacto en que se aprueba una solicitud:
+              proyecto, cliente, folio, quién la pidió y quién la aprobó. Uno por línea.
+            </p>
+            <Textarea
+              value={approvalRecipientsInput}
+              onChange={(e) => {
+                setApprovalRecipientsInput(e.target.value);
+                setApprovalRecipientsDirty(true);
+              }}
+              rows={4}
+              placeholder={"licenciado.sapo@gmail.com\nd0ct0renomah@gmail.com"}
+              className="mt-2 min-h-0 text-sm"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveApprovalRecipients}
+                disabled={approvalRecipientsBusy || !approvalRecipientsDirty}
+                className="rounded-lg bg-[#F5A524] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#F5A524]/90 disabled:opacity-40"
+              >
+                {approvalRecipientsBusy ? "Guardando…" : "Guardar destinatarios"}
+              </button>
+              {approvalRecipientsMsg ? (
+                <span className={`text-xs font-semibold ${approvalRecipientsMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+                  {approvalRecipientsMsg.text}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

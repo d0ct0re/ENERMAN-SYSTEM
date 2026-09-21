@@ -66,6 +66,32 @@ if ($action === 'update_request') {
     $pdo->prepare("UPDATE requests SET payload = :p, updated_at = NOW() WHERE id = :id")
        ->execute([':p' => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $requestId]);
     $pdo->commit();
+
+    // Aviso inmediato por correo cuando la solicitud pasa a "approved" — la aprobación en
+    // sí ya quedó guardada arriba, así que un fallo de SMTP aquí NUNCA debe tumbar la
+    // respuesta ni el flujo de aprobación del frontend.
+    $wasApproved = ($current['status'] ?? null) === 'approved';
+    $isApproved  = ($updated['status'] ?? null) === 'approved';
+    if (!$wasApproved && $isApproved) {
+        try {
+            $settings = getAppSettings();
+            if (!empty($settings['approvalEmailEnabled'])) {
+                $recipients = array_values(array_filter(
+                    (array) ($settings['approvalEmailRecipients'] ?? []),
+                    static fn($e) => is_string($e) && filter_var($e, FILTER_VALIDATE_EMAIL)
+                ));
+                if (!empty($recipients)) {
+                    $requesterName = resolveUserName($updated['createdBy'] ?? null);
+                    $approverName  = sessionUser()['name'] ?? 'Alguien';
+                    $subject       = 'Proyecto aprobado — ' . ($updated['structuredName'] ?? ($updated['baseName'] ?? ''));
+                    sendSmtpMail($recipients, $subject, renderApprovalEmailHtml($updated, $requesterName, $approverName));
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('aviso de aprobacion por correo fallo: ' . $e->getMessage());
+        }
+    }
+
     echo json_encode(['ok' => true]);
     exit;
 }

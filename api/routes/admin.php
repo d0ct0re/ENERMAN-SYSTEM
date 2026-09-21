@@ -229,6 +229,54 @@ if ($action === 'cron_backup') {
     exit;
 }
 
+/* ── cron_daily_kpi_email — digest diario (pagados/no pagados, proyectos vencidos,
+   solicitudes aprobadas) por correo. Sin sesión, protegido por CRON_SECRET igual que
+   cron_backup. Solo lee la BD — nunca escribe nada, así que en el peor caso el correo
+   sale mal formado, jamás corrompe un registro. ── */
+if ($action === 'cron_daily_kpi_email') {
+    $key = $_GET['key'] ?? '';
+    if (!defined('CRON_SECRET') || $key !== CRON_SECRET) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Clave incorrecta.']);
+        exit;
+    }
+
+    $settings = getAppSettings();
+    if (empty($settings['kpiEmailEnabled'])) {
+        echo json_encode(['ok' => true, 'skipped' => 'kpiEmailEnabled esta apagado']);
+        exit;
+    }
+    $recipients = array_values(array_filter(
+        (array) ($settings['kpiRecipients'] ?? []),
+        static fn($e) => is_string($e) && filter_var($e, FILTER_VALIDATE_EMAIL)
+    ));
+    if (empty($recipients)) {
+        echo json_encode(['ok' => true, 'skipped' => 'sin destinatarios configurados']);
+        exit;
+    }
+
+    $digest = buildKpiDigest();
+    $html   = renderKpiDigestHtml($digest);
+
+    try {
+        sendSmtpMail($recipients, 'Resumen diario ENERMAN — ' . date('d/m/Y'), $html);
+    } catch (\Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Fallo el envio: ' . $e->getMessage()]);
+        exit;
+    }
+
+    echo json_encode([
+        'ok'          => true,
+        'sentTo'      => count($recipients),
+        'paidCount'   => $digest['paidCount'],
+        'unpaidCount' => $digest['unpaidCount'],
+        'overdue'     => count($digest['overdue']),
+        'approved'    => count($digest['approved']),
+    ]);
+    exit;
+}
+
 /* ── restore — restaura el sistema desde un backup JSON ── */
 if ($action === 'restore') {
     requireAuth();
