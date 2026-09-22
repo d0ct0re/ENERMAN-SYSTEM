@@ -114,6 +114,10 @@ export default function App(): JSX.Element {
     kpiRecipients: [],
     approvalEmailEnabled: false,
     approvalEmailRecipients: [],
+    rejectedEmailEnabled: false,
+    rejectedEmailRecipients: [],
+    correctionEmailEnabled: false,
+    correctionEmailRecipients: [],
   });
   // Timestamp de la última mutación local (global). Protege allIds-filtering durante grace period.
   const lastMutationAt = useRef(0);

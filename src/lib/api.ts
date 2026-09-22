@@ -10,6 +10,10 @@ export interface AppSettings {
   kpiRecipients: string[];
   approvalEmailEnabled: boolean;
   approvalEmailRecipients: string[];
+  rejectedEmailEnabled: boolean;
+  rejectedEmailRecipients: string[];
+  correctionEmailEnabled: boolean;
+  correctionEmailRecipients: string[];
 }
 
 export interface AppStatePayload {

@@ -8,13 +8,13 @@ declare(strict_types=1);
 if ($action === 'next_sequence') {
     requireAuth();
     getOrInitSequence(); // asegura que el registro exista antes del UPDATE
-    // Autocorrección: si el contador quedó atrás del folio más alto realmente usado
-    // (por ejemplo, un folio asignado por el respaldo local del frontend cuando esta
-    // misma llamada falló por conexión), nunca dejar que emita un número ya usado o menor.
-    $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
-    if ($maxFolio > 0) {
+    // Autocorrección: si el contador quedó atrás del folio/secuencia más alta ya emitida
+    // (proyectos aprobados O solicitudes pendientes que ya reservaron su número), nunca
+    // dejar que emita un número ya usado o reservado.
+    $maxIssued = maxIssuedSequence();
+    if ($maxIssued > 0) {
         db()->prepare("UPDATE sequence_counters SET value = GREATEST(value, :m) WHERE name = 'projects'")
-            ->execute([':m' => $maxFolio]);
+            ->execute([':m' => $maxIssued]);
     }
     // LAST_INSERT_ID(expr) es atómico por conexión — evita race condition entre usuarios concurrentes
     db()->exec("UPDATE sequence_counters SET value = LAST_INSERT_ID(value + 1) WHERE name = 'projects'");
@@ -53,12 +53,12 @@ if ($action === 'get_sequence_info') {
     requireSystemAdmin();
     $current = getOrInitSequence();
     // Mismo autocorrectivo que next_sequence — que el panel nunca muestre un "siguiente
-    // folio" que ya quedó atrás del máximo real usado en projects.
-    $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
-    if ($maxFolio > $current) {
+    // folio" que ya quedó atrás del máximo realmente emitido (proyectos + solicitudes).
+    $maxIssued = maxIssuedSequence();
+    if ($maxIssued > $current) {
         db()->prepare("UPDATE sequence_counters SET value = :m WHERE name = 'projects'")
-            ->execute([':m' => $maxFolio]);
-        $current = $maxFolio;
+            ->execute([':m' => $maxIssued]);
+        $current = $maxIssued;
     }
     echo json_encode([
         'ok'      => true,
@@ -79,14 +79,15 @@ if ($action === 'set_sequence_counter') {
         echo json_encode(['error' => 'value debe ser un entero entre 1 y 999999.']);
         exit;
     }
-    // Folio máximo usando la columna indexada — O(1) en lugar de escanear todos los payloads.
-    $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
     // $value es el nuevo "current"; el próximo folio asignado será $value + 1.
-    // Si $value < $maxFolio, el próximo folio podría colisionar con uno ya existente.
-    if ($maxFolio > 0 && $value < $maxFolio) {
+    // Si $value < lo ya emitido, el próximo folio podría colisionar con un proyecto YA
+    // aprobado o con una solicitud pendiente que ya reservó ese número desde que se creó
+    // (aunque todavía no sea proyecto) — maxIssuedSequence() cubre ambas fuentes.
+    $maxIssued = maxIssuedSequence();
+    if ($maxIssued > 0 && $value < $maxIssued) {
         http_response_code(409);
         echo json_encode([
-            'error' => "No se puede retroceder el contador. El folio más alto en BD es {$maxFolio}. Ingresa un valor ≥ {$maxFolio}.",
+            'error' => "No se puede retroceder el contador. El número más alto ya emitido (proyectos + solicitudes pendientes) es {$maxIssued}. Ingresa un valor ≥ {$maxIssued}.",
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -95,7 +96,7 @@ if ($action === 'set_sequence_counter') {
         "INSERT INTO sequence_counters (name, value) VALUES ('projects', :v)
          ON DUPLICATE KEY UPDATE value = :v2"
     )->execute([':v' => $value, ':v2' => $value]);
-    logActivity('updated', 'sequence_counter', 'projects', "Consecutivo ajustado a {$value}", ['new_value' => $value, 'max_folio_at_change' => $maxFolio]);
+    logActivity('updated', 'sequence_counter', 'projects', "Consecutivo ajustado a {$value}", ['new_value' => $value, 'max_issued_at_change' => $maxIssued]);
     echo json_encode(['ok' => true, 'value' => $value], JSON_UNESCAPED_UNICODE);
     exit;
 }

@@ -246,10 +246,7 @@ if ($action === 'cron_daily_kpi_email') {
         echo json_encode(['ok' => true, 'skipped' => 'kpiEmailEnabled esta apagado']);
         exit;
     }
-    $recipients = array_values(array_filter(
-        (array) ($settings['kpiRecipients'] ?? []),
-        static fn($e) => is_string($e) && filter_var($e, FILTER_VALIDATE_EMAIL)
-    ));
+    $recipients = validEmails((array) ($settings['kpiRecipients'] ?? []));
     if (empty($recipients)) {
         echo json_encode(['ok' => true, 'skipped' => 'sin destinatarios configurados']);
         exit;

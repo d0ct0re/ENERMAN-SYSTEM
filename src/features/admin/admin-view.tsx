@@ -1,6 +1,6 @@
 import { BadgeCheck, BadgeDollarSign, Check, ChevronDown, DatabaseBackup, DollarSign, Eye, FileText, FolderOpenDot, MoreVertical, Plus, RotateCcw, Save, ShieldAlert, Trash2, UploadCloud, UserPlus, UsersRound, Wrench, X } from "lucide-react";
 import { ComponentType, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { cn, formatDate, isNewItem, parseLocalDate, getProjectSequenceNumber, getRequestSequence, getRequestSequenceNumber, maskRequestSequence } from "@/lib/utils";
+import { cn, formatDate, isNewItem, parseLocalDate, getProjectSequenceNumber, getRequestSequence, getRequestSequenceNumber } from "@/lib/utils";
 import { AppSettings, downloadBackup, downloadFilesBackup, restoreBackup } from "@/lib/api";
 import { FIXED_CLIENTS } from "@/components/ui/client-input";
 import { SectionTitle } from "@/components/layout/section-title";
@@ -203,6 +203,64 @@ function SystemAdminView({
       setApprovalRecipientsMsg({ text: err instanceof Error ? err.message : "Error al guardar.", ok: false });
     } finally {
       setApprovalRecipientsBusy(false);
+    }
+  };
+
+  // Aviso de solicitud rechazada — mismo patron "dirty" que los anteriores.
+  const [rejectedRecipientsInput, setRejectedRecipientsInput] = useState(() => (appSettings?.rejectedEmailRecipients ?? []).join("\n"));
+  const [rejectedRecipientsDirty, setRejectedRecipientsDirty] = useState(false);
+  const [rejectedRecipientsBusy, setRejectedRecipientsBusy] = useState(false);
+  const [rejectedRecipientsMsg, setRejectedRecipientsMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (rejectedRecipientsDirty) return;
+    setRejectedRecipientsInput((appSettings?.rejectedEmailRecipients ?? []).join("\n"));
+  }, [appSettings?.rejectedEmailRecipients, rejectedRecipientsDirty]);
+
+  const handleSaveRejectedRecipients = async () => {
+    const emails = rejectedRecipientsInput
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setRejectedRecipientsBusy(true);
+    setRejectedRecipientsMsg(null);
+    try {
+      await onSetAppSetting?.("rejectedEmailRecipients", emails);
+      setRejectedRecipientsDirty(false);
+      setRejectedRecipientsMsg({ text: "Destinatarios guardados.", ok: true });
+    } catch (err) {
+      setRejectedRecipientsMsg({ text: err instanceof Error ? err.message : "Error al guardar.", ok: false });
+    } finally {
+      setRejectedRecipientsBusy(false);
+    }
+  };
+
+  // Aviso de solicitud que necesita correccion — mismo patron "dirty" que los anteriores.
+  const [correctionRecipientsInput, setCorrectionRecipientsInput] = useState(() => (appSettings?.correctionEmailRecipients ?? []).join("\n"));
+  const [correctionRecipientsDirty, setCorrectionRecipientsDirty] = useState(false);
+  const [correctionRecipientsBusy, setCorrectionRecipientsBusy] = useState(false);
+  const [correctionRecipientsMsg, setCorrectionRecipientsMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  useEffect(() => {
+    if (correctionRecipientsDirty) return;
+    setCorrectionRecipientsInput((appSettings?.correctionEmailRecipients ?? []).join("\n"));
+  }, [appSettings?.correctionEmailRecipients, correctionRecipientsDirty]);
+
+  const handleSaveCorrectionRecipients = async () => {
+    const emails = correctionRecipientsInput
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setCorrectionRecipientsBusy(true);
+    setCorrectionRecipientsMsg(null);
+    try {
+      await onSetAppSetting?.("correctionEmailRecipients", emails);
+      setCorrectionRecipientsDirty(false);
+      setCorrectionRecipientsMsg({ text: "Destinatarios guardados.", ok: true });
+    } catch (err) {
+      setCorrectionRecipientsMsg({ text: err instanceof Error ? err.message : "Error al guardar.", ok: false });
+    } finally {
+      setCorrectionRecipientsBusy(false);
     }
   };
   const [restoreMsg, setRestoreMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -679,6 +737,104 @@ function SystemAdminView({
               ) : null}
             </div>
           </div>
+
+          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-foreground">Aviso de solicitud rechazada</span>
+              <button
+                type="button"
+                onClick={() => onSetAppSetting?.("rejectedEmailEnabled", !(appSettings?.rejectedEmailEnabled ?? false))}
+                title={appSettings?.rejectedEmailEnabled ? "Aviso de rechazo activado" : "Activar aviso de rechazo"}
+                className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                  appSettings?.rejectedEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                    appSettings?.rejectedEmailEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+              Correos que reciben un aviso cuando se rechaza una solicitud: proyecto, cliente,
+              folio, quién la pidió y el motivo del rechazo. Uno por línea.
+            </p>
+            <Textarea
+              value={rejectedRecipientsInput}
+              onChange={(e) => {
+                setRejectedRecipientsInput(e.target.value);
+                setRejectedRecipientsDirty(true);
+              }}
+              rows={4}
+              placeholder={"correo@ejemplo.com"}
+              className="mt-2 min-h-0 text-sm"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveRejectedRecipients}
+                disabled={rejectedRecipientsBusy || !rejectedRecipientsDirty}
+                className="rounded-lg bg-[#F5A524] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#F5A524]/90 disabled:opacity-40"
+              >
+                {rejectedRecipientsBusy ? "Guardando…" : "Guardar destinatarios"}
+              </button>
+              {rejectedRecipientsMsg ? (
+                <span className={`text-xs font-semibold ${rejectedRecipientsMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+                  {rejectedRecipientsMsg.text}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-foreground">Aviso de solicitud en corrección</span>
+              <button
+                type="button"
+                onClick={() => onSetAppSetting?.("correctionEmailEnabled", !(appSettings?.correctionEmailEnabled ?? false))}
+                title={appSettings?.correctionEmailEnabled ? "Aviso de corrección activado" : "Activar aviso de corrección"}
+                className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                  appSettings?.correctionEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                    appSettings?.correctionEmailEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+              Correos que reciben un aviso cuando una solicitud pasa a "necesita corrección":
+              proyecto, cliente, folio, quién la pidió y qué hay que corregir. Uno por línea.
+            </p>
+            <Textarea
+              value={correctionRecipientsInput}
+              onChange={(e) => {
+                setCorrectionRecipientsInput(e.target.value);
+                setCorrectionRecipientsDirty(true);
+              }}
+              rows={4}
+              placeholder={"correo@ejemplo.com"}
+              className="mt-2 min-h-0 text-sm"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveCorrectionRecipients}
+                disabled={correctionRecipientsBusy || !correctionRecipientsDirty}
+                className="rounded-lg bg-[#F5A524] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#F5A524]/90 disabled:opacity-40"
+              >
+                {correctionRecipientsBusy ? "Guardando…" : "Guardar destinatarios"}
+              </button>
+              {correctionRecipientsMsg ? (
+                <span className={`text-xs font-semibold ${correctionRecipientsMsg.ok ? "text-[#4ADE80]" : "text-danger"}`}>
+                  {correctionRecipientsMsg.text}
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1126,13 +1282,13 @@ function RequestsManager({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-black text-accent">#{request.status === "approved" ? getRequestSequence(request, projects) : "XXXX"}</span>
+                  <span className="font-mono text-xs font-black text-accent">#{getRequestSequence(request, projects)}</span>
                   <StatusBadge kind="request" value={request.status} />
                   <span className="text-xs font-semibold text-[#888888]">{parseLocalDate(request.createdAt).toLocaleDateString("es-MX")}</span>
                 </div>
                 <p className="mt-2 text-base font-semibold text-foreground">{request.baseName}</p>
                 <p className="mt-1 text-sm text-[#888888]">
-                  {request.client} · {request.department} · {request.status === "approved" ? request.structuredName : maskRequestSequence(request.structuredName)}
+                  {request.client} · {request.department} · {request.structuredName}
                 </p>
                 <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2 lg:grid-cols-4">
                   <span>Solicitó: {users.find((user) => user.id === request.createdBy)?.name ?? request.createdBy}</span>
@@ -1377,7 +1533,7 @@ function LegacyAdminView({
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName ? maskRequestSequence(req.structuredName) : "Sin folio"}</p>
+                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
                 {req.correctionReason ? (
                   <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
                     <span className="font-bold text-[#0EA5E9]">Corrección solicitada: </span>

@@ -67,28 +67,65 @@ if ($action === 'update_request') {
        ->execute([':p' => json_encode($updated, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ':id' => $requestId]);
     $pdo->commit();
 
-    // Aviso inmediato por correo cuando la solicitud pasa a "approved" — la aprobación en
-    // sí ya quedó guardada arriba, así que un fallo de SMTP aquí NUNCA debe tumbar la
-    // respuesta ni el flujo de aprobación del frontend.
-    $wasApproved = ($current['status'] ?? null) === 'approved';
-    $isApproved  = ($updated['status'] ?? null) === 'approved';
-    if (!$wasApproved && $isApproved) {
+    // Avisos inmediatos por correo en transiciones de estado de la solicitud (aprobada /
+    // rechazada / necesita corrección) — la mutación en sí ya quedó guardada arriba, así que
+    // un fallo de SMTP aquí NUNCA debe tumbar la respuesta ni el flujo del frontend. Cada
+    // transición tiene su propio switch + lista de destinatarios en el panel "Funciones";
+    // agregar una transición nueva es solo un bloque más aquí, reutilizando
+    // renderRequestEventEmailHtml — la estructura ya está lista para eso.
+    $prevStatus = $current['status'] ?? null;
+    $newStatus  = $updated['status'] ?? null;
+    if ($prevStatus !== $newStatus) {
         try {
-            $settings = getAppSettings();
-            if (!empty($settings['approvalEmailEnabled'])) {
-                $recipients = array_values(array_filter(
-                    (array) ($settings['approvalEmailRecipients'] ?? []),
-                    static fn($e) => is_string($e) && filter_var($e, FILTER_VALIDATE_EMAIL)
-                ));
+            $settings    = getAppSettings();
+            $projectName = $updated['structuredName'] ?? ($updated['baseName'] ?? '');
+            $reviewerName = sessionUser()['name'] ?? 'Alguien';
+
+            if ($newStatus === 'approved' && !empty($settings['approvalEmailEnabled'])) {
+                $recipients = validEmails((array) ($settings['approvalEmailRecipients'] ?? []));
                 if (!empty($recipients)) {
-                    $requesterName = resolveUserName($updated['createdBy'] ?? null);
-                    $approverName  = sessionUser()['name'] ?? 'Alguien';
-                    $subject       = 'Proyecto aprobado — ' . ($updated['structuredName'] ?? ($updated['baseName'] ?? ''));
-                    sendSmtpMail($recipients, $subject, renderApprovalEmailHtml($updated, $requesterName, $approverName));
+                    sendSmtpMail($recipients, 'Proyecto aprobado — ' . $projectName, renderRequestEventEmailHtml(
+                        'Proyecto aprobado',
+                        $updated,
+                        [
+                            'Solicitado por' => resolveUserName($updated['createdBy'] ?? null),
+                            'Aprobado por'   => $reviewerName,
+                        ]
+                    ));
+                }
+            }
+
+            if ($newStatus === 'rejected' && !empty($settings['rejectedEmailEnabled'])) {
+                $recipients = validEmails((array) ($settings['rejectedEmailRecipients'] ?? []));
+                if (!empty($recipients)) {
+                    sendSmtpMail($recipients, 'Solicitud rechazada — ' . $projectName, renderRequestEventEmailHtml(
+                        'Solicitud rechazada',
+                        $updated,
+                        [
+                            'Solicitado por'     => resolveUserName($updated['createdBy'] ?? null),
+                            'Motivo de rechazo'  => $updated['rejectionReason'] ?? '—',
+                            'Rechazado por'      => $reviewerName,
+                        ]
+                    ));
+                }
+            }
+
+            if ($newStatus === 'needs-correction' && !empty($settings['correctionEmailEnabled'])) {
+                $recipients = validEmails((array) ($settings['correctionEmailRecipients'] ?? []));
+                if (!empty($recipients)) {
+                    sendSmtpMail($recipients, 'Solicitud requiere corrección — ' . $projectName, renderRequestEventEmailHtml(
+                        'Solicitud requiere corrección',
+                        $updated,
+                        [
+                            'Solicitado por'       => resolveUserName($updated['createdBy'] ?? null),
+                            'Motivo de corrección' => $updated['correctionReason'] ?? '—',
+                            'Revisado por'         => $reviewerName,
+                        ]
+                    ));
                 }
             }
         } catch (\Throwable $e) {
-            error_log('aviso de aprobacion por correo fallo: ' . $e->getMessage());
+            error_log('aviso de estado de solicitud por correo fallo: ' . $e->getMessage());
         }
     }
 

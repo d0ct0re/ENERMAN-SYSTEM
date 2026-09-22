@@ -503,17 +503,40 @@ function getOrInitSequence(): int
     return $initial;
 }
 
+/**
+ * Folio/consecutivo más alto que YA se emitió alguna vez, considerando las dos fuentes:
+ * proyectos aprobados (columna `folio`, indexada) Y solicitudes que reservaron su número
+ * desde que se crearon pero todavía no son proyecto (`requests.payload->sequence`) —
+ * incluye solicitudes en revisión, en corrección o rechazadas, porque un número ya
+ * asignado nunca debe reutilizarse aunque esa solicitud nunca llegue a aprobarse.
+ * `next_sequence`, `get_sequence_info` y `set_sequence_counter` usan esto como piso — así
+ * ningún ajuste manual del Gestor puede hacer que se vuelva a repartir un número que una
+ * solicitud pendiente ya tiene reservado.
+ */
+function maxIssuedSequence(): int
+{
+    $maxFolio = (int) db()->query("SELECT COALESCE(MAX(folio), 0) FROM projects")->fetchColumn();
+    $maxReq   = (int) db()->query(
+        "SELECT COALESCE(MAX(CAST(JSON_UNQUOTE(JSON_EXTRACT(payload, '\$.sequence')) AS UNSIGNED)), 0) FROM requests"
+    )->fetchColumn();
+    return max($maxFolio, $maxReq);
+}
+
 // ── Switches globales de "Funciones" (panel del Gestor del sistema) ───────────
 
 // Defaults centralizados — agregar un switch nuevo solo requiere una entrada aca
 // y su fila correspondiente en el panel "Funciones" de SystemAdminView.
 const APP_SETTINGS_DEFAULTS = [
-    'facturasEnabled'         => false,
-    'cobrosEnabled'           => false,
-    'kpiEmailEnabled'         => false,
-    'kpiRecipients'           => [],
-    'approvalEmailEnabled'    => false,
-    'approvalEmailRecipients' => [],
+    'facturasEnabled'           => false,
+    'cobrosEnabled'             => false,
+    'kpiEmailEnabled'           => false,
+    'kpiRecipients'             => [],
+    'approvalEmailEnabled'      => false,
+    'approvalEmailRecipients'   => [],
+    'rejectedEmailEnabled'      => false,
+    'rejectedEmailRecipients'   => [],
+    'correctionEmailEnabled'    => false,
+    'correctionEmailRecipients' => [],
 ];
 
 function ensureSettingsTable(): void
@@ -846,28 +869,42 @@ function resolveUserName(?string $userId): string
     return is_array($u) ? ($u['name'] ?? $userId) : $userId;
 }
 
-/** Correo inmediato cuando una solicitud pasa a "approved": quién la pidió, quién la aprobó, hora y folio. */
-function renderApprovalEmailHtml(array $request, string $requesterName, string $approverName): string
+/** Filtra un array a solo los valores que son direcciones de correo válidas. */
+function validEmails(array $list): array
+{
+    return array_values(array_filter($list, static fn($e) => is_string($e) && filter_var($e, FILTER_VALIDATE_EMAIL)));
+}
+
+/**
+ * Correo inmediato genérico para UN evento puntual de UNA solicitud (aprobada, rechazada,
+ * necesita corrección, etc.) — encabezado fijo (proyecto/cliente/folio) más los campos
+ * específicos de ese evento en $fields (label => valor, en el orden dado). A propósito NO
+ * incluye métricas globales del sistema (eso es el resumen diario, no esto) — cada correo de
+ * este tipo habla de UN proyecto puntual, nada más.
+ */
+function renderRequestEventEmailHtml(string $title, array $request, array $fields): string
 {
     $esc = static fn($s): string => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
-    $name         = $esc($request['structuredName'] ?? ($request['baseName'] ?? ($request['id'] ?? '')));
-    $client       = $esc($request['client'] ?? '');
-    $folio        = $esc($request['sequence'] ?? '—');
-    $hora         = $esc(date('d/m/Y H:i'));
-    $requesterEsc = $esc($requesterName);
-    $approverEsc  = $esc($approverName);
+    $name   = $esc($request['structuredName'] ?? ($request['baseName'] ?? ($request['id'] ?? '')));
+    $client = $esc($request['client'] ?? '');
+    $folio  = $esc($request['sequence'] ?? '—');
+    $hora   = $esc(date('d/m/Y H:i'));
+    $titleEsc = $esc($title);
+
+    $rows = '<tr><td style="padding:4px 0;color:#888;width:160px">Proyecto</td><td style="padding:4px 0;font-weight:bold">' . $name . '</td></tr>'
+          . '<tr><td style="padding:4px 0;color:#888">Cliente</td><td style="padding:4px 0">' . $client . '</td></tr>'
+          . '<tr><td style="padding:4px 0;color:#888">Folio</td><td style="padding:4px 0">' . $folio . '</td></tr>';
+    foreach ($fields as $label => $value) {
+        $rows .= '<tr><td style="padding:4px 0;color:#888">' . $esc((string) $label) . '</td><td style="padding:4px 0">' . $esc((string) $value) . '</td></tr>';
+    }
 
     return <<<HTML
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111">
-      <h2 style="margin-bottom:4px">Proyecto aprobado</h2>
+      <h2 style="margin-bottom:4px">{$titleEsc}</h2>
       <p style="color:#666;margin-top:0">{$hora}</p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <tr><td style="padding:4px 0;color:#888;width:140px">Proyecto</td><td style="padding:4px 0;font-weight:bold">{$name}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Cliente</td><td style="padding:4px 0">{$client}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Folio</td><td style="padding:4px 0">{$folio}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Solicitado por</td><td style="padding:4px 0">{$requesterEsc}</td></tr>
-        <tr><td style="padding:4px 0;color:#888">Aprobado por</td><td style="padding:4px 0">{$approverEsc}</td></tr>
+        {$rows}
       </table>
       <p style="color:#999;font-size:11px;margin-top:24px">Generado automáticamente por ENERMAN-SYSTEM. No respondas a este correo.</p>
     </div>

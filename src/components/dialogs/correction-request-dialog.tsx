@@ -8,7 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { buildRequestName, maskRequestSequence } from "@/lib/utils";
+import { buildRequestName } from "@/lib/utils";
 import { ProjectItem, ProjectType, RequestItem } from "@/types";
 
 interface CorrectionRequestDialogProps {
@@ -92,7 +92,7 @@ export function CorrectionRequestDialog({
       open={open}
       onOpenChange={handleOpenChange}
       title="Corregir solicitud"
-      description={`Folio: ${request.structuredName ? maskRequestSequence(request.structuredName) : "Sin folio"}`}
+      description={`Folio: ${request.structuredName || "Sin folio"}`}
       className="max-w-3xl"
     >
       {/* Corrección requerida */}

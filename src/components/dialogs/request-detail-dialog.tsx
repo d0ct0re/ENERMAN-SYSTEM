@@ -5,7 +5,7 @@ import { FieldDisplay } from "@/components/common/field-display";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Textarea } from "@/components/ui/textarea";
-import { formatDate, formatOptionalDate, getRequestSequence, maskRequestSequence } from "@/lib/utils";
+import { formatDate, formatOptionalDate, getRequestSequence } from "@/lib/utils";
 import { ProjectItem, RequestItem, UserItem } from "@/types";
 
 interface RequestDetailDialogProps {
@@ -94,14 +94,14 @@ export function RequestDetailDialog({
         className="max-w-5xl"
       >
         <div className="grid gap-4 lg:grid-cols-4">
-          <FieldDisplay label="N° Proyecto" value={<span className="font-mono font-black text-accent">#{request.status === "approved" ? getRequestSequence(request, projects) : "XXXX"}</span>} />
+          <FieldDisplay label="N° Proyecto" value={<span className="font-mono font-black text-accent">#{getRequestSequence(request, projects)}</span>} />
           <FieldDisplay label="Solicitado por" value={requester ? `${requester.name} · ${requester.roleLabel}` : request.createdBy} />
           <FieldDisplay label="Fecha de solicitud" value={formatDate(request.createdAt)} />
           <FieldDisplay label="Estado" value={<StatusBadge kind="request" value={request.status} />} />
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <FieldDisplay label="Nombre estructurado" value={request.status === "approved" ? request.structuredName : maskRequestSequence(request.structuredName)} />
+          <FieldDisplay label="Nombre estructurado" value={request.structuredName} />
           <FieldDisplay label="Nombre base" value={request.baseName} />
           <FieldDisplay label="Cliente" value={request.client} />
           <FieldDisplay label="Departamento" value={request.department} />
