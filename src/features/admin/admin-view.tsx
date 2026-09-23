@@ -668,7 +668,7 @@ function SystemAdminView({
                 setKpiRecipientsInput(e.target.value);
                 setKpiRecipientsDirty(true);
               }}
-              rows={4}
+              rows={2}
               placeholder={"gerardo@ejemplo.com\nsupervisor@ejemplo.com"}
               className="mt-2 min-h-0 text-sm"
             />
@@ -717,7 +717,7 @@ function SystemAdminView({
                 setApprovalRecipientsInput(e.target.value);
                 setApprovalRecipientsDirty(true);
               }}
-              rows={4}
+              rows={2}
               placeholder={"licenciado.sapo@gmail.com\nd0ct0renomah@gmail.com"}
               className="mt-2 min-h-0 text-sm"
             />
@@ -766,7 +766,7 @@ function SystemAdminView({
                 setRejectedRecipientsInput(e.target.value);
                 setRejectedRecipientsDirty(true);
               }}
-              rows={4}
+              rows={2}
               placeholder={"correo@ejemplo.com"}
               className="mt-2 min-h-0 text-sm"
             />
@@ -815,7 +815,7 @@ function SystemAdminView({
                 setCorrectionRecipientsInput(e.target.value);
                 setCorrectionRecipientsDirty(true);
               }}
-              rows={4}
+              rows={2}
               placeholder={"correo@ejemplo.com"}
               className="mt-2 min-h-0 text-sm"
             />
@@ -2434,6 +2434,9 @@ function ActivityPanel({ activityLogs }: { activityLogs: ActivityLogItem[] }): J
     updated: "Actualizacion",
     deleted: "Eliminacion",
     role_updated: "Cambio de rol",
+    email_sent: "Correo enviado",
+    email_skipped: "Correo omitido",
+    email_failed: "Correo fallido",
   };
 
   if (activityLogs.length === 0) {

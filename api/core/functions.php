@@ -786,6 +786,52 @@ function buildKpiDigest(): array
     ];
 }
 
+/**
+ * Envía (o registra por qué NO se envió) el correo de un evento de solicitud. Deja rastro
+ * SIEMPRE en el log de Actividad ("email_sent" / "email_skipped" / "email_failed") — antes
+ * un switch apagado, una lista de destinatarios vacía, o un fallo real de SMTP eran
+ * indistinguibles desde afuera (todo terminaba en "no llegó nada, sin explicación"). Ahora
+ * el Gestor puede ver la causa exacta en Actividad sin tener que preguntar.
+ */
+function sendRequestEventEmail(
+    string $eventKey,
+    string $enabledSetting,
+    string $recipientsSetting,
+    string $title,
+    string $subjectPrefix,
+    array $request,
+    array $fields
+): void {
+    $settings    = getAppSettings();
+    $projectName = $request['structuredName'] ?? ($request['baseName'] ?? '');
+    $requestId   = $request['id'] ?? null;
+
+    if (empty($settings[$enabledSetting])) {
+        logActivity('email_skipped', 'notification_email', $requestId, $projectName, [
+            'event' => $eventKey, 'reason' => 'switch apagado en Funciones',
+        ]);
+        return;
+    }
+    $recipients = validEmails((array) ($settings[$recipientsSetting] ?? []));
+    if (empty($recipients)) {
+        logActivity('email_skipped', 'notification_email', $requestId, $projectName, [
+            'event' => $eventKey, 'reason' => 'sin destinatarios configurados',
+        ]);
+        return;
+    }
+    try {
+        sendSmtpMail($recipients, $subjectPrefix . ' — ' . $projectName, renderRequestEventEmailHtml($title, $request, $fields));
+        logActivity('email_sent', 'notification_email', $requestId, $projectName, [
+            'event' => $eventKey, 'to' => $recipients,
+        ]);
+    } catch (\Throwable $e) {
+        logActivity('email_failed', 'notification_email', $requestId, $projectName, [
+            'event' => $eventKey, 'error' => $e->getMessage(),
+        ]);
+        error_log("aviso de {$eventKey} por correo fallo: " . $e->getMessage());
+    }
+}
+
 /** Convierte el digest en el HTML del correo — tabla simple, sin dependencias externas. */
 function renderKpiDigestHtml(array $digest): string
 {
@@ -906,7 +952,6 @@ function renderRequestEventEmailHtml(string $title, array $request, array $field
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         {$rows}
       </table>
-      <p style="color:#999;font-size:11px;margin-top:24px">Generado automáticamente por ENERMAN-SYSTEM. No respondas a este correo.</p>
     </div>
     HTML;
 }

@@ -243,11 +243,13 @@ if ($action === 'cron_daily_kpi_email') {
 
     $settings = getAppSettings();
     if (empty($settings['kpiEmailEnabled'])) {
+        logActivity('email_skipped', 'notification_email', null, 'Resumen diario', ['event' => 'daily_digest', 'reason' => 'switch apagado en Funciones']);
         echo json_encode(['ok' => true, 'skipped' => 'kpiEmailEnabled esta apagado']);
         exit;
     }
     $recipients = validEmails((array) ($settings['kpiRecipients'] ?? []));
     if (empty($recipients)) {
+        logActivity('email_skipped', 'notification_email', null, 'Resumen diario', ['event' => 'daily_digest', 'reason' => 'sin destinatarios configurados']);
         echo json_encode(['ok' => true, 'skipped' => 'sin destinatarios configurados']);
         exit;
     }
@@ -257,7 +259,9 @@ if ($action === 'cron_daily_kpi_email') {
 
     try {
         sendSmtpMail($recipients, 'Resumen diario ENERMAN — ' . date('d/m/Y'), $html);
+        logActivity('email_sent', 'notification_email', null, 'Resumen diario', ['event' => 'daily_digest', 'to' => $recipients]);
     } catch (\Throwable $e) {
+        logActivity('email_failed', 'notification_email', null, 'Resumen diario', ['event' => 'daily_digest', 'error' => $e->getMessage()]);
         http_response_code(500);
         echo json_encode(['error' => 'Fallo el envio: ' . $e->getMessage()]);
         exit;

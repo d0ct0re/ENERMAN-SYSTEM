@@ -77,52 +77,41 @@ if ($action === 'update_request') {
     $newStatus  = $updated['status'] ?? null;
     if ($prevStatus !== $newStatus) {
         try {
-            $settings    = getAppSettings();
-            $projectName = $updated['structuredName'] ?? ($updated['baseName'] ?? '');
             $reviewerName = sessionUser()['name'] ?? 'Alguien';
 
-            if ($newStatus === 'approved' && !empty($settings['approvalEmailEnabled'])) {
-                $recipients = validEmails((array) ($settings['approvalEmailRecipients'] ?? []));
-                if (!empty($recipients)) {
-                    sendSmtpMail($recipients, 'Proyecto aprobado — ' . $projectName, renderRequestEventEmailHtml(
-                        'Proyecto aprobado',
-                        $updated,
-                        [
-                            'Solicitado por' => resolveUserName($updated['createdBy'] ?? null),
-                            'Aprobado por'   => $reviewerName,
-                        ]
-                    ));
-                }
+            if ($newStatus === 'approved') {
+                sendRequestEventEmail(
+                    'approved', 'approvalEmailEnabled', 'approvalEmailRecipients',
+                    'Proyecto aprobado', 'Proyecto aprobado', $updated,
+                    [
+                        'Solicitado por' => resolveUserName($updated['createdBy'] ?? null),
+                        'Aprobado por'   => $reviewerName,
+                    ]
+                );
             }
 
-            if ($newStatus === 'rejected' && !empty($settings['rejectedEmailEnabled'])) {
-                $recipients = validEmails((array) ($settings['rejectedEmailRecipients'] ?? []));
-                if (!empty($recipients)) {
-                    sendSmtpMail($recipients, 'Solicitud rechazada — ' . $projectName, renderRequestEventEmailHtml(
-                        'Solicitud rechazada',
-                        $updated,
-                        [
-                            'Solicitado por'     => resolveUserName($updated['createdBy'] ?? null),
-                            'Motivo de rechazo'  => $updated['rejectionReason'] ?? '—',
-                            'Rechazado por'      => $reviewerName,
-                        ]
-                    ));
-                }
+            if ($newStatus === 'rejected') {
+                sendRequestEventEmail(
+                    'rejected', 'rejectedEmailEnabled', 'rejectedEmailRecipients',
+                    'Solicitud rechazada', 'Solicitud rechazada', $updated,
+                    [
+                        'Solicitado por'    => resolveUserName($updated['createdBy'] ?? null),
+                        'Motivo de rechazo' => $updated['rejectionReason'] ?? '—',
+                        'Rechazado por'     => $reviewerName,
+                    ]
+                );
             }
 
-            if ($newStatus === 'needs-correction' && !empty($settings['correctionEmailEnabled'])) {
-                $recipients = validEmails((array) ($settings['correctionEmailRecipients'] ?? []));
-                if (!empty($recipients)) {
-                    sendSmtpMail($recipients, 'Solicitud requiere corrección — ' . $projectName, renderRequestEventEmailHtml(
-                        'Solicitud requiere corrección',
-                        $updated,
-                        [
-                            'Solicitado por'       => resolveUserName($updated['createdBy'] ?? null),
-                            'Motivo de corrección' => $updated['correctionReason'] ?? '—',
-                            'Revisado por'         => $reviewerName,
-                        ]
-                    ));
-                }
+            if ($newStatus === 'needs-correction') {
+                sendRequestEventEmail(
+                    'needs-correction', 'correctionEmailEnabled', 'correctionEmailRecipients',
+                    'Solicitud requiere corrección', 'Solicitud requiere corrección', $updated,
+                    [
+                        'Solicitado por'       => resolveUserName($updated['createdBy'] ?? null),
+                        'Motivo de corrección' => $updated['correctionReason'] ?? '—',
+                        'Revisado por'         => $reviewerName,
+                    ]
+                );
             }
         } catch (\Throwable $e) {
             error_log('aviso de estado de solicitud por correo fallo: ' . $e->getMessage());
