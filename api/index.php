@@ -1,6 +1,13 @@
 <?php
 declare(strict_types=1);
 
+// Hora de referencia de TODO el sistema: Monterrey/Ciudad de México, fija en UTC-6 (México
+// dejó de usar horario de verano en 2022 para la zona centro/norte). Sin esto, PHP usa UTC
+// por default en Hostinger — no solo se veía mal en los correos (una diferencia de 6 horas),
+// también afectaba calculos reales como "¿ya se venció la fecha de compromiso?" en el resumen
+// diario, que podia adelantarse o atrasarse un dia entero cerca de la medianoche.
+date_default_timezone_set('America/Monterrey');
+
 // CORS — permite frontend en Vercel, ampr.site y localhost dev
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $allowedOrigins = ['https://ampr.site', 'https://www.ampr.site', 'http://localhost:5173', 'http://localhost:3000'];
