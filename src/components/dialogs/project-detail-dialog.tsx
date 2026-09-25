@@ -249,35 +249,58 @@ function PagoComprobantes({
       <label className={LBL}>Archivos (PDF / XML)</label>
       {files.length > 0 ? (
         <div className="mb-1.5 space-y-1.5">
-          {files.map((f) => (
-            <div key={f.id} className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.07] bg-[#1F1F22] px-3 py-2">
-              <a
-                href={serveFileUrl(project.id, f.id, true)}
-                target="_blank"
-                rel="noreferrer"
-                className="truncate text-xs font-semibold text-foreground hover:text-accent"
-                title={f.name}
-              >
-                {f.name}
-              </a>
-              {onDeleteFile ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setDeletingId(f.id);
-                    try { await onDeleteFile(project.id, f.id, "pagoComprobante"); }
-                    finally { setDeletingId(null); }
-                  }}
-                  disabled={deletingId === f.id}
-                  className="shrink-0 text-[#52525B] transition-colors hover:text-danger disabled:opacity-40"
-                >
-                  {deletingId === f.id
-                    ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-danger border-t-transparent" />
-                    : <Trash2 className="h-3.5 w-3.5" />}
-                </button>
-              ) : null}
-            </div>
-          ))}
+          {files.map((f) => {
+            const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+            const isPdf = ext === "pdf";
+            const fileServeUrl = serveFileUrl(project.id, f.id);
+            const handleEye = () => {
+              if (isPdf) {
+                // Google Docs Viewer permite previsualizar el PDF sin descargarlo primero.
+                window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(fileServeUrl)}&embedded=true`, "_blank");
+              } else {
+                window.open(fileServeUrl, "_blank");
+              }
+            };
+            return (
+              <div key={f.id} className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.07] bg-[#1F1F22] px-3 py-2">
+                <span className="truncate text-xs font-semibold text-foreground" title={f.name}>
+                  {f.name}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleEye}
+                    title={isPdf ? "Vista previa" : "Abrir archivo"}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[#888888] transition-colors hover:text-accent"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <a href={serveFileUrl(project.id, f.id, true)} download={f.name} target="_blank" rel="noreferrer" title="Descargar">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg text-[#888888] transition-colors hover:text-accent">
+                      <Download className="h-3.5 w-3.5" />
+                    </div>
+                  </a>
+                  {onDeleteFile ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setDeletingId(f.id);
+                        try { await onDeleteFile(project.id, f.id, "pagoComprobante"); }
+                        finally { setDeletingId(null); }
+                      }}
+                      disabled={deletingId === f.id}
+                      title="Eliminar"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-[#52525B] transition-colors hover:text-danger disabled:opacity-40"
+                    >
+                      {deletingId === f.id
+                        ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-danger border-t-transparent" />
+                        : <Trash2 className="h-3.5 w-3.5" />}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
       <div className="flex gap-2">
