@@ -6,6 +6,8 @@ import { ActivityLogItem, CommentItem, InvoiceItem, NotificationItem, ProjectExp
 export interface AppSettings {
   facturasEnabled: boolean;
   cobrosEnabled: boolean;
+  desgloseCostosEnabled: boolean;
+  gastosCampoEnabled: boolean;
   kpiEmailEnabled: boolean;
   kpiRecipients: string[];
   approvalEmailEnabled: boolean;

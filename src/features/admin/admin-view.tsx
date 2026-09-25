@@ -639,6 +639,40 @@ function SystemAdminView({
               />
             </button>
           </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">Desglose de costos</span>
+            <button
+              type="button"
+              onClick={() => onSetAppSetting?.("desgloseCostosEnabled", !(appSettings?.desgloseCostosEnabled ?? false))}
+              title={appSettings?.desgloseCostosEnabled ? "Desglose de costos activado" : "Activar desglose de costos"}
+              className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                appSettings?.desgloseCostosEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+              }`}
+            >
+              <span
+                className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  appSettings?.desgloseCostosEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">Gastos de campo</span>
+            <button
+              type="button"
+              onClick={() => onSetAppSetting?.("gastosCampoEnabled", !(appSettings?.gastosCampoEnabled ?? false))}
+              title={appSettings?.gastosCampoEnabled ? "Gastos de campo activado" : "Activar gastos de campo"}
+              className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
+                appSettings?.gastosCampoEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+              }`}
+            >
+              <span
+                className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  appSettings?.gastosCampoEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
 
           <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -1628,12 +1662,6 @@ const PRIORITY_DISPLAY: Record<string, string> = {
   critical: "Crítica",
 };
 
-const PAYMENT_DISPLAY: Record<string, string> = {
-  unpaid: "No pagado",
-  partial: "Pago parcial",
-  paid: "Pagado",
-};
-
 const FOTOS_DISPLAY: Record<string, string> = {
   no: "No",
   "en-revision": "En revisión",
@@ -1654,6 +1682,8 @@ const SUBFACT_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado
 // texto libre, para que el filtro encuentre exactamente lo que se ve en el proyecto.
 const MDP_OPTIONS = ["Todos", "Sin Definir", "PPD", "PUE"];
 const FORMAPAGO_OPTIONS = ["Todos", "Sin definir", "Efectivo", "Transferencia", "Cheque"];
+// "Pago" (filtro financiero) usa el mismo dato que "estatus pago final" de Fase 4 — no
+// existe "pago parcial" en este filtro, solo Pendiente/Pagado.
 const PAGOFINAL_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado: "Pagado" };
 
 function exportProjectsCSV(projects: ProjectItem[], users: UserItem[]): void {
@@ -1748,7 +1778,6 @@ function ProjectsFilterTab({
   const [subFacturaF, setSubFacturaF] = useState("Todos");
   const [mdpF, setMdpF] = useState("Todos");
   const [formaPagoF, setFormaPagoF] = useState("Todos");
-  const [pagoFinalF, setPagoFinalF] = useState("Todos");
   const [yearF, setYearF] = useState("Todos");
   const [sortF, setSortF] = useState("Reciente ↓");
   // Acordeones de filtros — cerrados por defecto, cada grupo se abre/cierra independiente.
@@ -1775,12 +1804,11 @@ function ProjectsFilterTab({
   const urgencyOptions = ["Todos", ...Object.values(PRIORITY_DISPLAY)];
   const estimOptions = ["Todos", "Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A", "Sin información"];
   const cotizOptions = ["Todos", "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información"];
-  const payOptions = ["Todos", ...Object.values(PAYMENT_DISPLAY)];
+  const payOptions = ["Todos", ...Object.values(PAGOFINAL_DISPLAY)];
   const fotosOptions = ["Todos", ...Object.values(FOTOS_DISPLAY)];
   const reporteOptions = ["Todos", ...Object.values(REPORTE_DISPLAY)];
   const subOptions = ["Todos", "Sí", "No"];
   const subFacturaOptions = ["Todos", ...Object.values(SUBFACT_DISPLAY)];
-  const pagoFinalOptions = ["Todos", ...Object.values(PAGOFINAL_DISPLAY)];
   const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑"];
 
   const filtered = useMemo(() => {
@@ -1805,8 +1833,8 @@ function ProjectsFilterTab({
       if (estimF !== "Todos" && p.estimacion !== estimF) return false;
       if (cotizF !== "Todos" && p.cotizacion !== cotizF) return false;
       if (payF !== "Todos") {
-        const key = Object.keys(PAYMENT_DISPLAY).find((k) => PAYMENT_DISPLAY[k] === payF);
-        if (p.paymentStatus !== key) return false;
+        const key = Object.keys(PAGOFINAL_DISPLAY).find((k) => PAGOFINAL_DISPLAY[k] === payF);
+        if ((p.estatusPagoFinal ?? "Pendiente") !== key) return false;
       }
       if (fotosF !== "Todos") {
         const key = Object.keys(FOTOS_DISPLAY).find((k) => FOTOS_DISPLAY[k] === fotosF);
@@ -1839,10 +1867,6 @@ function ProjectsFilterTab({
         const pagos = p.pagosProyecto ?? [];
         if (!pagos.some((pg) => (formaPagoF === "Sin definir" ? !pg.formaPago : pg.formaPago === formaPagoF))) return false;
       }
-      if (pagoFinalF !== "Todos") {
-        const key = Object.keys(PAGOFINAL_DISPLAY).find((k) => PAGOFINAL_DISPLAY[k] === pagoFinalF);
-        if ((p.estatusPagoFinal ?? "Pendiente") !== key) return false;
-      }
       // El buscador tambien encuentra por los datos de cada pago (Cliente, Folio Fiscal,
       // Serie, Folio) — asi Administracion puede pegar un folio fiscal y llegar directo
       // al proyecto sin tener que saber en cual esta.
@@ -1861,15 +1885,15 @@ function ProjectsFilterTab({
       }
     });
     return result;
-  }, [projects, query, yearF, clientF, deptF, typeF, urgencyF, statusF, engineerF, estimF, cotizF, payF, fotosF, reporteF, subF, subFacturaF, mdpF, formaPagoF, pagoFinalF, sortF, users]);
+  }, [projects, query, yearF, clientF, deptF, typeF, urgencyF, statusF, engineerF, estimF, cotizF, payF, fotosF, reporteF, subF, subFacturaF, mdpF, formaPagoF, sortF, users]);
 
-  const hasFilters = !!(query || yearF !== "Todos" || clientF !== "Todos" || deptF !== "Todos" || typeF !== "Todos" || urgencyF !== "Todos" || engineerF !== "Todos" || statusF !== "Todos" || estimF !== "Todos" || cotizF !== "Todos" || payF !== "Todos" || fotosF !== "Todos" || reporteF !== "Todos" || subF !== "Todos" || subFacturaF !== "Todos" || mdpF !== "Todos" || formaPagoF !== "Todos" || pagoFinalF !== "Todos");
+  const hasFilters = !!(query || yearF !== "Todos" || clientF !== "Todos" || deptF !== "Todos" || typeF !== "Todos" || urgencyF !== "Todos" || engineerF !== "Todos" || statusF !== "Todos" || estimF !== "Todos" || cotizF !== "Todos" || payF !== "Todos" || fotosF !== "Todos" || reporteF !== "Todos" || subF !== "Todos" || subFacturaF !== "Todos" || mdpF !== "Todos" || formaPagoF !== "Todos");
 
   const clearFilters = (): void => {
     setQuery(""); setYearF("Todos"); setClientF("Todos"); setDeptF("Todos"); setTypeF("Todos");
     setUrgencyF("Todos"); setEngineerF("Todos"); setStatusF("Todos");
     setEstimF("Todos"); setCotizF("Todos"); setPayF("Todos"); setFotosF("Todos"); setReporteF("Todos"); setSubF("Todos"); setSubFacturaF("Todos");
-    setMdpF("Todos"); setFormaPagoF("Todos"); setPagoFinalF("Todos");
+    setMdpF("Todos"); setFormaPagoF("Todos");
   };
 
   return (
@@ -1927,7 +1951,6 @@ function ProjectsFilterTab({
           <CompactSelect layout="cell" variant="finance" label="Facturas subcont." options={subFacturaOptions} value={subFacturaF} onChange={setSubFacturaF} />
           <CompactSelect layout="cell" variant="finance" label="MDP" options={MDP_OPTIONS} value={mdpF} onChange={setMdpF} />
           <CompactSelect layout="cell" variant="finance" label="Forma de pago" options={FORMAPAGO_OPTIONS} value={formaPagoF} onChange={setFormaPagoF} />
-          <CompactSelect layout="cell" variant="finance" label="Estatus pago final" options={pagoFinalOptions} value={pagoFinalF} onChange={setPagoFinalF} />
         </FilterGroupAccordion>
         {/* Pie: contador + Ordenar + Limpiar filtros */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">

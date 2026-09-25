@@ -529,6 +529,8 @@ function maxIssuedSequence(): int
 const APP_SETTINGS_DEFAULTS = [
     'facturasEnabled'           => false,
     'cobrosEnabled'             => false,
+    'desgloseCostosEnabled'     => false,
+    'gastosCampoEnabled'        => false,
     'kpiEmailEnabled'           => false,
     'kpiRecipients'             => [],
     'approvalEmailEnabled'      => false,

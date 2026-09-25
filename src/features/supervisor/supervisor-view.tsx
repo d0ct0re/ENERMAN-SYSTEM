@@ -26,7 +26,6 @@ const STATUS_DISPLAY: Record<string, string> = {
   "cancelled": "Cancelado",
 };
 const PRIORITY_DISPLAY: Record<string, string> = { low: "Bajo", medium: "Medio", high: "Alto", critical: "Crítica" };
-const PAYMENT_DISPLAY: Record<string, string> = { unpaid: "No pagado", partial: "Pago parcial", paid: "Pagado" };
 const FOTOS_DISPLAY: Record<string, string> = { no: "No", "en-revision": "En revisión", si: "Si", rechazado: "Rechazado" };
 // Mismos 4 estados que Fotos — ligado a reporteFileStatus de Fase 2 ("Reporte generado").
 const REPORTE_DISPLAY: Record<string, string> = { no: "No", "en-revision": "En revisión", si: "Si", rechazado: "Rechazado" };
@@ -35,6 +34,8 @@ const SUBFACT_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado
 // Supervisor cuenten con exactamente los mismos filtros.
 const MDP_OPTIONS = ["Todos", "Sin Definir", "PPD", "PUE"];
 const FORMAPAGO_OPTIONS = ["Todos", "Sin definir", "Efectivo", "Transferencia", "Cheque"];
+// "Pago" (filtro financiero) usa el mismo dato que "estatus pago final" de Fase 4 — no
+// existe "pago parcial" en este filtro, solo Pendiente/Pagado.
 const PAGOFINAL_DISPLAY: Record<string, string> = { Pendiente: "No pagado", Pagado: "Pagado" };
 
 export type SupervisorTab = "all" | "open" | "closed" | "calendar" | "requests";
@@ -71,7 +72,6 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   const [subFacturaFilter, setSubFacturaFilter] = useState("Todos");
   const [mdpFilter, setMdpFilter] = useState("Todos");
   const [formaPagoFilter, setFormaPagoFilter] = useState("Todos");
-  const [pagoFinalFilter, setPagoFinalFilter] = useState("Todos");
   const [yearFilter, setYearFilter] = useState("Todos");
   const [sortFilter, setSortFilter] = useState("Reciente ↓");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
@@ -95,12 +95,11 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   const urgencyOptions = ["Todos", ...Object.values(PRIORITY_DISPLAY)];
   const estimOptions = ["Todos", "Pendiente", "Realizada", "Cancelada", "Comparativa", "N/A", "Sin información"];
   const cotizOptions = ["Todos", "Pendiente", "Realizada", "Enviada", "Revisión", "Cancelada", "Comparativa", "N/A", "Sin información"];
-  const payOptions = ["Todos", ...Object.values(PAYMENT_DISPLAY)];
+  const payOptions = ["Todos", ...Object.values(PAGOFINAL_DISPLAY)];
   const fotosOptions = ["Todos", ...Object.values(FOTOS_DISPLAY)];
   const reporteOptions = ["Todos", ...Object.values(REPORTE_DISPLAY)];
   const subOptions = ["Todos", "Sí", "No"];
   const subFacturaOptions = ["Todos", ...Object.values(SUBFACT_DISPLAY)];
-  const pagoFinalOptions = ["Todos", ...Object.values(PAGOFINAL_DISPLAY)];
   const sortOptions = ["Reciente ↓", "Antiguo ↑", "Monto ↓", "Monto ↑"];
 
   const filteredProjects = useMemo(() => {
@@ -132,8 +131,8 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
       if (estimFilter !== "Todos" && project.estimacion !== estimFilter) return false;
       if (cotizFilter !== "Todos" && project.cotizacion !== cotizFilter) return false;
       if (payFilter !== "Todos") {
-        const key = Object.keys(PAYMENT_DISPLAY).find((k) => PAYMENT_DISPLAY[k] === payFilter);
-        if (project.paymentStatus !== key) return false;
+        const key = Object.keys(PAGOFINAL_DISPLAY).find((k) => PAGOFINAL_DISPLAY[k] === payFilter);
+        if ((project.estatusPagoFinal ?? "Pendiente") !== key) return false;
       }
       if (fotosFilter !== "Todos") {
         const key = Object.keys(FOTOS_DISPLAY).find((k) => FOTOS_DISPLAY[k] === fotosFilter);
@@ -165,10 +164,6 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
         const pagos = project.pagosProyecto ?? [];
         if (!pagos.some((pg) => (formaPagoFilter === "Sin definir" ? !pg.formaPago : pg.formaPago === formaPagoFilter))) return false;
       }
-      if (pagoFinalFilter !== "Todos") {
-        const key = Object.keys(PAGOFINAL_DISPLAY).find((k) => PAGOFINAL_DISPLAY[k] === pagoFinalFilter);
-        if ((project.estatusPagoFinal ?? "Pendiente") !== key) return false;
-      }
       return true;
     });
     result.sort((a, b) => {
@@ -180,15 +175,15 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
       }
     });
     return result;
-  }, [clientFilter, departmentFilter, projects, query, tab, typeFilter, urgencyFilter, engineerFilter, statusFilter, estimFilter, cotizFilter, payFilter, fotosFilter, reporteFilter, subFilter, subFacturaFilter, mdpFilter, formaPagoFilter, pagoFinalFilter, yearFilter, sortFilter, users]);
+  }, [clientFilter, departmentFilter, projects, query, tab, typeFilter, urgencyFilter, engineerFilter, statusFilter, estimFilter, cotizFilter, payFilter, fotosFilter, reporteFilter, subFilter, subFacturaFilter, mdpFilter, formaPagoFilter, yearFilter, sortFilter, users]);
 
-  const hasFilters = !!(query || yearFilter !== "Todos" || clientFilter !== "Todos" || typeFilter !== "Todos" || departmentFilter !== "Todos" || urgencyFilter !== "Todos" || engineerFilter !== "Todos" || statusFilter !== "Todos" || estimFilter !== "Todos" || cotizFilter !== "Todos" || payFilter !== "Todos" || fotosFilter !== "Todos" || reporteFilter !== "Todos" || subFilter !== "Todos" || subFacturaFilter !== "Todos" || mdpFilter !== "Todos" || formaPagoFilter !== "Todos" || pagoFinalFilter !== "Todos");
+  const hasFilters = !!(query || yearFilter !== "Todos" || clientFilter !== "Todos" || typeFilter !== "Todos" || departmentFilter !== "Todos" || urgencyFilter !== "Todos" || engineerFilter !== "Todos" || statusFilter !== "Todos" || estimFilter !== "Todos" || cotizFilter !== "Todos" || payFilter !== "Todos" || fotosFilter !== "Todos" || reporteFilter !== "Todos" || subFilter !== "Todos" || subFacturaFilter !== "Todos" || mdpFilter !== "Todos" || formaPagoFilter !== "Todos");
 
   const clearFilters = (): void => {
     setQuery(""); setYearFilter("Todos"); setClientFilter("Todos"); setTypeFilter("Todos"); setDepartmentFilter("Todos");
     setUrgencyFilter("Todos"); setEngineerFilter("Todos"); setStatusFilter("Todos");
     setEstimFilter("Todos"); setCotizFilter("Todos"); setPayFilter("Todos"); setFotosFilter("Todos"); setReporteFilter("Todos");
-    setSubFilter("Todos"); setSubFacturaFilter("Todos"); setMdpFilter("Todos"); setFormaPagoFilter("Todos"); setPagoFinalFilter("Todos");
+    setSubFilter("Todos"); setSubFacturaFilter("Todos"); setMdpFilter("Todos"); setFormaPagoFilter("Todos");
   };
 
   const summary = useMemo(() => ({
@@ -366,7 +361,6 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
               <CompactSelect layout="cell" variant="finance" label="Facturas subcont." options={subFacturaOptions} value={subFacturaFilter} onChange={setSubFacturaFilter} />
               <CompactSelect layout="cell" variant="finance" label="MDP" options={MDP_OPTIONS} value={mdpFilter} onChange={setMdpFilter} />
               <CompactSelect layout="cell" variant="finance" label="Forma de pago" options={FORMAPAGO_OPTIONS} value={formaPagoFilter} onChange={setFormaPagoFilter} />
-              <CompactSelect layout="cell" variant="finance" label="Estatus pago final" options={pagoFinalOptions} value={pagoFinalFilter} onChange={setPagoFinalFilter} />
             </FilterGroupAccordion>
             {/* Pie: contador + Ordenar + Limpiar filtros */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">

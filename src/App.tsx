@@ -110,6 +110,8 @@ export default function App(): JSX.Element {
   const [appSettings, setAppSettings] = useState<AppSettings>({
     facturasEnabled: false,
     cobrosEnabled: false,
+    desgloseCostosEnabled: false,
+    gastosCampoEnabled: false,
     kpiEmailEnabled: false,
     kpiRecipients: [],
     approvalEmailEnabled: false,
@@ -2598,6 +2600,8 @@ export default function App(): JSX.Element {
         canDeleteProject={activeRole === "system_admin"}
         canManageInvoices={isAdminArea}
         facturasEnabled={appSettings.facturasEnabled}
+        desgloseCostosEnabled={appSettings.desgloseCostosEnabled}
+        gastosCampoEnabled={appSettings.gastosCampoEnabled}
         canAddExpense={isAdminArea || selectedProject?.createdBy === activeUser.id || (selectedProject?.participants ?? []).includes(activeUser.id)}
         onUpdateProject={handleUpdateProject}
         onAddComment={handleAddComment}

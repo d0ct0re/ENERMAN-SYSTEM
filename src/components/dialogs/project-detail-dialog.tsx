@@ -108,6 +108,15 @@ interface PagoDraft {
   createdAt: string;
 }
 
+// "Tipo de Pago" (campo 9 de cada pago) NUNCA es editable a mano — su valor depende 100% del
+// MDP seleccionado. Se deriva aquí, no se confía en lo que haya quedado guardado en
+// complementoPago (datos viejos pudieron traer texto libre tipo "SI").
+function complementoPagoFor(mdp: "" | "PPD" | "PUE"): string {
+  if (mdp === "PPD") return "Complemento de Pago";
+  if (mdp === "PUE") return "Factura Única";
+  return "Sin Definir";
+}
+
 function createEmptyPago(num: number): PagoDraft {
   return {
     id: crypto.randomUUID(),
@@ -121,25 +130,26 @@ function createEmptyPago(num: number): PagoDraft {
     fecha: "",
     serie: "",
     folio: "",
-    complementoPago: "",
+    complementoPago: complementoPagoFor(""),
     createdAt: new Date().toISOString(),
   };
 }
 
 function pagoDraftFromSaved(p: PagoProyecto): PagoDraft {
+  const mdp = p.mdp ?? "";
   return {
     id: p.id,
     numeroPago: p.numeroPago,
     estado: p.estado ?? "pendiente",
     cliente: p.cliente ?? "",
     monto: p.monto.toString(),
-    mdp: p.mdp ?? "",
+    mdp,
     folioFiscal: p.folioFiscal ?? "",
     formaPago: p.formaPago ?? "",
     fecha: p.fecha ?? "",
     serie: p.serie ?? "",
     folio: p.folio ?? "",
-    complementoPago: p.complementoPago ?? "",
+    complementoPago: complementoPagoFor(mdp),
     createdAt: p.createdAt,
   };
 }
@@ -159,6 +169,9 @@ export interface ProjectDetailDialogProps {
   // Switch global "Apartado facturas" (panel Funciones del Gestor) — oculta la
   // sección sin borrar los datos ya guardados; default false (oculto).
   facturasEnabled?: boolean;
+  // Mismo patrón para "Desglose de costos" y "Gastos de campo" (Fase 3) — default false.
+  desgloseCostosEnabled?: boolean;
+  gastosCampoEnabled?: boolean;
   onUpdateProject: (projectId: string, fields: Partial<ProjectItem> & { assignedEngineerId?: string }) => Promise<void> | void;
   onAddComment: (projectId: string, message: string, isPriority: boolean, authorId: string) => void;
   onMessageSent?: (projectId: string, authorId: string, authorName: string, message: string, isPriority: boolean) => void;
@@ -311,6 +324,7 @@ function PagoComprobantes({
 export function ProjectDetailDialog({
   open, onOpenChange, project, users, currentUser,
   canEditProject, canManageProjectStatus, canEditBudget, canDeleteProject, canManageInvoices, facturasEnabled = false,
+  desgloseCostosEnabled = false, gastosCampoEnabled = false,
   onUpdateProject, onAddComment, onUploadFile, onDeleteFile, onSetFileStatus, onDeleteProject, onMessageSent, onToast,
   onAddExpense, onDeleteExpense, onAddInvoice, onUpdateInvoice, onAddProjectImportantDate,
   clientOptions = [], departmentOptions = [],
@@ -919,7 +933,13 @@ export function ProjectDetailDialog({
   };
 
   const updatePagoDraft = (id: string, field: keyof PagoDraft, value: string): void => {
-    setPagoDrafts((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+    setPagoDrafts((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const next = { ...p, [field]: value };
+      // "Tipo de Pago" se recalcula solo cuando cambia el MDP — nunca se edita directamente.
+      if (field === "mdp") next.complementoPago = complementoPagoFor(value as "" | "PPD" | "PUE");
+      return next;
+    }));
   };
 
   const togglePagoEstado = (id: string): void => {
@@ -1627,43 +1647,45 @@ export function ProjectDetailDialog({
                 </div>
               </div>
 
-              {/* Desglose de costos */}
-              <div className="rounded-2xl bg-[#1E1E20] p-3">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
-                  Desglose de costos
-                </p>
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  {[
-                    { label: "Materiales", val: f3Materiales, set: setF3Materiales },
-                    { label: "Servicios", val: f3Servicios, set: setF3Servicios },
-                    { label: "Personal", val: f3Personal, set: setF3Personal },
-                    { label: "Svo. Contratado", val: f3SvoContratado, set: setF3SvoContratado },
-                    { label: "Comisión", val: f3Comision, set: setF3Comision },
-                    { label: "Otros gastos", val: f3OtrosGastos, set: setF3OtrosGastos },
-                  ].map(({ label, val, set }) => (
-                    <div key={label} className={fieldClass({ filled: isFilled(val), missing: false, admin: true })}>
-                      <LabelAdmin text={label} />
-                      <input type="number" className={INP} value={val} onChange={(e) => set(e.target.value)} placeholder="0" />
-                    </div>
-                  ))}
-                </div>
+              {/* Desglose de costos — switch "Funciones" del Gestor, oculto por default */}
+              {desgloseCostosEnabled ? (
+                <div className="rounded-2xl bg-[#1E1E20] p-3">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+                    Desglose de costos
+                  </p>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {[
+                      { label: "Materiales", val: f3Materiales, set: setF3Materiales },
+                      { label: "Servicios", val: f3Servicios, set: setF3Servicios },
+                      { label: "Personal", val: f3Personal, set: setF3Personal },
+                      { label: "Svo. Contratado", val: f3SvoContratado, set: setF3SvoContratado },
+                      { label: "Comisión", val: f3Comision, set: setF3Comision },
+                      { label: "Otros gastos", val: f3OtrosGastos, set: setF3OtrosGastos },
+                    ].map(({ label, val, set }) => (
+                      <div key={label} className={fieldClass({ filled: isFilled(val), missing: false, admin: true })}>
+                        <LabelAdmin text={label} />
+                        <input type="number" className={INP} value={val} onChange={(e) => set(e.target.value)} placeholder="0" />
+                      </div>
+                    ))}
+                  </div>
 
-                {/* Calculados automáticos */}
-                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                  <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
-                    <LabelAuto text="Ganancia" />
-                    <p className={`mt-1 text-base font-black tabular-nums ${ganancia >= 0 ? "text-[#4ADE80]" : "text-[#F87171]"}`}>
-                      {mxn(ganancia)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
-                    <LabelAuto text="Por cobrar" />
-                    <p className={`mt-1 text-base font-black tabular-nums ${porCobrar <= 0 ? "text-[#4ADE80]" : "text-foreground"}`}>
-                      {mxn(porCobrar)}
-                    </p>
+                  {/* Calculados automáticos */}
+                  <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
+                      <LabelAuto text="Ganancia" />
+                      <p className={`mt-1 text-base font-black tabular-nums ${ganancia >= 0 ? "text-[#4ADE80]" : "text-[#F87171]"}`}>
+                        {mxn(ganancia)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[#4ADE80]/20 bg-[#0D2417] p-3">
+                      <LabelAuto text="Por cobrar" />
+                      <p className={`mt-1 text-base font-black tabular-nums ${porCobrar <= 0 ? "text-[#4ADE80]" : "text-foreground"}`}>
+                        {mxn(porCobrar)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
               {/* Comentarios dirección */}
               <div className={fieldClass({ filled: isFilled(f3ComentariosDireccion), missing: false, admin: true })}>
@@ -1677,7 +1699,8 @@ export function ProjectDetailDialog({
                 />
               </div>
 
-              {/* ── Gastos de campo ── */}
+              {/* ── Gastos de campo — switch "Funciones" del Gestor, oculto por default ── */}
+              {gastosCampoEnabled ? (
               <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-3">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
@@ -1790,6 +1813,7 @@ export function ProjectDetailDialog({
                   </div>
                 )}
               </div>
+              ) : null}
 
               <SaveBtn onClick={handleSaveF3} label="Guardar financiero" saving={savingF3} />
             </div>
@@ -1821,7 +1845,6 @@ export function ProjectDetailDialog({
                   const fechaLabel = pago.fecha
                     ? parseLocalDate(pago.fecha).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
                     : null;
-                  const complementoLabel = pago.mdp === "PPD" ? "Complemento de Pago" : pago.mdp === "PUE" ? "Factura Única" : "Sin Definir";
                   return (
                     <div
                       key={pago.id}
@@ -1901,13 +1924,12 @@ export function ProjectDetailDialog({
                           <input className={INP} value={pago.folio} onChange={(e) => updatePagoDraft(pago.id, "folio", e.target.value)} placeholder="-" />
                         </div>
                         <div className={FLD}>
-                          <label className={LBL}>{complementoLabel}</label>
+                          <label className={LBL}>Tipo de Pago</label>
                           <input
-                            className={INP}
+                            className={INP_RO}
                             value={pago.complementoPago}
-                            onChange={(e) => updatePagoDraft(pago.id, "complementoPago", e.target.value)}
-                            placeholder="-"
-                            disabled={!pago.mdp}
+                            readOnly
+                            tabIndex={-1}
                           />
                         </div>
                       </div>
