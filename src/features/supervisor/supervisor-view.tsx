@@ -189,8 +189,11 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
   const summary = useMemo(() => ({
     porRevisar: requests.filter((r) => r.status === "under-review").length,
     activos: projects.filter((p) => ACTIVE_STATUSES_SUP.includes(p.status)).length,
-    noPagados: projects.filter((p) => p.paymentStatus === "unpaid").length,
-    pagados: projects.filter((p) => p.paymentStatus === "paid").length,
+    // Mismo campo que el filtro "Pago" (estatusPagoFinal, Fase 4) — igual que en Admin, para
+    // que la tarjeta y el filtro al que te lleva siempre coincidan. Antes usaba paymentStatus
+    // ("unpaid" exacto), que ademas dejaba "parcial" sin contar en ninguna de las 2 tarjetas.
+    noPagados: projects.filter((p) => p.estatusPagoFinal !== "Pagado").length,
+    pagados: projects.filter((p) => p.estatusPagoFinal === "Pagado").length,
   }), [projects, requests]);
 
   const filteredRequestsList = useMemo(() => {

@@ -272,8 +272,11 @@ export default function App(): JSX.Element {
   const adminActiveProjects = filteredProjects.filter((project) => ACTIVE_STATUSES.includes(project.status));
   const adminCompletedProjects = filteredProjects.filter((project) => project.status === "completed" || project.status === "cierre-por-sistema");
   const adminCancelledProjects = filteredProjects.filter((project) => project.status === "cancelled" || project.status === "no-autorizado");
-  const adminPaidProjects = filteredProjects.filter((project) => project.paymentStatus === "paid");
-  const adminUnpaidProjects = filteredProjects.filter((project) => project.paymentStatus !== "paid");
+  // Mismo campo que el filtro "Pago" (estatusPagoFinal, Fase 4) — antes usaban paymentStatus,
+  // un campo distinto, y las tarjetas podian mostrar un conteo que no coincidia con lo que el
+  // filtro "Pago" mostraba al hacerle clic a la tarjeta.
+  const adminPaidProjects = filteredProjects.filter((project) => project.estatusPagoFinal === "Pagado");
+  const adminUnpaidProjects = filteredProjects.filter((project) => project.estatusPagoFinal !== "Pagado");
 
   const supervisorProjects = filteredProjects;
 

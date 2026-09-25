@@ -744,7 +744,10 @@ function buildKpiDigest(): array
         if (in_array($status, ['no-autorizado', 'cierre-por-sistema'], true)) {
             continue; // cancelados/cerrados no cuentan para los KPIs de pago
         }
-        if (($p['paymentStatus'] ?? 'unpaid') === 'paid') {
+        // Mismo campo que el filtro "Pago" del dashboard (estatusPagoFinal, Fase 4) — antes
+        // usaba paymentStatus, un campo distinto que podia no coincidir con lo que Admin ve
+        // en las tarjetas/filtro "Pago" del sistema.
+        if (($p['estatusPagoFinal'] ?? 'Pendiente') === 'Pagado') {
             $paidCount++;
         } else {
             $unpaidCount++;

@@ -107,20 +107,28 @@ if ($action === 'save_state') {
                     $proj['files'] = [];
                 }
             }
-            // Gastos, facturas, comentarios/historial, participantes y fechas importantes —
-            // todos tienen su propio endpoint atómico (add/delete_project_expense,
-            // add/update_project_invoice, add_project_comment, update_project). El merge de arriba solo compara el
-            // updatedAt DEL PROYECTO COMPLETO: si esta sesión hizo un cambio local distinto
-            // (ej. cambió la prioridad) DESPUÉS de que otra sesión agregó un gasto/factura/
-            // comentario pero ANTES de refrescar por polling, su updatedAt "gana" la comparación
-            // de arriba aunque su copia de estos arreglos esté desactualizada — y los pisaría
-            // con la versión vieja. Igual que files: la BD siempre gana para estos campos.
-            foreach (['expenses', 'invoices', 'comments', 'history', 'participants', 'importantDates'] as $atomicField) {
+            // Gastos, facturas, comentarios/historial, participantes, fechas importantes,
+            // pagos de Fase 4 y su estatus final — todos tienen su propio endpoint atómico
+            // (add/delete_project_expense, add/update_project_invoice, add_project_comment,
+            // update_project). El merge de arriba solo compara el updatedAt DEL PROYECTO
+            // COMPLETO: si esta sesión hizo un cambio local distinto (ej. cambió la prioridad)
+            // DESPUÉS de que otra sesión guardó Fase 4 (pagosProyecto/estatusPagoFinal) pero
+            // ANTES de refrescar por polling, su updatedAt "gana" la comparación de arriba
+            // aunque su copia de estos campos esté desactualizada — y los pisaría con la
+            // versión vieja (ej. un pago que ya se marcó "Pagado" volvería a verse "Pendiente").
+            // Igual que files: la BD siempre gana para estos campos.
+            foreach (['expenses', 'invoices', 'comments', 'history', 'participants', 'importantDates', 'pagosProyecto'] as $atomicField) {
                 if (isset($before[$atomicField])) {
                     $proj[$atomicField] = $before[$atomicField];
                 } elseif (empty($proj[$atomicField])) {
                     $proj[$atomicField] = [];
                 }
+            }
+            // estatusPagoFinal es texto ("Pendiente"/"Pagado"), no arreglo — no puede compartir
+            // el default "[]" de arriba. Mismo criterio (BD siempre gana), sin ese fallback:
+            // si nunca se ha guardado, se queda ausente (no "[]").
+            if (isset($before['estatusPagoFinal'])) {
+                $proj['estatusPagoFinal'] = $before['estatusPagoFinal'];
             }
         }
         // Recalculate IVA = totalSinIva * 0.16
