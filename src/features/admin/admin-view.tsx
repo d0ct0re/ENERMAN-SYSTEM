@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PriorityBadge } from "@/components/common/priority-badge";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ProjectCalendar } from "@/components/common/project-calendar";
-import { ActivityLogItem, InvoiceItem, InvoiceStatus, PROJECT_TYPE_LABELS, TIPO_PAGO_LABELS, ProjectItem, ProjectStatus, ProjectType, RequestItem, RequestStatus, RoleKey, TipoPago, UserItem } from "@/types";
+import { ActivityLogItem, InvoiceItem, InvoiceStatus, PROJECT_TYPE_LABELS, ACTIVE_PROJECT_TYPES, TIPO_PAGO_LABELS, ProjectItem, ProjectStatus, ProjectType, RequestItem, RequestStatus, RoleKey, TipoPago, UserItem } from "@/types";
 
 type AdminTab =
   | "review"
@@ -1045,8 +1045,8 @@ function ProjectsManager({
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
-            {(Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][]).map(([code, label]) => (
-              <option key={code} value={code}>{code} — {label}</option>
+            {ACTIVE_PROJECT_TYPES.map((code) => (
+              <option key={code} value={code}>{code} — {PROJECT_TYPE_LABELS[code]}</option>
             ))}
           </select>
           <select value={draft.assignedEngineerId} onChange={(event) => setDraft((c) => ({ ...c, assignedEngineerId: event.target.value }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
@@ -1275,8 +1275,8 @@ function RequestsManager({
           <Input value={draft.client} onChange={(event) => setDraft((c) => ({ ...c, client: event.target.value }))} placeholder="Cliente" />
           <Input value={draft.department} onChange={(event) => setDraft((c) => ({ ...c, department: event.target.value }))} placeholder="Departamento" />
           <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
-            {(Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][]).map(([code, label]) => (
-              <option key={code} value={code}>{code} — {label}</option>
+            {ACTIVE_PROJECT_TYPES.map((code) => (
+              <option key={code} value={code}>{code} — {PROJECT_TYPE_LABELS[code]}</option>
             ))}
           </select>
           <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as RequestStatus }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">

@@ -10,12 +10,12 @@ import { Tabs } from "@/components/ui/tabs";
 import {
   CotizacionStatus, EstimacionStatus, ExpenseCategory, ExpenseType, FileCategory, FileStatus,
   InvoiceItem, InvoiceStatus, MDP, PagoProyecto, PaymentStatus, PriorityLevel,
-  ProjectExpenseItem, ProjectItem, ProjectStatus, ProjectType, PROJECT_TYPE_LABELS,
+  ProjectExpenseItem, ProjectItem, ProjectStatus, ProjectType, PROJECT_TYPE_LABELS, ACTIVE_PROJECT_TYPES,
   UbicacionProyecto, UserItem,
 } from "@/types";
 import { StatusBadge } from "@/components/common/status-badge";
 import { PriorityBadge } from "@/components/common/priority-badge";
-import { formatDate, parseLocalDate } from "@/lib/utils";
+import { formatDate, parseLocalDate, buildStructuredName, getProjectSequence } from "@/lib/utils";
 import { resolveImgUrl, serveFileUrl } from "@/lib/api";
 import type { ProjectFileItem } from "@/types";
 
@@ -860,6 +860,17 @@ export function ProjectDetailDialog({
   const handleSaveF1 = async (): Promise<void> => {
     setSavingF1(true);
     try {
+      // El nombre compuesto se recalcula con los campos nuevos, preservando el consecutivo
+      // original (nunca cambia) — antes se guardaban client/department/type/lugar/baseName
+      // pero structuredName se quedaba congelado con los valores viejos con los que se creó.
+      const structuredName = buildStructuredName({
+        sequence: getProjectSequence(project),
+        client: f1Client,
+        department: f1Department,
+        lugar: f1Lugar || undefined,
+        type: f1Type,
+        baseName: f1BaseName,
+      });
       await onUpdateProject(project.id, {
         client: f1Client,
         department: f1Department,
@@ -869,6 +880,7 @@ export function ProjectDetailDialog({
         negociador: f1Negociador || undefined,
         usuarioContacto: f1ContactUser || undefined,
         baseName: f1BaseName,
+        structuredName,
         description: f1Description,
         ubicacion: f1Ubicacion,
         subcontratadoActivo: f1SubcontratadoActivo,
@@ -1245,8 +1257,12 @@ export function ProjectDetailDialog({
                     disabled={!canEditProject}
                   >
                     <option value="">— Seleccionar</option>
-                    {(Object.entries(PROJECT_TYPE_LABELS) as [ProjectType, string][]).map(
-                      ([k, v]) => <option key={k} value={k}>{v}</option>,
+                    {/* Mismos 9 tipos activos que el formulario de solicitud — ningún tipo
+                        legacy nuevo se puede asignar desde aquí. Si el proyecto ya traía un
+                        tipo legacy (dato viejo), se agrega como opción extra solo para que se
+                        siga viendo correcto sin forzar un cambio no solicitado. */}
+                    {(f1Type && !ACTIVE_PROJECT_TYPES.includes(f1Type) ? [f1Type, ...ACTIVE_PROJECT_TYPES] : ACTIVE_PROJECT_TYPES).map(
+                      (k) => <option key={k} value={k}>{PROJECT_TYPE_LABELS[k]}</option>,
                     )}
                   </select>
                 </div>
