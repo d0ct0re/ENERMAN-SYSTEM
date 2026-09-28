@@ -858,6 +858,15 @@ export function ProjectDetailDialog({
 
   // ── Handlers de guardado ──
   const handleSaveF1 = async (): Promise<void> => {
+    // Cliente, Departamento, Tipo, Lugar y Nombre SI afectan directamente — son las piezas
+    // del nombre compuesto. A diferencia de los demas campos de Fase 1 (negociador, usuario
+    // de contacto, etc.), que son solo una sugerencia visual, sin estos 5 el guardado se
+    // bloquea por completo: no tiene sentido un proyecto sin nombre completo.
+    const nombreIncompleto = !isFilled(f1Client) || !isFilled(f1Department) || !isFilled(f1Type) || !isFilled(f1Lugar) || !isFilled(f1BaseName);
+    if (nombreIncompleto) {
+      onToast?.("No se puede guardar el proyecto sin nombre completo");
+      return;
+    }
     setSavingF1(true);
     try {
       // El nombre compuesto se recalcula con los campos nuevos, preservando el consecutivo
