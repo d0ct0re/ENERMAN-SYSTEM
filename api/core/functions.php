@@ -738,6 +738,14 @@ function buildKpiDigest(): array
     $paidCount   = 0;
     $unpaidCount = 0;
     $overdue     = [];
+    $incompleteNames = [];
+
+    // Mismos 5 campos que bloquean el guardado de Fase 1 en el frontend (Cliente,
+    // Departamento, Tipo, Lugar, Nombre) — son las piezas del nombre compuesto. Esto detecta
+    // proyectos que quedaron con nombre incompleto de ANTES de ese bloqueo (ej. "4231-CAMPUS
+    // MTY", sin cliente/departamento/tipo), para que el Gestor/Admin se entere y los corrija
+    // sin tener que toparse con ellos por casualidad.
+    $nameFieldLabels = ['client' => 'Cliente', 'department' => 'Departamento', 'type' => 'Tipo', 'lugar' => 'Lugar', 'baseName' => 'Nombre'];
 
     foreach (tableRows('projects') as $p) {
         $status = $p['status'] ?? '';
@@ -764,6 +772,17 @@ function buildKpiDigest(): array
                 ];
             }
         }
+
+        $missingNameFields = [];
+        foreach ($nameFieldLabels as $field => $label) {
+            if (empty($p[$field])) $missingNameFields[] = $label;
+        }
+        if (!empty($missingNameFields)) {
+            $incompleteNames[] = [
+                'name'    => $p['structuredName'] ?? ($p['id'] ?? ''),
+                'missing' => implode(', ', $missingNameFields),
+            ];
+        }
     }
     usort($overdue, static fn($a, $b) => $b['daysLate'] <=> $a['daysLate']);
 
@@ -783,11 +802,12 @@ function buildKpiDigest(): array
     }
 
     return [
-        'paidCount'   => $paidCount,
-        'unpaidCount' => $unpaidCount,
-        'overdue'     => $overdue,
-        'approved'    => $approved,
-        'generatedAt' => gmdate('c'),
+        'paidCount'       => $paidCount,
+        'unpaidCount'     => $unpaidCount,
+        'overdue'         => $overdue,
+        'approved'        => $approved,
+        'incompleteNames' => $incompleteNames,
+        'generatedAt'     => gmdate('c'),
     ];
 }
 
@@ -866,6 +886,17 @@ function renderKpiDigestHtml(array $digest): string
         $rowsApproved = '<tr><td colspan="2" style="padding:8px;color:#888">Sin aprobaciones en las últimas 24h.</td></tr>';
     }
 
+    $rowsIncomplete = '';
+    foreach ($digest['incompleteNames'] ?? [] as $inc) {
+        $rowsIncomplete .= '<tr>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333">' . $esc($inc['name']) . '</td>'
+            . '<td style="padding:4px 8px;border-bottom:1px solid #333;color:#c62828">' . $esc($inc['missing']) . '</td>'
+            . '</tr>';
+    }
+    if ($rowsIncomplete === '') {
+        $rowsIncomplete = '<tr><td colspan="2" style="padding:8px;color:#888">Ningún proyecto con nombre incompleto.</td></tr>';
+    }
+
     $fecha      = $esc(date('d/m/Y'));
     $paidCount  = (int) $digest['paidCount'];
     $unpaidCount = (int) $digest['unpaidCount'];
@@ -899,6 +930,12 @@ function renderKpiDigestHtml(array $digest): string
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr style="text-align:left;color:#888"><th>Proyecto</th><th>Cliente</th></tr>
         {$rowsApproved}
+      </table>
+
+      <h3 style="margin-top:24px">Proyectos con nombre incompleto</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="text-align:left;color:#888"><th>Proyecto</th><th>Falta</th></tr>
+        {$rowsIncomplete}
       </table>
 
       <p style="color:#999;font-size:11px;margin-top:24px">Generado automáticamente por ENERMAN-SYSTEM. No respondas a este correo.</p>
