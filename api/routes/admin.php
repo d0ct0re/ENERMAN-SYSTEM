@@ -197,7 +197,7 @@ if ($action === 'activity_logs') {
 /* ── cron_backup — backup automático sin sesión, protegido por clave secreta ── */
 if ($action === 'cron_backup') {
     $key = $_GET['key'] ?? '';
-    if (!defined('CRON_SECRET') || $key !== CRON_SECRET) {
+    if (!defined('CRON_SECRET') || !hash_equals(CRON_SECRET, (string) $key)) {
         http_response_code(403);
         echo json_encode(['error' => 'Clave incorrecta.']);
         exit;
@@ -235,7 +235,7 @@ if ($action === 'cron_backup') {
    sale mal formado, jamás corrompe un registro. ── */
 if ($action === 'cron_daily_kpi_email') {
     $key = $_GET['key'] ?? '';
-    if (!defined('CRON_SECRET') || $key !== CRON_SECRET) {
+    if (!defined('CRON_SECRET') || !hash_equals(CRON_SECRET, (string) $key)) {
         http_response_code(403);
         echo json_encode(['error' => 'Clave incorrecta.']);
         exit;

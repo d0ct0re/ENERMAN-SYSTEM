@@ -1,0 +1,14 @@
+# Archivos internos de la API: solo los incluye PHP desde el disco, nunca deben servirse por HTTP.
+# diag.php llegó a quedar público en producción (expone nombre de la BD y conteo de tablas).
+<FilesMatch "^(config|config\.example|diag)\.php$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+Options -Indexes

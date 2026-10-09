@@ -339,7 +339,9 @@ function verifyCredentials(string $email, string $password): ?array
         if (strtolower($user['email'] ?? '') !== $email || ($user['isActive'] ?? true) === false) {
             continue;
         }
-        $stored = $user['password'] ?? 'ASBT2026!';
+        // Sin contraseña guardada no hay acceso: antes caía a la contraseña por defecto (H6).
+        $stored = (string) ($user['password'] ?? '');
+        if ($stored === '') return null;
         $isHash = str_starts_with($stored, '$2y$') || str_starts_with($stored, '$2b$');
         $valid  = $isHash ? password_verify($password, $stored) : ($password === $stored);
         if ($valid && !$isHash) {

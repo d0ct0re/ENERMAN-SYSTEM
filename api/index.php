@@ -24,6 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+// Protección CSRF: un POST que trae Origin de un sitio ajeno se rechaza antes de tocar la sesión.
+// Las peticiones JSON ya las frena el preflight de CORS, pero upload_file (multipart/form-data)
+// no dispara preflight — sin esto otro sitio podía hacer que el navegador de un usuario con
+// sesión subiera archivos a sus proyectos. Sin Origin (cron, curl) se deja pasar: los navegadores
+// siempre lo mandan en POST cross-origin.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $origin !== '' && !$isVercel && !in_array($origin, $allowedOrigins, true)) {
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Origen no permitido.']);
+    exit;
+}
+
 // SameSite=None para que las cookies de sesión funcionen cross-origin (Vercel → Hostinger)
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_secure', '1');

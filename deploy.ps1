@@ -95,7 +95,7 @@ if (-not $FrontendOnly) {
 open $ftpUrl
 option batch abort
 option confirm off
-synchronize remote "$apiPath/" "$REMOTE_DIR/api/"
+synchronize remote -filemask="|config.php; diag.php" "$apiPath/" "$REMOTE_DIR/api/"
 close
 exit
 "@
