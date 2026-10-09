@@ -3,6 +3,9 @@ name: Deploy to Hostinger
 on:
   push:
     branches: [main]
+  # Re-ejecutar el deploy sin hacer un commit nuevo (GitHub → Actions → Run workflow,
+  # o `gh workflow run` desde cualquier laptop). Útil cuando Hostinger corta el FTP.
+  workflow_dispatch:
 
 jobs:
   deploy:

@@ -27,7 +27,9 @@ database/reset-active-user-passwords.sql
 *.zip
 hostinger-backup/
 hostinger-deploy/
-.claude/
+# Config local de Claude Code (permisos de cada máquina); las skills sí se comparten
+.claude/*
+!.claude/skills/
 projectra-database.sql
 projectra-analysis-*.zip
 export-analysis.ps1
@@ -42,3 +44,6 @@ reset-ion-setup.ps1
 .tools/
 estructura*.txt
 
+
+# Carpeta de uploads que crea la API al correrla en local (php -S)
+uploads/

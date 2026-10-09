@@ -153,7 +153,7 @@ src/                      — 3. Frontend (React + TS, consume la API)
   hooks/, types/, data/        estado derivado, contratos de tipos, semillas
 
 docs/                     — 4. Referencia, no código
-  ANALISIS_PROYECTO.md, CAMPOS.md, HOSTINGER_DEPLOY.md, MIGRATION_LOG.md
+  ANALISIS_PROYECTO.md, CAMPOS.md, DEPLOY.md, MIGRATION_LOG.md
 
 .github/workflows/
   deploy.yml                 build + FTP a producción en cada push a main
