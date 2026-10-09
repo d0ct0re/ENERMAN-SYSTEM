@@ -44,14 +44,31 @@ Configurar una laptop nueva: **`docs/SETUP-LAPTOP.md`**.
 
 _Actualizar al cerrar cada sesión: qué rama, qué quedó hecho, qué sigue, quién (Windows/Mac)._
 
+### Reparto actual (para no duplicar trabajo) — 2026-10-09
+| Tema | Quién | Rama | Estado |
+|---|---|---|---|
+| H14 CORS: la API acepta cualquier `*.vercel.app` con sesión (**ALTA, abierto en producción**) | Mac | `fix/cors-vercel` (desde `dev`) | Corregido en commit local `f8c9fff`, falta subir |
+| Ajuste de sesión (del mismo commit `f8c9fff`) | Mac | `fix/cors-vercel` | Falta subir |
+| Deploy a staging por FTPS: Hostinger corta TLS 1.3 (error 450), usar TLS 1.2 en el workflow | Mac | `fix/deploy-ftps` | Diagnosticado; `deploy.sh` ya lo resuelve |
+| `deploy.sh` (respaldo manual de deploy para Mac) | Mac | `fix/deploy-ftps` | Hecho en `f8c9fff`, falta subir y documentar en `docs/DEPLOY.md` |
+| Carpeta `bitacora/` (notas, commit `e22a402`) | Mac | — | Decidir si va en este repo; nunca debe llevar contraseñas |
+| Estructura de equipo, docs, verificación, reporte de auditoría | Windows | `estructura-equipo` | Listo para merge a `dev` |
+| SQL de contraseñas en texto plano (H6) en phpMyAdmin | Usuario | — | Pendiente de correr y mandar captura a la Mac |
+| Borrar `api/diag.php` del servidor | Usuario | — | Pendiente |
+
+Los commits locales de la Mac salieron con autor "mac": reescribir el autor a `d0ct0re` antes de
+subirlos (todavía no están en GitHub, así que es seguro).
+
 ### Auditoría de cumplimiento (ISO / OWASP)
 - Reporte: `docs/auditoria/cumplimiento-projectra.html` y su PDF (regenerar con
   `node docs/auditoria/pdf.cjs`). Versión publicada: https://claude.ai/artifact/2o85F1Rfgm1gRtaJTq6e6m
 - **Correcciones H1–H8 + H6 parcial + CSP en modo prueba: ya están en `dev`** (commits de la Mac
   `54a409b` y `79548d5`, 2026-10-09). Sin publicar a producción.
-- **Bloqueo actual:** el deploy a staging falla en "Verificar que el staging realmente se publico"
-  desde que se pasó a FTPS. Investigar antes de llevar a `main`. Nota: curl usa `-k` porque el
-  certificado de Hostinger es `*.hstgr.io`; mejor usar ese hostname como `FTP_HOST` y quitar `-k`.
+- **Bloqueo actual:** el deploy a staging falla desde que se pasó a FTPS (Hostinger corta TLS 1.3;
+  ver reparto). Nota: curl usa `-k` porque el certificado de Hostinger es `*.hstgr.io`; mejor usar
+  ese hostname como `FTP_HOST` y quitar `-k`.
+- **H14 (CORS vercel.app)** se agregó al reporte el 2026-10-09: lo encontró la Mac; la revisión de
+  Windows lo había pasado por alto. A01 pasa a "No cumple".
 - Pendientes del usuario: borrar `api/diag.php` del servidor, cambiar `CRON_SECRET` en el
   `config.php` del servidor.
 - Pendientes de código: H6 completo (contraseña por defecto en seed/restore), H9 dependencias de
@@ -61,5 +78,6 @@ _Actualizar al cerrar cada sesión: qué rama, qué quedó hecho, qué sigue, qu
 
 ### Estructura de trabajo en equipo — rama `estructura-equipo` (Windows, 2026-10-09)
 - CLAUDE.md, docs/DEPLOY.md, docs/SETUP-LAPTOP.md, scripts/verify-deploy.mjs, .gitattributes,
-  skills compartidas, re-ejecución manual de workflows. Lista para merge a `dev`.
+  skills compartidas, re-ejecución manual de workflows, validación PHP en GitHub Actions.
+  Lista para merge a `dev`.
 - La rama `seguridad-auditoria` (solo local en Windows) quedó obsoleta: su código ya está en `dev`.

@@ -10,7 +10,7 @@ Mac) y puede corromper la carpeta `.git`. Cada laptop tiene **su propio clon**, 
 intercambio es git.
 
 ```bash
-# Mac
+# Mac (cualquier carpeta que no sincronice iCloud/OneDrive; ej. ~/dev)
 mkdir -p ~/dev && cd ~/dev
 git clone https://github.com/d0ct0re/ENERMAN-SYSTEM.git
 cd ENERMAN-SYSTEM
@@ -35,15 +35,15 @@ En Mac además: `git config --global core.autocrlf input`. En Windows: `core.aut
 
 | Herramienta | Versión | Mac | Windows |
 |---|---|---|---|
-| Node.js | 20 (la misma que GitHub Actions) | `brew install node@20` o nvm | instalador de nodejs.org |
-| PHP | 8.3 | `brew install php` | `winget install PHP.PHP.8.3` |
+| Node.js | 20 o superior (GitHub Actions usa 20; 22 también funciona) | `brew install node` o nvm | instalador de nodejs.org |
+| PHP (opcional) | 8.3 — solo para probar la API en local; GitHub Actions ya valida la sintaxis PHP antes de publicar | `brew install php` (requiere Homebrew) | `winget install PHP.PHP.8.3` |
 | GitHub CLI (opcional) | — | `brew install gh` | `winget install GitHub.cli` |
 | WinSCP (solo respaldo de deploy) | — | no aplica | winscp.net |
 
 Comprobar:
 ```bash
-node -v      # v20.x
-php -v       # 8.3.x
+node -v      # v20 o superior
+php -v       # 8.3.x (si se instaló)
 ```
 
 ## 4. Dependencias y build

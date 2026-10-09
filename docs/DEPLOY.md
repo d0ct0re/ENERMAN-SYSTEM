@@ -28,8 +28,9 @@ rama de tema ──merge──▶ dev ──(Actions)──▶ staging ──pro
 2. **Validar localmente** antes de cada commit que toque código:
    ```bash
    npm run build                                   # TypeScript + build
-   find api -name "*.php" -exec php -l {} \; | grep -v "No syntax errors"   # sin salida = OK
+   find api -name "*.php" -exec php -l {} \; | grep -v "No syntax errors"   # si hay PHP; sin salida = OK
    ```
+   GitHub Actions repite la validación de PHP antes de publicar y se detiene si hay errores.
 3. **Commit y push de la rama** (no publica nada):
    ```bash
    git push -u origin <tema>
@@ -83,9 +84,9 @@ curl -s "https://api.github.com/repos/d0ct0re/ENERMAN-SYSTEM/actions/runs?per_pa
    El workflow ya reintenta y tiene respaldo por FTP directo.
 2. **Si falla dos veces igual**, ya no es intermitencia: revisar qué paso falló en
    `.../actions/runs/<id>/jobs` antes de reintentar.
-3. **Respaldo manual, solo Windows:** `.\deploy.ps1` (WinSCP, credenciales en `.env.deploy`).
-   Excluye `config.php` y `diag.php`. En Mac no hay respaldo manual; si Actions no funciona,
-   se publica desde la laptop Windows.
+3. **Respaldo manual:** Windows con `.\deploy.ps1` (WinSCP, credenciales en `.env.deploy`;
+   excluye `config.php` y `diag.php`). Mac con `deploy.sh` (en preparación en la Mac; usa FTPS
+   con TLS 1.2 porque Hostinger corta las subidas con TLS 1.3). Ambos requieren `.env.deploy`.
 
 ## Reglas fijas
 
