@@ -45,6 +45,10 @@ jobs:
       - name: Subir frontend (dist/) a Hostinger /staging/
         id: deploy_frontend
         continue-on-error: true
+        # Hostinger aborta las transferencias FTPS con TLS 1.3 ("450 Link to file server lost").
+        # La Action no tiene opción de versión TLS; Node la limita a 1.2 con esta bandera.
+        env:
+          NODE_OPTIONS: --tls-max-v1.2
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -60,6 +64,10 @@ jobs:
       # siempre pasa.
       - name: Reintentar subida de frontend si el primer intento fallo
         if: steps.deploy_frontend.outcome == 'failure'
+        # Hostinger aborta las transferencias FTPS con TLS 1.3 ("450 Link to file server lost").
+        # La Action no tiene opción de versión TLS; Node la limita a 1.2 con esta bandera.
+        env:
+          NODE_OPTIONS: --tls-max-v1.2
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -105,7 +113,7 @@ jobs:
           echo "La Action no publico el build de staging. Subiendo dist/ por FTP directo como respaldo..."
           cd dist
           find . -type f | sed 's|^\./||' | while read -r f; do
-            curl -s --ssl-reqd -k -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n"
+            curl -s --ssl-reqd -k --tls-max 1.2 -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n"
           done
           cd ..
 
@@ -127,6 +135,10 @@ jobs:
       - name: Subir API (api/) a Hostinger /staging/api/
         id: deploy_api
         continue-on-error: true
+        # Hostinger aborta las transferencias FTPS con TLS 1.3 ("450 Link to file server lost").
+        # La Action no tiene opción de versión TLS; Node la limita a 1.2 con esta bandera.
+        env:
+          NODE_OPTIONS: --tls-max-v1.2
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -142,6 +154,10 @@ jobs:
       - name: Reintentar subida de API si el primer intento fallo
         id: deploy_api_retry
         if: steps.deploy_api.outcome == 'failure'
+        # Hostinger aborta las transferencias FTPS con TLS 1.3 ("450 Link to file server lost").
+        # La Action no tiene opción de versión TLS; Node la limita a 1.2 con esta bandera.
+        env:
+          NODE_OPTIONS: --tls-max-v1.2
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -164,5 +180,5 @@ jobs:
           echo "La Action fallo dos veces subiendo la API de staging. Subiendo por FTP directo como respaldo..."
           cd api
           find . -type f ! -name 'config.php' | sed 's|^\./||' | while read -r f; do
-            curl -sf --ssl-reqd -k -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/api/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n" || exit 1
+            curl -sf --ssl-reqd -k --tls-max 1.2 -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/api/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n" || exit 1
           done
