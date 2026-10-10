@@ -105,7 +105,7 @@ jobs:
           echo "La Action no publico el build de staging. Subiendo dist/ por FTP directo como respaldo..."
           cd dist
           find . -type f | sed 's|^\./||' | while read -r f; do
-            curl -s --ssl-reqd -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n"
+            curl -s --ssl-reqd -k -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n"
           done
           cd ..
 
@@ -164,5 +164,5 @@ jobs:
           echo "La Action fallo dos veces subiendo la API de staging. Subiendo por FTP directo como respaldo..."
           cd api
           find . -type f ! -name 'config.php' | sed 's|^\./||' | while read -r f; do
-            curl -sf --ssl-reqd -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/api/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n" || exit 1
+            curl -sf --ssl-reqd -k -T "$f" "ftp://$FTP_HOST/domains/ampr.site/public_html/staging/api/$f" --user "$FTP_USER:$FTP_PASS" --ftp-create-dirs -o /dev/null -w "  $f -> %{http_code}\n" || exit 1
           done

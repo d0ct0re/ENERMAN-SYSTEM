@@ -13,6 +13,9 @@
   Header always set X-XSS-Protection "1; mode=block"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
   Header always set Strict-Transport-Security "max-age=31536000"
+  # CSP en modo prueba: el navegador solo reporta en consola lo que bloquearía, no bloquea nada.
+  # Cuando la consola quede limpia recorriendo la app por rol, cambiar a Content-Security-Policy.
+  Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob: https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 </IfModule>
 
 <IfModule mod_headers.c>
