@@ -1,4 +1,4 @@
-import { Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/components/layout/top-bar";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ import { realtime } from "@/lib/realtime";
 import { buildStructuredName, formatLocalDateKey } from "@/lib/utils";
 import { ActivityLogItem, NotificationItem, NotificationRecipientState, ProjectItem, RequestItem, RoleKey, UserItem } from "@/types";
 const splashLogoUrl = "/logo-entrada.jpg";
-const wordmarkLogoUrl = "/logo.png";
+const wordmarkLogoUrl = "/logo-wordmark-transparent.png";
 
 type AdminTab = "review" | "allprojects" | "active" | "completed" | "cancelled" | "unpaid" | "rejected" | "correction" | "calendar" | "users" | "projects" | "requests" | "activity" | "cobros";
 
@@ -667,7 +667,7 @@ export default function App(): JSX.Element {
       if (isRealServerMessage) {
         return (err as Error).message;
       }
-      return "No se pudo conectar con el servidor. Intenta de nuevo.";
+      return "Error al conectarse al servidor.";
     }
   };
 
@@ -2734,82 +2734,105 @@ function LoginView({
   };
 
   return (
-    <div className="dashboard-shell items-center justify-center">
-      <div className="w-full max-w-5xl overflow-hidden rounded-[32px] border border-[#3F3F46] bg-[#27272A] shadow-panel">
-        <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="flex flex-col justify-center bg-[#1E1E20] p-8">
-            <div className="w-full max-w-[320px] overflow-hidden rounded-[24px] border border-accent/30 bg-black shadow-glow-gold">
-              <img
-                src={wordmarkLogoUrl}
-                alt="AMPER"
-                width={640}
-                height={213}
-                className="block h-auto w-full"
-                draggable={false}
-              />
-            </div>
-            <h1 className="mt-8 text-3xl font-bold tracking-tight text-white">Bienvenido</h1>
-            <p className="mt-2 text-sm leading-6 text-[#71717A]">
-              Ingresa con tu correo y contraseña institucionales. Si no tienes acceso, contacta al administrador del sistema.
-            </p>
-            <p className="mt-4 text-xs text-[#52525B]">ENERMAN — Uso exclusivo personal interno</p>
-          </div>
+    <div className="relative grid min-h-screen w-full overflow-hidden lg:grid-cols-[1.1fr_0.9fr]">
+      {/* VARIANTE B: una sola foto corrida en toda la pantalla (no cortada en dos), texto de
+          ENERMAN a la izquierda sobre degradado, tarjeta del formulario a la derecha flotando
+          encima — negro real (bg-black/70 + borde blanco sutil), no el gris de .glass-card. */}
+      <img src="/login-bg-split.png" alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/40" />
 
-          <form onSubmit={handleSubmit} className="space-y-5 p-8">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Acceso al sistema</p>
-              <h2 className="mt-2 text-2xl font-semibold text-foreground">Correo y contraseña</h2>
-            </div>
-
-            <label className="block space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Correo</span>
-              <Input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="correo@enerman.com.mx" autoComplete="off" />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Contraseña</span>
-              <div className="relative">
-                <Input
-                  ref={passwordRef}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Tu contraseña"
-                  autoComplete="new-password"
-                  className="pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#A1A1AA] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </label>
-
-            {error ? <p className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">{error}</p> : null}
-
-            <Button type="submit" variant="accent" className="w-full" disabled={!email.trim() || !password || loading}>
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                  </svg>
-                  Verificando...
-                </span>
-              ) : "Entrar"}
-            </Button>
-
-            {import.meta.env.DEV ? (
-              <div className="rounded-2xl border border-[#3F3F46] bg-[#313136] p-4 text-xs leading-5 text-[#A1A1AA]">
-                Cuenta Gestor del sistema inicial: amper.enerman@gmail.com
-              </div>
-            ) : null}
-          </form>
+      <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-10 sm:p-14 lg:p-16">
+        <div>
+          <img src={wordmarkLogoUrl} alt="ENERMAN" width={220} height={73} className="h-auto w-[200px]" draggable={false} />
+          <div className="mt-10 h-px w-12 bg-accent" />
+          <h1 className="mt-6 max-w-md text-5xl font-bold leading-[1.08] tracking-tight text-white lg:text-6xl">
+            Energía que construye <span className="text-accent">futuro</span>
+          </h1>
+          <p className="mt-6 max-w-sm text-sm leading-6 text-[#A1A1AA] lg:text-base">
+            Gestión, control y seguimiento de proyectos de instalaciones eléctricas, todo en un solo lugar.
+          </p>
         </div>
+        <p className="text-xs tracking-wide text-[#71717A]">ENERMAN SYSTEM &nbsp;/&nbsp; PORTAL INTERNO</p>
+      </div>
+
+      <div className="relative z-10 flex items-center justify-center p-6 sm:p-10">
+      <div className="w-full max-w-sm overflow-hidden rounded-[24px] border border-white/10 bg-[#0B0B0C] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.8)] before:block before:h-[3px] before:w-full before:bg-accent before:content-['']">
+      <div className="p-8 sm:p-10">
+        <div className="text-center lg:text-left">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Acceso al sistema</p>
+          <h2 className="mt-2 text-2xl font-semibold text-foreground">Iniciar sesión</h2>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+              <label className="block space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Correo</span>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+                  <Input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    type="email"
+                    placeholder="correo@enerman.com.mx"
+                    autoComplete="off"
+                    className="pl-10"
+                  />
+                </div>
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Contraseña</span>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+                  <Input
+                    ref={passwordRef}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Tu contraseña"
+                    autoComplete="new-password"
+                    className="pl-10 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#A1A1AA] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </label>
+
+              {error ? <p className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">{error}</p> : null}
+
+              <Button type="submit" variant="accent" className="w-full" disabled={!email.trim() || !password || loading}>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    Verificando...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    Entrar <ArrowRight className="h-4 w-4" />
+                  </span>
+                )}
+              </Button>
+
+              <p className="flex items-center justify-center gap-1.5 text-xs text-[#52525B]">
+                <ShieldCheck className="h-3.5 w-3.5" /> Conexión segura y encriptada
+              </p>
+
+              {import.meta.env.DEV ? (
+                <div className="rounded-2xl border border-[#3F3F46] bg-[#313136] p-4 text-xs leading-5 text-[#A1A1AA]">
+                  Cuenta Gestor del sistema inicial: amper.enerman@gmail.com
+                </div>
+              ) : null}
+        </form>
+      </div>
+      </div>
       </div>
     </div>
   );

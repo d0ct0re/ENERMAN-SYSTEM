@@ -99,7 +99,7 @@ if ($action === 'login') {
     if (!$user) {
         recordFailedLogin($ip);
         http_response_code(401);
-        echo json_encode(['error' => 'El correo o la contraseña no son correctos. Verifica e intenta de nuevo.']);
+        echo json_encode(['error' => 'Correo o contraseña incorrectas.']);
         exit;
     }
     clearRateLimit($ip);
