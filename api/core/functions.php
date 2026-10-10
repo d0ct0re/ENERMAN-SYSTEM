@@ -386,9 +386,12 @@ function secureMkdir(string $dir, string $htaccessContent): void
 }
 
 // ── Rate limiting por IP usando archivos temporales ──
+// __DIR__ separa el contador por ambiente (producción vs staging) aunque compartan el
+// mismo directorio temporal del servidor — sin esto, fallar el login en uno bloqueaba
+// también al otro para la misma IP (bug real encontrado 2026-10-10).
 function rlFilePath(string $ip): string
 {
-    return sys_get_temp_dir() . '/ampr_rl_' . md5($ip) . '.json';
+    return sys_get_temp_dir() . '/ampr_rl_' . md5(__DIR__ . '|' . $ip) . '.json';
 }
 
 function checkRateLimit(string $ip): ?string
