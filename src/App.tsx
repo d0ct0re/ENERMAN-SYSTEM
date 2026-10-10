@@ -2738,7 +2738,18 @@ function LoginView({
       {/* VARIANTE B: una sola foto corrida en toda la pantalla (no cortada en dos), texto de
           ENERMAN a la izquierda sobre degradado, tarjeta del formulario a la derecha flotando
           encima — negro real (bg-black/70 + borde blanco sutil), no el gris de .glass-card. */}
-      <img src="/login-bg-split.png" alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      {/* Foto en 4 tamaños (16:9): el navegador baja la que corresponde a la pantalla y su
+          densidad de píxeles, hasta 3840 px (4K). object-cover llena todo el alto en pantallas
+          verticales, por eso en ellas el ancho renderizado es ~178vh y no 100vw. */}
+      <img
+        src="/login-bg-1920.jpg"
+        srcSet="/login-bg-1280.jpg 1280w, /login-bg-1920.jpg 1920w, /login-bg-2560.jpg 2560w, /login-bg-3840.jpg 3840w"
+        sizes="(min-aspect-ratio: 16/9) 100vw, 178vh"
+        alt=""
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-cover"
+        draggable={false}
+      />
       <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/40" />
 
       <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-10 sm:p-14 lg:p-16">
