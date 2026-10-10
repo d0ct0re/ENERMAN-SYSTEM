@@ -47,17 +47,21 @@ _Actualizar al cerrar cada sesión: qué rama, qué quedó hecho, qué sigue, qu
 ### Reparto actual (para no duplicar trabajo) — 2026-10-09
 | Tema | Quién | Rama | Estado |
 |---|---|---|---|
-| H14 CORS: la API acepta cualquier `*.vercel.app` con sesión (**ALTA, abierto en producción**) | Mac | `fix/cors-vercel` (desde `dev`) | Corregido en commit local `f8c9fff`, falta subir |
-| Ajuste de sesión (del mismo commit `f8c9fff`) | Mac | `fix/cors-vercel` | Falta subir |
-| Deploy a staging por FTPS: Hostinger corta TLS 1.3 (error 450), usar TLS 1.2 en el workflow | Mac | `fix/deploy-ftps` | Diagnosticado; `deploy.sh` ya lo resuelve |
-| `deploy.sh` (respaldo manual de deploy para Mac) | Mac | `fix/deploy-ftps` | Hecho en `f8c9fff`, falta subir y documentar en `docs/DEPLOY.md` |
-| Carpeta `bitacora/` (notas, commit `e22a402`) | Mac | — | Decidir si va en este repo; nunca debe llevar contraseñas |
+| H14 CORS: la API acepta cualquier `*.vercel.app` con sesión (**ALTA, abierto en producción**) | Mac | `fix/cors-vercel` (desde `dev`) | En GitHub (`8988870`). Falta merge a `dev` |
+| Ajuste de sesión: `session_regenerate_id(false)` | Mac | `fix/cors-vercel` | En GitHub (`8988870`) |
+| Deploy a staging por FTPS con TLS 1.2 (`NODE_OPTIONS=--tls-max-v1.2` en la Action, `--tls-max 1.2` en curl) | Mac | `fix/deploy-ftps` | En GitHub (`d09a89c`). **Sin probar en Actions** hasta el primer push a `dev` |
+| `deploy.sh` (respaldo manual de deploy para Mac) | Mac | `fix/deploy-ftps` | En GitHub (`d09a89c`). Falta documentarlo en `docs/DEPLOY.md` |
+| `deploy.yml` (producción) sigue con `protocol: ftp` sin cifrar (H4) | — | — | Pendiente: aplicar lo mismo que staging cuando staging funcione |
+| Carpeta `bitacora/` (notas Obsidian, 231 KB) | Mac | solo local (`mac-autor-reescrito`) | Decidir si va al repo (propuesta: `docs/bitacora/` sin PDF). Menciona `ASBT2026!` en una nota |
 | Estructura de equipo, docs, verificación, reporte de auditoría | Windows | `estructura-equipo` | Listo para merge a `dev` |
-| SQL de contraseñas en texto plano (H6) en phpMyAdmin | Usuario | — | Pendiente de correr y mandar captura a la Mac |
-| Borrar `api/diag.php` del servidor | Usuario | — | Pendiente |
+| Contraseñas de los 22 usuarios (H6) | Usuario + Mac | — | **Hecho 2026-10-09** en phpMyAdmin (22/22 `hash_ok`). Respaldo: tabla `app_users_respaldo_20261009`. Listado solo en la Mac (`~/Documents/Projectra-credenciales/`), nunca en git |
+| Quitar `reset_active_passwords` (regresa a todos a `ASBT2026!`) | — | — | Pendiente de decisión del usuario |
+| Borrar `api/diag.php` del servidor | Usuario | — | Pendiente (`verify-deploy.mjs prod` lo marca ✗) |
 
-Los commits locales de la Mac salieron con autor "mac": reescribir el autor a `d0ct0re` antes de
-subirlos (todavía no están en GitHub, así que es seguro).
+Merge de prueba local (2026-10-09): `estructura-equipo` + `fix/deploy-ftps` + `fix/cors-vercel` sobre
+`origin/dev` entran sin conflictos, `npm run build` pasa y el workflow de staging combinado conserva
+TLS 1.2 y la validación PHP. Orden sugerido: esas tres a `dev` → verificar staging → `deploy.yml` a
+FTPS → `main`.
 
 ### Auditoría de cumplimiento (ISO / OWASP)
 - Reporte: `docs/auditoria/cumplimiento-projectra.html` y su PDF (regenerar con
