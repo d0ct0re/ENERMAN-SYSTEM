@@ -3,6 +3,9 @@ name: Deploy to Staging
 on:
   push:
     branches: [dev]
+  # Re-ejecutar el deploy sin hacer un commit nuevo (GitHub → Actions → Run workflow,
+  # o `gh workflow run` desde cualquier laptop). Útil cuando Hostinger corta el FTP.
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -18,6 +21,11 @@ jobs:
 
       - name: Instalar dependencias
         run: npm ci
+
+      # Ninguna laptop necesita PHP instalado: si algun .php tiene error de sintaxis, el deploy
+      # se detiene aqui en lugar de publicar una API rota.
+      - name: Validar sintaxis PHP
+        run: find api -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Build de staging (base path /staging/)
         run: npm run build:staging

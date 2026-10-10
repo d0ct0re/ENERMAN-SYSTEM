@@ -1,0 +1,507 @@
+<title>Cumplimiento de Projectra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: informe técnico de una columna (máx. 880px), tablas de control con chip de estado a la izquierda */
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --fg: #1b1d22;
+  --muted: #5d6270;
+  --line: #dddad1;
+  --accent: #b8860b;
+  --accent-soft: #f4ead2;
+  --ok: #1f7a4d;      --ok-bg: #e3f2ea;
+  --warn: #9a6200;    --warn-bg: #fbefd6;
+  --bad: #b3261e;     --bad-bg: #fbe3e1;
+  --na: #555b66;      --na-bg: #eceef1;
+  --f-display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161b; --surface: #1c1f26; --fg: #e8e6e1; --muted: #a2a7b3; --line: #2f333d;
+    --accent: #e0b04a; --accent-soft: #2e2716;
+    --ok: #6cc79a; --ok-bg: #173226; --warn: #f0b85a; --warn-bg: #352812;
+    --bad: #f08a82; --bad-bg: #3a1c1a; --na: #b4b9c4; --na-bg: #2a2e36;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161b; --surface: #1c1f26; --fg: #e8e6e1; --muted: #a2a7b3; --line: #2f333d;
+  --accent: #e0b04a; --accent-soft: #2e2716;
+  --ok: #6cc79a; --ok-bg: #173226; --warn: #f0b85a; --warn-bg: #352812;
+  --bad: #f08a82; --bad-bg: #3a1c1a; --na: #b4b9c4; --na-bg: #2a2e36;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--f-body); }
+.wrap { max-width: 880px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 64px; display: grid; gap: 44px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 22px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.eyebrow { font: 600 11px/1 var(--f-body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+section { display: grid; gap: 16px; }
+.lead { color: var(--muted); font-size: 16px; }
+
+/* Encabezado */
+header { display: grid; gap: 14px; border-bottom: 2px solid var(--fg); padding-bottom: 22px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 28px; color: var(--muted); font-size: 13px; }
+.meta b { color: var(--fg); font-weight: 600; }
+
+/* Resumen */
+.tally { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tally div { background: var(--surface); padding: 16px; display: grid; gap: 2px; }
+.tally .n { font: 800 32px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tally .l { font-size: 13px; color: var(--muted); }
+.tally .ok .n { color: var(--ok); } .tally .warn .n { color: var(--warn); }
+.tally .bad .n { color: var(--bad); } .tally .na .n { color: var(--na); }
+.callout { background: var(--bad-bg); border: 1px solid var(--bad); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; }
+.callout h3 { color: var(--bad); }
+
+/* Chips */
+.chip { display: inline-block; font: 600 11px/1 var(--f-body); letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; white-space: nowrap; }
+.c-ok { color: var(--ok); background: var(--ok-bg); }
+.c-warn { color: var(--warn); background: var(--warn-bg); }
+.c-bad { color: var(--bad); background: var(--bad-bg); }
+.c-na { color: var(--na); background: var(--na-bg); }
+
+/* Tablas de control */
+.table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font: 600 11px/1.2 var(--f-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+td.id { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+td.ctrl { font-weight: 600; min-width: 150px; }
+td.st { width: 1%; }
+td .ev { color: var(--muted); font-size: 13px; display: block; margin-top: 4px; }
+
+/* Aptitudes */
+.caps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 28px; }
+.cap { display: grid; gap: 3px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
+.cap h3 { font-size: 15px; }
+.cap p { color: var(--muted); font-size: 14px; }
+
+/* Hallazgos */
+.finding { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 4px 16px; padding: 16px 0; border-top: 1px solid var(--line); }
+.finding:first-of-type { border-top: 0; }
+.finding .hid { font: 700 13px/1.4 var(--f-mono); color: var(--muted); }
+.finding .body { display: grid; gap: 6px; min-width: 0; }
+.finding .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.finding .fix { font-size: 14px; }
+.finding .fix b { font-weight: 600; }
+.findings { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px 18px; }
+
+ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; }
+.org { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; }
+.org div { min-width: 0; font-size: 14px; }
+.org b { font-family: var(--f-display); }
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 640px) {
+  .tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .caps, .org { grid-template-columns: 1fr; }
+  .finding { grid-template-columns: 1fr; }
+}
+@media print {
+  .wrap { padding-block: 0; gap: 28px; }
+  .finding, tr, .cap, .callout { break-inside: avoid; }
+  h2 { break-after: avoid; }
+}
+</style>
+
+<main class="wrap">
+
+<header>
+  <span class="eyebrow">ENERMAN · Reporte de auditoría de software</span>
+  <h1>Cumplimiento de Projectra frente a normas ISO y OWASP</h1>
+  <p class="lead">Revisión del sistema de gestión de proyectos de ENERMAN (ampr.site): qué ya cumple, qué cumple a medias, qué falta y en qué orden conviene atenderlo.</p>
+  <div class="meta">
+    <span>Fecha de corte <b>9 oct 2026</b></span>
+    <span>Base <b>auditoría del 29 sep 2026, re-verificada hoy</b></span>
+    <span>Tipo <b>evaluación interna de ENERMAN</b></span>
+    <span>Método <b>revisión de código + pruebas en vivo de solo lectura</b></span>
+    <span>Versión del código <b>commit cc4793b</b></span>
+  </div>
+</header>
+
+<section>
+  <span class="eyebrow">Resumen</span>
+  <h2>18 controles evaluados</h2>
+  <div class="tally">
+    <div class="ok"><span class="n">5</span><span class="l">Cumple</span></div>
+    <div class="warn"><span class="n">10</span><span class="l">Cumple parcial</span></div>
+    <div class="bad"><span class="n">2</span><span class="l">No cumple</span></div>
+    <div class="na"><span class="n">1</span><span class="l">Sin evaluar</span></div>
+  </div>
+  <p>Las bases de seguridad son sólidas: no se encontró inyección SQL ni XSS, las contraseñas se guardan cifradas, los archivos subidos se validan y no pueden ejecutarse, y las acciones quedan registradas en una bitácora. La mayoría de los "parciales" se resuelven con ajustes de configuración pequeños. Hay dos "no cumple": la API confía en cualquier sitio de vercel.app (H14) y un archivo de diagnóstico expuesto (H1).</p>
+  <div class="callout">
+    <h3>Atender primero: H14 · la API confía en cualquier sitio de vercel.app</h3>
+    <p>La configuración CORS acepta con sesión cualquier origen <code>https://*.vercel.app</code>. Cualquiera puede publicar gratis una página ahí; si un usuario con sesión abierta en Projectra la visita, esa página puede leer los datos del sistema a nombre del usuario. Verificado en producción el 9 oct 2026. Se corrige dejando solo los dominios propios en la lista permitida.</p>
+  </div>
+  <div class="callout">
+    <h3>También urgente: H1 · diag.php público en producción</h3>
+    <p><code>https://ampr.site/api/diag.php</code> responde sin iniciar sesión con el nombre de la base de datos y el número de registros de cada tabla. No expone contraseñas ni datos personales, pero un auditor lo marcaría como exposición de información. Se corrige borrando el archivo del servidor.</p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Alcance</span>
+  <h2>Qué se evaluó y con qué criterio</h2>
+  <p>El reporte tiene tres capas:</p>
+  <ul class="plain">
+    <li><b>Checklist técnico de 18 controles</b>: OWASP Top 10 (2021), la referencia práctica de ISO/IEC 27034 y OWASP ASVS, y las ocho características de ISO/IEC 25010. Se califican con evidencia del código.</li>
+    <li><b>Evaluación norma por norma</b> de las 14 normas ISO propuestas: grado de preparación del sistema y de la empresa, qué evidencia ya existe y qué falta.</li>
+    <li><b>Cómo se audita</b> cada tipo de norma y la ruta sugerida.</li>
+  </ul>
+  <p>Las normas certificables (27001, 27701, 20000-1, 22301, 9001) evalúan sobre todo <b>procesos y documentos de la empresa</b>. El sistema aporta evidencia para ellas, pero no basta por sí solo para certificarlas.</p>
+</section>
+
+<section>
+  <span class="eyebrow">Metodología</span>
+  <h2>Cómo se evaluó y con qué criterios se calificó</h2>
+  <p>Evaluación interna de cumplimiento aplicada por ENERMAN a su sistema Projectra, con revisión de código asistida por herramientas de análisis. Es una autoevaluación técnica, no una auditoría de un organismo certificador: sirve para conocer el estado real del sistema y preparar una auditoría formal.</p>
+
+  <h3>Qué se aplicó</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Técnica</th><th>Qué se hizo</th><th>Qué evidencia produce</th></tr></thead>
+    <tbody>
+      <tr><td class="ctrl">Revisión estática de código</td><td>Lectura del código fuente completo del frontend (React/TypeScript) y de la API (PHP): autenticación, control de acceso, consultas a base de datos, subida de archivos, respaldos y configuración del servidor.</td><td>Archivo y línea donde se cumple o falla cada control.</td></tr>
+      <tr><td class="ctrl">Pruebas de solo lectura al sitio en vivo</td><td>Consultas HTTP a ampr.site para comprobar encabezados de seguridad y archivos expuestos. No se modificó ningún dato ni se hicieron ataques activos.</td><td>Respuesta real del servidor (código HTTP y contenido).</td></tr>
+      <tr><td class="ctrl">Análisis de dependencias</td><td><code>npm audit</code> sobre las librerías de producción y de desarrollo, contra la base pública de vulnerabilidades de GitHub.</td><td>Conteo de vulnerabilidades por severidad.</td></tr>
+      <tr><td class="ctrl">Revisión documental</td><td>Procedimientos MAN-ADM-001 y MAN-ADM-004, documentación técnica del repositorio y flujos de publicación.</td><td>Correspondencia entre proceso documentado y sistema.</td></tr>
+      <tr><td class="ctrl">Pruebas funcionales locales</td><td>Para cada corrección: verificación de sintaxis y prueba del comportamiento en un servidor local antes de publicar.</td><td>Resultado esperado contra resultado obtenido.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Referencias usadas para calificar</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Referencia</th><th>Edición</th><th>Para qué se usó</th></tr></thead>
+    <tbody>
+      <tr><td class="ctrl">OWASP Top 10</td><td class="id">2021</td><td>Los diez controles de seguridad del checklist 1.</td></tr>
+      <tr><td class="ctrl">OWASP ASVS</td><td class="id">4.0.3</td><td>Detalle técnico de cada control (sesiones, archivos, encabezados).</td></tr>
+      <tr><td class="ctrl">OWASP Risk Rating Methodology</td><td class="id">vigente</td><td>Criterio de severidad de los hallazgos (probabilidad × impacto).</td></tr>
+      <tr><td class="ctrl">ISO/IEC 25010</td><td class="id">2011</td><td>Las ocho características del checklist 2. La edición 2023 agrega una novena (protección/safety) y renombra algunas; se usó la de 2011 por ser la más adoptada.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 25040</td><td class="id">2011</td><td>Estructura del proceso de evaluación: requisitos, especificación, diseño, ejecución y conclusión.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 27001 y 27002</td><td class="id">2022</td><td>Requisitos del SGSI y numeración de controles (5 organizacionales, 6 personas, 7 físicos, 8 tecnológicos).</td></tr>
+      <tr><td class="ctrl">ISO/IEC 40500</td><td class="id">2012</td><td>Equivalente a WCAG 2.0, criterio de accesibilidad.</td></tr>
+      <tr><td class="ctrl">Resto de normas ISO listadas</td><td class="id">vigentes</td><td>Requisitos generales de cada norma para medir el grado de preparación.</td></tr>
+      <tr><td class="ctrl">LFPDPPP</td><td class="id">vigente</td><td>Obligaciones legales en México sobre datos personales (aviso de privacidad).</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Escala de calificación de controles</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Estado</th><th>Criterio para asignarlo</th></tr></thead>
+    <tbody>
+      <tr><td class="st"><span class="chip c-ok">Cumple</span></td><td>El control está implementado, se verificó con evidencia de código o prueba, y no se encontró ninguna brecha.</td></tr>
+      <tr><td class="st"><span class="chip c-warn">Parcial</span></td><td>El control existe y funciona, pero hay al menos una brecha documentada como hallazgo.</td></tr>
+      <tr><td class="st"><span class="chip c-bad">No cumple</span></td><td>El control falta, o hay una falla verificada que alguien sin credenciales puede aprovechar.</td></tr>
+      <tr><td class="st"><span class="chip c-na">Sin evaluar</span></td><td>Calificarlo requiere pruebas que aún no se realizan (usuarios, accesibilidad, carga). No se asume ni cumple ni falla.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Escala de preparación por norma</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Estado</th><th>Criterio para asignarlo</th></tr></thead>
+    <tbody>
+      <tr><td class="st"><span class="chip c-warn">Parcial</span></td><td>Existe evidencia real para buena parte de los requisitos; faltan piezas concretas e identificadas.</td></tr>
+      <tr><td class="st"><span class="chip c-bad">Inicial</span></td><td>Hay controles técnicos sueltos, pero falta el sistema de gestión documentado que exige la norma (políticas, riesgos, auditoría interna).</td></tr>
+      <tr><td class="st"><span class="chip c-na">Sin evaluar</span></td><td>La norma se mide con pruebas que aún no se realizan.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Severidad de los hallazgos</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Nivel</th><th>Criterio (probabilidad × impacto, OWASP Risk Rating)</th></tr></thead>
+    <tbody>
+      <tr><td class="st"><span class="chip c-bad">Alta</span></td><td>Aprovechable sin iniciar sesión y expone información interna o permite una acción no autorizada.</td></tr>
+      <tr><td class="st"><span class="chip c-warn">Media</span></td><td>Requiere condiciones previas (usuario con sesión, acceso a la red), o afecta la continuidad del servicio o una obligación legal.</td></tr>
+      <tr><td class="st"><span class="chip c-na">Baja</span></td><td>Defensa adicional: el riesgo práctico es bajo porque otros controles ya lo cubren.</td></tr>
+      <tr><td class="st"><span class="chip c-na">Info / Mejora</span></td><td>No es una vulnerabilidad; es consistencia, mantenimiento o madurez.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Regla de evidencia: ningún control se marcó como "Cumple" sin evidencia verificable, y ningún hallazgo se da por resuelto hasta que la corrección está publicada y se volvió a probar en el sitio en vivo.</p>
+</section>
+
+<section>
+  <span class="eyebrow">Aptitudes del sistema</span>
+  <h2>Lo que Projectra ya hace</h2>
+  <div class="caps">
+    <div class="cap"><h3>Flujo de proyectos por fases</h3><p>Proceso de cuatro fases que sigue los procedimientos MAN-ADM-001 y MAN-ADM-004, con validación de campos obligatorios antes de guardar la Fase 1.</p></div>
+    <div class="cap"><h3>Control de acceso por rol</h3><p>Cuatro perfiles (gestor, supervisor, administración, ingeniero). Cada acción del servidor verifica sesión y rol antes de ejecutarse.</p></div>
+    <div class="cap"><h3>Folio único por proyecto</h3><p>Numeración secuencial con restricción de unicidad en la base de datos; el folio aparece en toda referencia a un proyecto.</p></div>
+    <div class="cap"><h3>Bitácora de actividad</h3><p>Registra quién hizo qué, cuándo, sobre qué entidad, con IP y navegador. Hoy contiene cerca de 68 mil registros.</p></div>
+    <div class="cap"><h3>Papelera con recuperación</h3><p>Lo que se borra se archiva completo antes de eliminarse, con quién lo borró, y puede consultarse después.</p></div>
+    <div class="cap"><h3>Respaldos</h3><p>Respaldo automático programado, protegido con clave, y script de respaldo manual de la base de datos.</p></div>
+    <div class="cap"><h3>Documentos con validación</h3><p>Comprobantes, cotizaciones y reportes con tipo de archivo verificado por contenido real, límite de tamaño (30–45 MB) y nombre aleatorio en el servidor.</p></div>
+    <div class="cap"><h3>Avisos y resumen diario</h3><p>Notificaciones en el sistema según el rol, aviso por correo de aprobación y resumen diario con alertas de proyectos incompletos.</p></div>
+    <div class="cap"><h3>Comunicación por proyecto</h3><p>Chat dentro de cada proyecto, con historial ligado al folio.</p></div>
+    <div class="cap"><h3>Consulta y exportación</h3><p>Búsqueda y filtros operativos, administrativos y financieros, con exportación a CSV.</p></div>
+    <div class="cap"><h3>Publicación controlada</h3><p>Ambiente de pruebas (staging) separado de producción y compilación con verificación estricta de tipos antes de cada publicación.</p></div>
+    <div class="cap"><h3>Sesiones protegidas</h3><p>Contraseñas con bcrypt, bloqueo temporal tras intentos fallidos de acceso y cookies de sesión HttpOnly + Secure.</p></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Checklist 1 de 2</span>
+  <h2>OWASP Top 10 (2021)</h2>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>ID</th><th>Control</th><th>Estado</th><th>Evidencia y observación</th></tr></thead>
+    <tbody>
+      <tr><td class="id">A01</td><td class="ctrl">Control de acceso</td><td class="st"><span class="chip c-bad">No cumple</span></td>
+        <td>Las acciones de la API exigen sesión y rol (<code>requireAuth</code>, <code>requireAdmin</code>, <code>requireSystemAdmin</code>). Falla en dos puntos: la política CORS permite leer con la sesión del usuario desde cualquier sitio <code>*.vercel.app</code> (H14), y <code>diag.php</code> queda fuera del control (H1).<span class="ev">api/core/auth_guards.php · api/routes/*.php</span></td></tr>
+      <tr><td class="id">A02</td><td class="ctrl">Fallas criptográficas</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>HTTPS activo, contraseñas con bcrypt, cookies Secure. Falta forzar HTTPS con HSTS (H5) y la publicación usa FTP sin cifrar, que manda la contraseña del servidor en claro (H4).<span class="ev">api/core/functions.php · .github/workflows/deploy.yml</span></td></tr>
+      <tr><td class="id">A03</td><td class="ctrl">Inyección (SQL, XSS)</td><td class="st"><span class="chip c-ok">Cumple</span></td>
+        <td>Todas las consultas usan sentencias preparadas (PDO). El frontend no inserta HTML sin escapar y los correos escapan con <code>htmlspecialchars</code>.<span class="ev">0 usos de dangerouslySetInnerHTML en src/</span></td></tr>
+      <tr><td class="id">A04</td><td class="ctrl">Diseño inseguro</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>La subida de archivos no verifica de qué sitio viene la petición; otro sitio podría hacer que el navegador de un usuario con sesión suba un archivo a sus propios proyectos (CSRF, H2).<span class="ev">api/routes/uploads.php</span></td></tr>
+      <tr><td class="id">A05</td><td class="ctrl">Configuración de seguridad</td><td class="st"><span class="chip c-bad">No cumple</span></td>
+        <td>Archivo de diagnóstico público en producción (H1). Falta política de contenido (CSP) y la carpeta de la API no tiene su propio archivo de encabezados de seguridad (H5, H8). Sí hay X-Frame-Options, nosniff y Referrer-Policy.<span class="ev">Probado contra ampr.site el 7 oct 2026</span></td></tr>
+      <tr><td class="id">A06</td><td class="ctrl">Componentes vulnerables</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Las dependencias que se publican: <b>0 vulnerabilidades</b>. Las herramientas de desarrollo (Vite, Tailwind, PostCSS): 14 avisos (10 altos) que no llegan al servidor, pero un auditor los vería al correr <code>npm audit</code> (H9).<span class="ev">npm audit --omit=dev → 0 · npm audit → 14</span></td></tr>
+      <tr><td class="id">A07</td><td class="ctrl">Identificación y autenticación</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Hay bloqueo por intentos fallidos y contraseñas cifradas. Faltan: renovar el identificador de sesión al iniciar sesión (H3), retirar la contraseña por defecto escrita en el código y el soporte heredado de contraseñas en texto plano (H6). No hay segundo factor.<span class="ev">api/routes/auth.php · api/core/functions.php:342</span></td></tr>
+      <tr><td class="id">A08</td><td class="ctrl">Integridad de software y datos</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Publicación automatizada desde el repositorio con compilación verificada. El canal de subida (FTP sin cifrar) no garantiza la integridad en tránsito (H4).<span class="ev">.github/workflows/deploy.yml</span></td></tr>
+      <tr><td class="id">A09</td><td class="ctrl">Registro y monitoreo</td><td class="st"><span class="chip c-ok">Cumple</span></td>
+        <td>Bitácora con usuario, rol, acción, entidad, IP y navegador, incluido cada inicio de sesión. Mejora sugerida: alertas automáticas ante patrones anómalos.<span class="ev">tabla activity_logs · logActivity()</span></td></tr>
+      <tr><td class="id">A10</td><td class="ctrl">Falsificación de peticiones del lado servidor (SSRF)</td><td class="st"><span class="chip c-ok">Cumple</span></td>
+        <td>El servidor no descarga direcciones que proporcione el usuario, así que no existe esta superficie de ataque.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Checklist 2 de 2</span>
+  <h2>ISO/IEC 25010 · Calidad del producto</h2>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Característica</th><th>Estado</th><th>Evidencia y observación</th></tr></thead>
+    <tbody>
+      <tr><td class="ctrl">Adecuación funcional</td><td class="st"><span class="chip c-ok">Cumple</span></td>
+        <td>Cubre el ciclo completo de solicitud → proyecto → facturación → pago descrito en MAN-ADM-001 y MAN-ADM-004, con validación de campos obligatorios por fase.</td></tr>
+      <tr><td class="ctrl">Eficiencia de desempeño</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Funciona con el volumen actual, pero las notificaciones se consultan cada 4 segundos sobre una tabla que crece sin límite, y la bitácora ya ronda 68 mil registros sin política de depuración (H10). Sin pruebas de carga.</td></tr>
+      <tr><td class="ctrl">Compatibilidad</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Aplicación web estándar; intercambia datos por CSV y correo. Falta una prueba formal en varios navegadores y en móvil.</td></tr>
+      <tr><td class="ctrl">Usabilidad</td><td class="st"><span class="chip c-na">Sin evaluar</span></td>
+        <td>No se ha medido formalmente. Para medirla: Lighthouse y axe-core (accesibilidad WCAG) más recorridos automatizados por rol con Playwright, que ya está instalado en el proyecto (H11).</td></tr>
+      <tr><td class="ctrl">Fiabilidad</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Respaldos, papelera recuperable y operaciones atómicas por campo para evitar que un usuario sobrescriba el trabajo de otro. Faltan pruebas automatizadas y monitoreo de disponibilidad.</td></tr>
+      <tr><td class="ctrl">Seguridad</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Ver checklist OWASP: 3 cumple, 5 parcial, 2 no cumple.</td></tr>
+      <tr><td class="ctrl">Mantenibilidad</td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>TypeScript estricto, documentación de campos y bitácora de migraciones. No hay pruebas automatizadas que protejan contra regresiones.<span class="ev">docs/CAMPOS.md · docs/MIGRATION_LOG.md</span></td></tr>
+      <tr><td class="ctrl">Portabilidad</td><td class="st"><span class="chip c-ok">Cumple</span></td>
+        <td>Tecnologías estándar (React, PHP, MySQL) en hosting convencional, con ambiente de pruebas separado. Se puede mover de proveedor sin reescribir.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Oportunidades de mejora</span>
+  <h2>Hallazgos agrupados por prioridad</h2>
+  <div class="findings">
+    <div class="finding"><span class="hid">H14</span><div class="body">
+      <div class="row"><span class="chip c-bad">Alta</span><h3>CORS acepta cualquier sitio de vercel.app con sesión</h3></div>
+      <p><code>api/index.php</code> responde con <code>Access-Control-Allow-Origin</code> y <code>Allow-Credentials: true</code> a todo origen que cumpla <code>https://*.vercel.app</code>, y la cookie de sesión es <code>SameSite=None</code>. Una página de terceros en vercel.app puede leer las respuestas de la API con la sesión de quien la visite. No se detectó en la revisión del 29 de septiembre ni en la del 7 de octubre; lo encontró la revisión hecha desde la segunda laptop el 9 de octubre.</p>
+      <p class="fix"><b>Corrección:</b> quitar el comodín de vercel.app y dejar solo los dominios propios (y, si se usa Vercel, el dominio exacto del proyecto). Revisar también si la cookie puede volver a <code>SameSite=Lax</code>. Esfuerzo: menos de una hora.</p></div></div>
+
+    <div class="finding"><span class="hid">H1</span><div class="body">
+      <div class="row"><span class="chip c-bad">Alta</span><h3>Archivo de diagnóstico expuesto</h3></div>
+      <p><code>api/diag.php</code> está publicado y responde sin sesión con el nombre de la base y el conteo de cada tabla. El script de publicación lo excluye, así que se subió por otra vía.</p>
+      <p class="fix"><b>Corrección:</b> borrarlo del servidor y confirmar que devuelve 404. Esfuerzo: minutos.</p></div></div>
+
+    <div class="finding"><span class="hid">H2</span><div class="body">
+      <div class="row"><span class="chip c-warn">Media</span><h3>Subida de archivos sin protección CSRF</h3></div>
+      <p>El resto de la API está protegida porque usa JSON; la subida usa formulario multipart, que el navegador no bloquea desde otros sitios.</p>
+      <p class="fix"><b>Corrección:</b> validar el encabezado <code>Origin</code> contra la lista de dominios permitidos en esa acción. Esfuerzo: menos de una hora.</p></div></div>
+
+    <div class="finding"><span class="hid">H3</span><div class="body">
+      <div class="row"><span class="chip c-warn">Media</span><h3>La sesión no se renueva al iniciar sesión</h3></div>
+      <p>Sin <code>session_regenerate_id</code> después del login, un identificador de sesión plantado antes del acceso sigue siendo válido después (fijación de sesión).</p>
+      <p class="fix"><b>Corrección:</b> una línea en el inicio de sesión normal y en el de gestor. Esfuerzo: minutos.</p></div></div>
+
+    <div class="finding"><span class="hid">H4</span><div class="body">
+      <div class="row"><span class="chip c-warn">Media</span><h3>Publicación por FTP sin cifrar</h3></div>
+      <p>La publicación automática y la de staging usan <code>protocol: ftp</code>; usuario, contraseña y archivos viajan sin cifrar.</p>
+      <p class="fix"><b>Corrección:</b> cambiar a FTPS o SFTP (Hostinger soporta ambos) y rotar la contraseña FTP. Esfuerzo: una hora.</p></div></div>
+
+    <div class="finding"><span class="hid">H12</span><div class="body">
+      <div class="row"><span class="chip c-warn">Media</span><h3>Respaldos en el mismo servidor e incompletos</h3></div>
+      <p>El respaldo diario (30 días de retención) se guarda en el mismo hosting que la base de datos: si se pierde el servidor, se pierden ambos. Incluye usuarios, proyectos, solicitudes y notificaciones, pero no los archivos subidos, el chat, la bitácora ni la configuración. El script manual <code>database/backup.ps1</code> apunta a una base de datos con otro nombre.</p>
+      <p class="fix"><b>Corrección:</b> copia diaria fuera del servidor (otro proveedor o almacenamiento en la nube), incluir todas las tablas y la carpeta de archivos, corregir el script y hacer una prueba de restauración documentada. Esfuerzo: uno a dos días.</p></div></div>
+
+    <div class="finding"><span class="hid">H13</span><div class="body">
+      <div class="row"><span class="chip c-warn">Media</span><h3>Sin aviso de privacidad</h3></div>
+      <p>El sistema guarda nombres, correos, IP y navegador de sus usuarios, además de datos de clientes, y no muestra aviso de privacidad. En México lo exige la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP), aunque no se busque certificación.</p>
+      <p class="fix"><b>Corrección:</b> redactar el aviso (idealmente con asesoría legal), mostrarlo en el inicio de sesión y definir cuánto tiempo se conservan la bitácora y las IP.</p></div></div>
+
+
+    <div class="finding"><span class="hid">H5</span><div class="body">
+      <div class="row"><span class="chip c-na">Baja</span><h3>Faltan CSP y HSTS</h3></div>
+      <p>La única política de contenido presente es la que agrega Hostinger (<code>upgrade-insecure-requests</code>). No hay <code>Strict-Transport-Security</code>.</p>
+      <p class="fix"><b>Corrección:</b> agregar ambos encabezados al <code>.htaccess</code> y probar que la app siga cargando. Esfuerzo: una o dos horas.</p></div></div>
+
+    <div class="finding"><span class="hid">H6</span><div class="body">
+      <div class="row"><span class="chip c-na">Baja</span><h3>Contraseña por defecto en el código</h3></div>
+      <p>La contraseña inicial está escrita en el código para usuarios semilla y restauraciones, y el login todavía acepta contraseñas guardadas en texto plano (las convierte a bcrypt al primer acceso).</p>
+      <p class="fix"><b>Corrección:</b> confirmar que ninguna cuenta conserva una contraseña en texto plano, retirar ese soporte y obligar a cambiar la contraseña inicial. Esfuerzo: medio día.</p></div></div>
+
+    <div class="finding"><span class="hid">H7</span><div class="body">
+      <div class="row"><span class="chip c-na">Baja</span><h3>Clave del respaldo automático</h3></div>
+      <p>Se compara con <code>!==</code> en lugar de <code>hash_equals()</code> y viaja en la URL, donde queda en los registros del servidor.</p>
+      <p class="fix"><b>Corrección:</b> comparación en tiempo constante y una clave más larga y aleatoria. Esfuerzo: minutos.</p></div></div>
+
+    <div class="finding"><span class="hid">H8</span><div class="body">
+      <div class="row"><span class="chip c-na">Info</span><h3>API sin encabezados de seguridad propios</h3></div>
+      <p>Los encabezados de seguridad solo cubren el frontend. La API responde JSON, por eso el impacto es bajo, pero la configuración queda inconsistente.</p>
+      <p class="fix"><b>Corrección:</b> agregar un <code>.htaccess</code> en <code>api/</code> con los mismos encabezados.</p></div></div>
+
+    <div class="finding"><span class="hid">H9</span><div class="body">
+      <div class="row"><span class="chip c-na">Info</span><h3>Herramientas de desarrollo desactualizadas</h3></div>
+      <p>14 avisos en Vite, Tailwind y PostCSS. No afectan producción, pero aparecen en cualquier revisión con <code>npm audit</code>.</p>
+      <p class="fix"><b>Corrección:</b> actualizar las dependencias. Subir de versión mayor a Tailwind 4 y Vite 8 requiere pruebas, así que conviene planearlo aparte.</p></div></div>
+
+    <div class="finding"><span class="hid">H10</span><div class="body">
+      <div class="row"><span class="chip c-na">Mejora</span><h3>Crecimiento de notificaciones y bitácora</h3></div>
+      <p>Las dos tablas crecen sin límite y las notificaciones se consultan completas cada 4 segundos. Ya está identificado como parte del rediseño de notificaciones.</p>
+      <p class="fix"><b>Corrección:</b> política de retención (por ejemplo, archivar después de 12 meses) y consultas incrementales.</p></div></div>
+
+    <div class="finding"><span class="hid">H11</span><div class="body">
+      <div class="row"><span class="chip c-na">Mejora</span><h3>Pruebas automatizadas y auditoría de usabilidad</h3></div>
+      <p>Playwright está instalado pero no hay pruebas escritas. Sin ellas, la usabilidad queda sin medir y cada cambio depende de pruebas manuales.</p>
+      <p class="fix"><b>Corrección:</b> recorridos automatizados por rol (crear, aprobar, editar fases 1 a 4, pagar) con revisión de accesibilidad axe-core y Lighthouse.</p></div></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Avance de mejoras</span>
+  <h2>Correcciones en curso</h2>
+  <p>Estado al cierre de este reporte. Las calificaciones del checklist reflejan el sistema <b>publicado</b>; una corrección cambia la calificación solo después de publicarse y volver a verificarse en vivo.</p>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Hallazgo</th><th>Estado</th><th>Qué se hizo</th></tr></thead>
+    <tbody>
+      <tr><td class="ctrl">H14 · CORS vercel.app</td><td class="st"><span class="chip c-warn">Corrección lista, sin subir</span></td><td>Corregido en la segunda laptop (commit local <code>f8c9fff</code>), pendiente de subir a una rama y probar en staging.</td></tr>
+      <tr><td class="ctrl">H1 · diag.php público</td><td class="st"><span class="chip c-warn">Listo, sin publicar</span></td><td>Se encontró la causa: el script de publicación manual decía excluir el archivo pero no lo hacía. Se corrigió el script y se agregó una regla del servidor que bloquea <code>diag.php</code> y <code>config.php</code> aunque estén presentes. Falta borrar el archivo del servidor.</td></tr>
+      <tr><td class="ctrl">H2 · CSRF en subida</td><td class="st"><span class="chip c-warn">Listo, sin publicar</span></td><td>La API rechaza envíos de sitios no autorizados. Probado localmente: origen ajeno → 403; ampr.site y sin origen → sin cambios. Mientras H14 siga abierto, cualquier sitio de vercel.app cuenta como autorizado.</td></tr>
+      <tr><td class="ctrl">H3 · Fijación de sesión</td><td class="st"><span class="chip c-warn">Listo, sin publicar</span></td><td>El identificador de sesión se renueva en cada inicio de sesión, normal y de gestor.</td></tr>
+      <tr><td class="ctrl">H4 · FTP sin cifrar</td><td class="st"><span class="chip c-warn">En prueba</span></td><td>El ambiente de pruebas (staging) ya publica por FTPS. Producción se cambia cuando staging confirme que funciona con Hostinger.</td></tr>
+      <tr><td class="ctrl">H5 · HSTS y CSP</td><td class="st"><span class="chip c-warn">HSTS listo, sin publicar</span></td><td>HSTS agregado al frontend y a la API. CSP queda pendiente porque requiere probar que la aplicación siga cargando todos sus recursos.</td></tr>
+      <tr><td class="ctrl">H7 · Clave del respaldo</td><td class="st"><span class="chip c-warn">Listo, sin publicar</span></td><td>Comparación en tiempo constante (<code>hash_equals</code>). Falta cambiar la clave por una más larga en el servidor.</td></tr>
+      <tr><td class="ctrl">H8 · Encabezados de la API</td><td class="st"><span class="chip c-warn">Listo, sin publicar</span></td><td>Nuevo archivo de configuración en <code>api/</code> con los mismos encabezados de seguridad que el frontend.</td></tr>
+      <tr><td class="ctrl">H6, H9 a H13</td><td class="st"><span class="chip c-na">Pendiente</span></td><td>Planeados según la ruta sugerida.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Evaluación norma por norma</span>
+  <h2>Preparación frente a las 14 normas ISO</h2>
+  <p><b>Parcial</b>: hay evidencia real y faltan piezas concretas. <b>Inicial</b>: existen controles sueltos, pero falta el sistema de gestión que pide la norma. <b>Sin evaluar</b>: requiere pruebas que aún no se hacen.</p>
+
+  <h3>Certificables (auditoría formal)</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Norma</th><th>Estado</th><th>Lo que ya hay</th><th>Lo que falta</th></tr></thead>
+    <tbody>
+      <tr><td class="ctrl">ISO/IEC 27001<span class="ev">Seguridad de la información (SGSI)</span></td><td class="st"><span class="chip c-bad">Inicial</span></td>
+        <td>Controles técnicos: acceso por rol, contraseñas cifradas, bitácora, respaldos, validación de archivos.</td>
+        <td>El SGSI documentado: alcance, política de seguridad, análisis de riesgos, Declaración de Aplicabilidad, gestión de altas y bajas de accesos, auditoría interna y revisión por la dirección. Además, corregir H1 a H7.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 27701<span class="ev">Privacidad y datos personales</span></td><td class="st"><span class="chip c-bad">Inicial</span></td>
+        <td>Acceso a datos restringido por rol; contraseñas nunca visibles.</td>
+        <td>Aviso de privacidad (H13), inventario de datos personales, procedimiento para derechos ARCO y plazos de conservación. Requiere tener primero la 27001.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 20000-1<span class="ev">Gestión del servicio de TI</span></td><td class="st"><span class="chip c-bad">Inicial</span></td>
+        <td>Ambiente de pruebas, publicación automatizada e historial de cambios en git.</td>
+        <td>Catálogo de servicios, niveles de servicio acordados, registro de incidentes y solicitudes de soporte, monitoreo de disponibilidad y quién aprueba cada cambio.</td></tr>
+      <tr><td class="ctrl">ISO 22301<span class="ev">Continuidad del negocio</span></td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Respaldo diario automático, función de restauración y papelera recuperable.</td>
+        <td>Respaldo fuera del servidor y completo (H12), tiempos objetivo de recuperación (RTO/RPO), análisis de impacto y prueba de restauración documentada.</td></tr>
+      <tr><td class="ctrl">ISO 9001<span class="ev">Gestión de la calidad</span></td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>El sistema implementa los procedimientos MAN-ADM-001 y MAN-ADM-004, guarda registros con trazabilidad por folio y genera indicadores diarios.</td>
+        <td>Sistema de gestión de calidad de la empresa: objetivos e indicadores formales, acciones correctivas, medición de satisfacción del cliente y auditoría interna. Projectra puede ser la herramienta que lo sostenga.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>De evaluación técnica (criterio, no certificado)</h3>
+  <div class="table-box">
+  <table>
+    <thead><tr><th>Norma</th><th>Estado</th><th>Evaluación</th></tr></thead>
+    <tbody>
+      <tr><td class="ctrl">ISO/IEC 25010 / 25040<span class="ev">Calidad del producto</span></td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Ver checklist: 2 cumple, 5 parcial, 1 sin evaluar. Este reporte es una primera evaluación; la 25040 pide además fijar métricas y umbrales de aceptación antes de medir.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 27002<span class="ev">Catálogo de controles</span></td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Controles tecnológicos: cumple registro de actividad (8.15) y gestión de accesos privilegiados (8.2). Parciales: autenticación segura (8.5), respaldo (8.13), criptografía (8.24) y desarrollo seguro (8.25 a 8.28). Falla gestión de la configuración (8.9) por H1. Los controles organizacionales, de personas y físicos no se evaluaron.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 27034<span class="ev">Seguridad en aplicaciones</span></td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Evaluada con OWASP Top 10: 3 cumple, 5 parcial, 2 no cumple. Falta formalizar requisitos de seguridad por aplicación.</td></tr>
+      <tr><td class="ctrl">ISO/IEC 27017 / 27018<span class="ev">Nube y datos personales en la nube</span></td><td class="st"><span class="chip c-bad">Inicial</span></td>
+        <td>El sistema vive en hosting de Hostinger. Falta revisar su contrato y política de tratamiento de datos, la ubicación de los servidores y qué responsabilidades son del proveedor y cuáles de ENERMAN.</td></tr>
+      <tr><td class="ctrl">ISO/IEC/IEEE 12207<span class="ev">Ciclo de vida del software</span></td><td class="st"><span class="chip c-warn">Parcial</span></td>
+        <td>Control de versiones, staging, compilación verificada y documentación de campos y migraciones. Faltan requisitos formales, revisión de código registrada y criterios de liberación.</td></tr>
+      <tr><td class="ctrl">ISO/IEC/IEEE 29119<span class="ev">Pruebas de software</span></td><td class="st"><span class="chip c-bad">Inicial</span></td>
+        <td>No hay plan de pruebas ni pruebas automatizadas; hoy se prueba a mano. Es la brecha técnica más grande (H11).</td></tr>
+      <tr><td class="ctrl">ISO/IEC 40500<span class="ev">Accesibilidad web (WCAG 2.0)</span></td><td class="st"><span class="chip c-na">Sin evaluar</span></td>
+        <td>El idioma de la página está declarado y hay algunas etiquetas de accesibilidad, pero falta medirlo con axe-core y revisión manual de teclado y contraste.</td></tr>
+      <tr><td class="ctrl">ISO 9241<span class="ev">Usabilidad y ergonomía</span></td><td class="st"><span class="chip c-na">Sin evaluar</span></td>
+        <td>Requiere pruebas con usuarios reales de cada rol: eficacia, eficiencia y satisfacción (9241-11).</td></tr>
+      <tr><td class="ctrl">ISO/IEC 38500<span class="ev">Gobierno de TI</span></td><td class="st"><span class="chip c-bad">Inicial</span></td>
+        <td>Norma para la dirección: quién decide sobre TI y cómo se priorizan inversiones y riesgos. Falta definirlo por escrito.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Cómo se audita</span>
+  <h2>Proceso de auditoría y ruta sugerida</h2>
+  <div class="org">
+    <div><b>Normas certificables</b><br>Las audita un organismo certificador acreditado (en México, ante la ema). Etapa 1: revisión de documentos. Etapa 2: auditoría en sitio, donde se pide evidencia de que lo documentado se cumple. El certificado dura tres años, con auditorías de seguimiento anuales.</div>
+    <div><b>Normas técnicas</b><br>No dan certificado. Se evalúan contra el criterio de la norma, de forma interna o con un tercero, y se entregan como reporte con evidencia: pruebas de seguridad, mediciones de accesibilidad, pruebas de usabilidad y revisión de código.</div>
+  </div>
+  <ul class="plain">
+    <li><b>Días:</b> corregir H14, H1 a H4 y H7. Cierra los dos "no cumple" y la mayoría de los parciales de OWASP.</li>
+    <li><b>Semanas:</b> respaldos externos y completos (H12), aviso de privacidad (H13), CSP y HSTS (H5) y contraseñas iniciales (H6).</li>
+    <li><b>Uno a dos meses:</b> pruebas automatizadas por rol con revisión de accesibilidad (H11), política de retención de datos (H10) y actualización de dependencias (H9).</li>
+    <li><b>Si el cliente exige certificación:</b> la base es ISO/IEC 27001 y la 27701 se construye encima. Requiere un proyecto de documentación de la empresa, no solo del sistema.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="eyebrow">Límites de esta revisión</span>
+  <h2>Lo que no se verificó</h2>
+  <ul class="plain">
+    <li>Usabilidad y accesibilidad con usuarios o herramientas automatizadas.</li>
+    <li>Rendimiento bajo carga y tiempos de respuesta medidos.</li>
+    <li>Configuración interna del hosting (versiones de PHP y MySQL, permisos del servidor).</li>
+    <li>Pruebas de penetración activas contra el sitio en vivo. Solo se hicieron consultas de lectura.</li>
+  </ul>
+</section>
+
+<footer>Reporte elaborado sobre el código fuente del repositorio de Projectra (commit cc4793b) y consultas de solo lectura a ampr.site el 7 de octubre de 2026. Los estados reflejan esa fecha; cada hallazgo corregido debe volver a verificarse antes de presentarse como resuelto.</footer>
+
+</main>
