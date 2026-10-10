@@ -62,7 +62,10 @@ async function apiRequest<T>(action: string, init?: RequestInit): Promise<T> {
       typeof data === "object" && data !== null
         ? ((data as Record<string, unknown>).error as string | undefined) ?? ""
         : "";
-    if (response.status === 401) {
+    // En login/admin_login un 401 significa credenciales incorrectas (o rate limit), no sesión
+    // expirada — antes esto se convertía siempre en SessionRequiredError y pisaba el mensaje real
+    // del servidor ("Credenciales incorrectas."), mostrando "session_required" en su lugar.
+    if (response.status === 401 && action !== "login" && action !== "admin_login") {
       throw new SessionRequiredError();
     }
     throw new Error(msg || `API error ${response.status}`);
