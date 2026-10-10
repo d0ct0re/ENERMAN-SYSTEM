@@ -104,6 +104,9 @@ if ($action === 'login') {
     }
     clearRateLimit($ip);
     unset($user['password']);
+    // Nuevo identificador de sesión al autenticar (evita fijación de sesión); conserva los datos,
+    // así que authenticated_users sigue intacto para el cambio rápido de cuenta.
+    session_regenerate_id(true);
     $_SESSION['user_id']   = $user['id'];
     $_SESSION['user_role'] = $user['role'];
     if (!isset($_SESSION['authenticated_users'])) $_SESSION['authenticated_users'] = [];
@@ -173,6 +176,7 @@ if ($action === 'admin_login') {
     }
     clearRateLimit($ip);
     unset($user['password']);
+    session_regenerate_id(true);
     $_SESSION['user_id']   = $user['id'];
     $_SESSION['user_role'] = $user['role'];
     logActivity('admin_login', 'user', $user['id'] ?? null, $user['name'] ?? null, ['email' => $user['email'] ?? null], $user);
