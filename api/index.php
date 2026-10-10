@@ -8,11 +8,11 @@ declare(strict_types=1);
 // diario, que podia adelantarse o atrasarse un dia entero cerca de la medianoche.
 date_default_timezone_set('America/Monterrey');
 
-// CORS — permite frontend en Vercel, ampr.site y localhost dev
+// CORS — permite ampr.site y localhost dev. Antes aceptaba cualquier *.vercel.app con
+// credenciales: cualquiera podía publicar un sitio ahí y leer los datos de un usuario con sesión.
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $allowedOrigins = ['https://ampr.site', 'https://www.ampr.site', 'http://localhost:5173', 'http://localhost:3000'];
-$isVercel = (bool) preg_match('/^https:\/\/[a-z0-9-]+\.vercel\.app$/', $origin);
-if ($isVercel || in_array($origin, $allowedOrigins, true)) {
+if (in_array($origin, $allowedOrigins, true)) {
     header("Access-Control-Allow-Origin: $origin");
     header('Access-Control-Allow-Credentials: true');
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -29,14 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // no dispara preflight — sin esto otro sitio podía hacer que el navegador de un usuario con
 // sesión subiera archivos a sus proyectos. Sin Origin (cron, curl) se deja pasar: los navegadores
 // siempre lo mandan en POST cross-origin.
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $origin !== '' && !$isVercel && !in_array($origin, $allowedOrigins, true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $origin !== '' && !in_array($origin, $allowedOrigins, true)) {
     http_response_code(403);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['error' => 'Origen no permitido.']);
     exit;
 }
 
-// SameSite=None para que las cookies de sesión funcionen cross-origin (Vercel → Hostinger)
+// SameSite=None para que la sesión funcione desde localhost en desarrollo (npm run dev llama a la API de producción)
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_secure', '1');
 ini_set('session.cookie_samesite', 'None');
