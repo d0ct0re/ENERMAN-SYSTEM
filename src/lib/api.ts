@@ -49,6 +49,10 @@ async function apiRequest<T>(action: string, init?: RequestInit): Promise<T> {
 
   const data: unknown = await response.json().catch(() => ({}));
 
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    throw new Error("La API no devolvió JSON. Revisa la conexión con el servidor.");
+  }
+
   if (
     typeof data === "object" &&
     data !== null &&
@@ -94,10 +98,14 @@ export async function loginUser(
   email: string,
   password: string,
 ): Promise<{ ok: true; user: UserItem }> {
-  return apiRequest<{ ok: true; user: UserItem }>("login", {
+  const result = await apiRequest<{ ok: true; user: UserItem }>("login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+  if (!result.user?.id) {
+    throw new Error("El servidor no devolvió un usuario válido al iniciar sesión.");
+  }
+  return result;
 }
 
 export async function logoutUser(): Promise<void> {

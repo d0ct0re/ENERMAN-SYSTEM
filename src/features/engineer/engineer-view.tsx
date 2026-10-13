@@ -1,7 +1,6 @@
-import { ArrowUpRight, Pencil, Plus } from "lucide-react";
+import { ArrowUpRight, Pencil, Plus, FolderOpen, CalendarDays, FileText, CircleCheck, TriangleAlert, LayoutDashboard } from "lucide-react";
+import "./engineer-view.css";
 import { useMemo, useState } from "react";
-import { SectionTitle } from "@/components/layout/section-title";
-import { Tabs } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { ProjectCard } from "@/components/cards/project-card";
 import { ProjectCalendar } from "@/components/common/project-calendar";
@@ -102,13 +101,45 @@ export function EngineerView({
     tab === "all" ? sortedProjects : tab === "active" ? activeProjects : completedProjects;
 
   return (
-    <section className="space-y-6">
-      <SectionTitle
-        eyebrow={`Espacio de trabajo de ${activeUserName}`}
-        title="Centro de operación del ingeniero"
-      />
-
-      <Tabs value={tab} onValueChange={onTabChange} options={tabOptions} />
+    <section className="engineer-workspace">
+      <aside className="engineer-sidebar">
+        <p className="engineer-nav-label">ESPACIO DE TRABAJO</p>
+        <nav aria-label="Navegación del ingeniero">
+          {tabOptions.map((option, index) => {
+            const Icon = [LayoutDashboard, FolderOpen, CircleCheck, FileText, TriangleAlert, CalendarDays][index];
+            return (
+              <button key={option.key} type="button" aria-current={tab === option.key ? "page" : undefined}
+                onClick={() => onTabChange(option.key)} className={tab === option.key ? "is-active" : ""}>
+                <Icon size={18} /><span>{option.label}</span><b>{option.count}</b>
+              </button>
+            );
+          })}
+        </nav>
+        <div className="engineer-sidebar-footer"><span className="engineer-brand-mark">E /</span><p>ENERMAN SYSTEM<br /><span>Portal de ingeniería</span></p></div>
+      </aside>
+      <div className="engineer-content">
+        <header className="engineer-welcome">
+          <div>
+            <p className="engineer-nav-label">CENTRO DE OPERACIÓN DEL INGENIERO</p>
+            <h1>Hola, <span>{activeUserName}</span></h1>
+            <p>Tu espacio de trabajo. Proyectos, solicitudes y fechas en un solo lugar.</p>
+          </div>
+          <button type="button" className="engineer-primary-action" onClick={onOpenNewRequest}><Plus size={18} />Nueva solicitud</button>
+        </header>
+        <div className="engineer-metrics">
+          {[
+            { label: "Proyectos activos", count: activeProjects.length, icon: FolderOpen, key: "active" as const },
+            { label: "Solicitudes", count: sortedRequests.length, icon: FileText, key: "requests" as const },
+            { label: "En corrección", count: correctionRequests.length, icon: TriangleAlert, key: "correction" as const },
+            { label: "Fechas de proyectos", count: calendarEventCount, icon: CalendarDays, key: "calendar" as const },
+          ].map(({ label, count, icon: Icon, key }) => (
+            <button type="button" key={key} onClick={() => onTabChange(key)} className="engineer-metric">
+              <span className="engineer-metric-icon"><Icon size={22} /></span><span><span className="engineer-metric-label">{label}</span><strong>{count}</strong></span><ArrowUpRight size={15} className="engineer-metric-arrow" />
+            </button>
+          ))}
+        </div>
+        <div className="engineer-panel">
+          <div className="engineer-panel-heading"><h2><FolderOpen size={18} />{tabOptions.find((option) => option.key === tab)?.label}</h2><span>{tabOptions.find((option) => option.key === tab)?.count} registros</span></div>
 
       {/* ── Proyectos ── */}
       {tab !== "requests" && tab !== "correction" && tab !== "calendar" ? (
@@ -117,7 +148,7 @@ export function EngineerView({
             <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
           ))}
           {displayed.length === 0 && (
-            <p className="py-10 text-center text-sm text-[#888888]">Sin proyectos</p>
+            <div className="engineer-empty"><FolderOpen size={36} /><h3>Sin proyectos</h3><p>Los proyectos de esta sección aparecerán aquí.</p></div>
           )}
         </div>
       ) : null}
@@ -283,6 +314,8 @@ export function EngineerView({
         />
       ) : null}
 
+        </div>
+      </div>
       {/* FAB */}
       <div className="fixed bottom-6 right-6 z-30">
         <button

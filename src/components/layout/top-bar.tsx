@@ -233,7 +233,7 @@ export function TopBar({
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Buscar folio, cliente o descripción…"
-              className="pl-11"
+              className="topbar-search pl-11"
             />
           </div>
 
@@ -242,7 +242,7 @@ export function TopBar({
             <button
               type="button"
               onClick={() => { setNotifOpen((p) => !p); setAccountMenuOpen(false); }}
-              className="relative cursor-pointer rounded-full border border-[#3F3F46] bg-[#27272A] p-3 text-[#888888] shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
+              className="topbar-notifications relative cursor-pointer rounded-full border border-[#3F3F46] bg-[#27272A] p-3 text-[#888888] shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
               aria-label="Notificaciones"
             >
               <Bell className="h-5 w-5" />
@@ -260,7 +260,7 @@ export function TopBar({
             <button
               type="button"
               onClick={() => { setAccountMenuOpen((p) => !p); setNotifOpen(false); }}
-              className="flex cursor-pointer items-center gap-3 rounded-full border border-[#3F3F46] bg-[#27272A] px-3 py-2 shadow-soft transition hover:border-accent/20 hover:bg-[#313136]"
+              className="topbar-account flex cursor-pointer items-center gap-3 rounded-full border border-[#3F3F46] bg-[#27272A] px-3 py-2 shadow-soft transition hover:border-accent/20 hover:bg-[#313136]"
             >
               <Avatar initials={activeUser.avatar} className="h-10 w-10 text-xs" />
               <div className="text-left">

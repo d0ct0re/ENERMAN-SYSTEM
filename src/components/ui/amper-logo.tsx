@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-const logoUrl = "/logo.png";
+const logoUrl = "/logo-wordmark-transparent.png";
 
 interface AmperLogoProps {
   onClick?: () => void;
@@ -12,7 +12,7 @@ export function AmperLogo({ onClick, className }: AmperLogoProps): JSX.Element {
     <button
       type="button"
       onClick={onClick}
-      aria-label="AMPER — inicio"
+      aria-label="ENERMAN — inicio"
       className={cn(
         "inline-flex items-center rounded-xl transition-all duration-150",
         "hover:scale-105 hover:brightness-110",
@@ -23,8 +23,8 @@ export function AmperLogo({ onClick, className }: AmperLogoProps): JSX.Element {
     >
       <img
         src={logoUrl}
-        alt="AMPER"
-        className="h-9 w-auto sm:h-10 rounded-xl object-contain"
+        alt="ENERMAN"
+        className="h-9 w-auto sm:h-10 object-contain"
         draggable={false}
       />
     </button>

@@ -1,0 +1,82 @@
+.engineer-workspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; padding-bottom: 90px; }
+.engineer-sidebar { border-right: 1px solid #ffffff0d; padding: 24px 20px 24px 0; display: flex; flex-direction: column; min-height: 70vh; }
+.engineer-nav-label { font-size: 10px; font-weight: 700; letter-spacing: .16em; color: #969fa6; margin-bottom: 20px; }
+.engineer-sidebar nav { display: flex; flex-direction: column; gap: 7px; }
+.engineer-sidebar nav button { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid transparent; border-radius: 9px; color: #aab2b8; font-size: 12px; text-align: left; transition: background .15s, color .15s; }
+.engineer-sidebar nav button span { flex: 1; }
+.engineer-sidebar nav button b { font-size: 10px; opacity: .75; }
+.engineer-sidebar nav button:hover { background: #ffffff08; color: white; }
+.engineer-sidebar nav button.is-active { background: #f5a52418; border-color: #f5a52426; color: #ffb629; }
+.engineer-sidebar-footer { display: flex; gap: 10px; align-items: center; margin-top: auto; padding-top: 40px; font-size: 10px; letter-spacing: .08em; color: #aab2b8; }
+.engineer-sidebar-footer p span { color: #657078; letter-spacing: 0; }
+.engineer-brand-mark { color: #ffb629; font-size: 25px; font-weight: 800; }
+.engineer-content { min-width: 0; padding-top: 20px; }
+.engineer-welcome { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 200px; padding: 28px; border: 1px solid #ffffff14; border-radius: 14px; background: linear-gradient(100deg, #081116ed 0%, #081116bf 50%, #08111666 100%), url("/login-bg-1920.jpg") center 60% / cover no-repeat; }
+.engineer-welcome .engineer-nav-label { color: #ffbf55; margin-bottom: 9px; }
+.engineer-welcome h1 { font-size: clamp(23px, 2.3vw, 32px); font-weight: 700; letter-spacing: -.04em; }
+.engineer-welcome h1 span { color: #ffb629; }
+.engineer-welcome p:last-child { color: #cbd5db; font-size: 12px; margin-top: 9px; line-height: 1.7; }
+.engineer-primary-action { display: flex; align-items: center; justify-content: center; gap: 8px; background: #ffb323; color: #17130b; font-size: 12px; font-weight: 750; padding: 12px 17px; border-radius: 8px; white-space: nowrap; }
+.engineer-primary-action:hover { background: #ffc44b; }
+.engineer-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.engineer-metric { display: flex; align-items: center; gap: 12px; text-align: left; padding: 20px 14px; background: #141c20; border: 1px solid #ffffff0a; border-radius: 12px; }
+.engineer-metric:hover { border-color: #f5a52455; }
+.engineer-metric-icon { display: grid; place-items: center; width: 42px; height: 46px; flex-shrink: 0; background: #f5a5240c; color: #ffb629; border-radius: 9px; }
+.engineer-metric:nth-child(2) .engineer-metric-icon { color: #fa766b; background: #fa766b0c; }
+.engineer-metric-label { display: block; font-size: 10px; color: #aab2b8; }
+.engineer-metric strong { display: block; font-size: 27px; font-weight: 650; margin-top: 4px; line-height: 1.2; }
+.engineer-metric-arrow { margin-left: auto; color: #59656c; flex-shrink: 0; }
+.engineer-panel { background: #11181c; border: 1px solid #ffffff0b; border-radius: 14px; padding: 20px; min-height: 340px; }
+.engineer-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 17px; border-bottom: 1px solid #ffffff0b; }
+.engineer-panel-heading h2 { display: flex; gap: 9px; align-items: center; font-size: 14px; font-weight: 650; }
+.engineer-panel-heading h2 svg { color: #ffb629; }
+.engineer-panel-heading > span { color: #7c8991; font-size: 11px; }
+.engineer-panel .group { border-radius: 10px; background-color: #182126; box-shadow: none; }
+.engineer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 245px; text-align: center; color: #677780; }
+.engineer-empty svg { margin-bottom: 16px; color: #c28c37; }
+.engineer-empty h3 { color: #c3cbd0; font-size: 14px; font-weight: 600; }
+.engineer-empty p { margin-top: 7px; font-size: 12px; }
+body:has(.engineer-workspace) { background: #0d1317; }
+body:has(.engineer-workspace) header.glass-panel {
+  background: linear-gradient(105deg, #050708 0%, #101a20 55%, #202017 100%);
+  border-color: #ffffff12;
+  border-bottom-color: #dca63b55;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px #0003, inset 0 1px 0 #ffffff06;
+}
+body:has(.engineer-workspace) .topbar-search {
+  background: #080e13b3;
+  border-color: #9cb9c026;
+  color: #e8eef2;
+  box-shadow: inset 0 1px 4px #0003;
+}
+body:has(.engineer-workspace) .topbar-search::placeholder { color: #8d9ca5; }
+body:has(.engineer-workspace) .topbar-search:focus { border-color: #e9b84980; }
+body:has(.engineer-workspace) .topbar-notifications {
+  background: #e9b8490c;
+  border-color: #e9b84933;
+  color: #e9be69;
+  box-shadow: none;
+}
+body:has(.engineer-workspace) .topbar-account {
+  background: #0a1117a6;
+  border-color: #c4a76333;
+  box-shadow: none;
+}
+body:has(.engineer-workspace) .topbar-account:hover,
+body:has(.engineer-workspace) .topbar-notifications:hover { background: #e9b84914; border-color: #e9b84966; }
+.engineer-workspace > .fixed button { border-radius: 10px; box-shadow: 0 6px 25px #0004; }
+@media (min-width: 1024px) { .engineer-workspace > .fixed { display: none; } }
+@media (max-width: 1200px) { .engineer-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 800px) {
+  .engineer-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .engineer-sidebar { min-height: auto; border: 0; padding: 12px 0; }
+  .engineer-sidebar > p, .engineer-sidebar-footer { display: none; }
+  .engineer-sidebar nav { flex-direction: row; overflow-x: auto; padding-bottom: 5px; }
+  .engineer-sidebar nav button { flex-shrink: 0; white-space: nowrap; }
+  .engineer-content { padding-top: 4px; }
+  .engineer-welcome { padding: 20px; flex-direction: column; align-items: flex-start; gap: 15px; }
+  .engineer-panel { padding: 14px; }
+  .engineer-metric { padding: 15px 10px; gap: 8px; }
+  .engineer-metric-arrow { display: none; }
+}
