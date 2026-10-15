@@ -1,0 +1,32 @@
+.engineer-project-list { overflow-x: auto; width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+.engineer-project-list table { width: 100%; border-collapse: collapse; min-width: 860px; text-align: left; font-size: 12px; }
+.engineer-project-list th { padding: 12px; background: var(--input-bg); color: var(--text-muted); font-size: 11px; font-weight: 500; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.engineer-project-list th button { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.engineer-project-list th button:hover { color: var(--text); }
+.engineer-project-list td { padding: 13px 12px; border-bottom: 1px solid var(--line); color: var(--text-muted); vertical-align: middle; }
+.engineer-project-list tbody tr { cursor: pointer; transition: background-color 120ms ease; }
+.engineer-project-list tbody tr:nth-child(even) { background: var(--input-bg); }
+.engineer-project-list tbody tr:hover, .engineer-project-list tbody tr:focus-within { background: var(--surface-alt); }
+.engineer-project-list tbody tr:last-child td { border-bottom: 0; }
+.engineer-project-list .engineer-project-list__folio { color: var(--accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.engineer-project-list__name { font-weight: 600; color: var(--text); text-align: left; min-height: 30px; min-width: 140px; }
+.engineer-project-list__name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.engineer-project-list__client { color: var(--text); }
+.engineer-project-list td small { display: block; font-size: 10px; margin-top: 3px; }
+.engineer-project-list__date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.engineer-project-list__phases { display: flex; gap: 5px; }
+.engineer-project-list__phases button { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 34px; min-height: 30px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-muted); font-size: 10px; }
+.engineer-project-list__phases button.is-complete { color: #251a06; border-color: #f5a524; background: #f5a524; font-weight: 600; box-shadow: 0 1px 2px #0002; }
+.engineer-project-list__phases button:hover { background: var(--accent-soft); color: var(--accent-text); }
+.engineer-project-list__phases button.is-complete:hover { color: #251a06; background: #ffb638; }
+.engineer-project-list__phases button.is-complete:active { box-shadow: none; }
+@media (max-width: 640px) {
+  .engineer-project-list { overflow: visible; border: 0; }
+  .engineer-project-list table, .engineer-project-list tbody { display: block; min-width: 0; }
+  .engineer-project-list thead { display: none; }
+  .engineer-project-list tbody tr { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; padding: 8px; gap: 4px; background: var(--surface); }
+  .engineer-project-list td { display: block; border: 0; padding: 5px; min-width: 0; overflow-wrap: anywhere; }
+  .engineer-project-list td::before { content: attr(data-label); display: block; font-size: 9px; color: var(--text-muted); margin-bottom: 4px; }
+  .engineer-project-list td[data-label="Proyecto"] { grid-column: 1 / -1; grid-row: 1; }
+  .engineer-project-list__name { min-width: 0; }
+}

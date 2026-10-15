@@ -1,12 +1,9 @@
 ﻿import { ArrowUpRight, CalendarDays, LayoutDashboard } from "lucide-react";
 import { parseLocalDate } from "@/lib/utils";
-import type { NotificationItem, ProjectItem } from "@/types";
+import type { ProjectItem } from "@/types";
 import type { EngineerTab } from "../engineer-view";
-interface Props { notifications: NotificationItem[]; onOpenNotification: (notification: NotificationItem) => void; upcoming: ProjectItem[]; onOpenProject: (id: string) => void; onTabChange: (tab: EngineerTab) => void; projectCount: number; distribution: {label: string; count: number; color: string}[]; }
-export function EngineerInsights({notifications, onOpenNotification, upcoming, onOpenProject, onTabChange, projectCount, distribution}: Props): JSX.Element { return (<aside className="engineer-insights" aria-label="Resumen de trabajo">
-          <section className="engineer-insight-card">
-            <div id="app-activity-feed" />
-          </section>
+interface Props { upcoming: ProjectItem[]; onOpenProject: (id: string) => void; onTabChange: (tab: EngineerTab) => void; projectCount: number; distribution: {label: string; count: number; color: string}[]; }
+export function EngineerInsights({upcoming, onOpenProject, onTabChange, projectCount, distribution}: Props): JSX.Element { return (<aside className="engineer-insights" aria-label="Resumen de trabajo">
           <section className="engineer-insight-card">
             <h2><CalendarDays size={17} />Próximos compromisos</h2>
             <p className="engineer-insight-caption">Fechas asignadas a tus proyectos activos.</p>

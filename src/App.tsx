@@ -2512,7 +2512,7 @@ export default function App(): JSX.Element {
       />
 
       {activeRole === "engineer" ? (
-        <EngineerView
+        <EngineerView engineers={users.filter(user => user.role === "engineer")}
           getAssignedEngineerName={(project) => users.filter((user) => user.role === "engineer" && (user.id === project.createdBy || project.participants.includes(user.id))).map((user) => user.name).join(", ") || undefined}
           canEditProject={(project) => project.createdBy === activeUser.id || project.participants.includes(activeUser.id)}
           onOpenProjectPhase={(projectId, phase) => { openProjectById(projectId); setSelectedProjectPhase(phase); }}

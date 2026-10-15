@@ -1,15 +1,16 @@
-﻿.workspace-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 18px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
-.workspace-kpi { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; min-width: 0; min-height: 145px; padding: 22px 24px 18px; text-align: left; transition: background-color 180ms; }
-.workspace-kpi + .workspace-kpi { border-left: 1px solid var(--line); }
-.workspace-kpi::before { position: absolute; content: ''; left: 24px; top: 0; width: 26px; height: 3px; background: #f5a524; }
-.workspace-kpi__label { grid-column: 1 / -1; color: var(--text-muted); font-size: 12px; font-weight: 500; line-height: 1.5; }
-.workspace-kpi__value { grid-column: 1 / -1; color: var(--text); font-size: 36px; line-height: 1.2; font-weight: 650; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.workspace-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 20px 0 24px; }
+.workspace-kpi { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-content: start; gap: 12px 8px; min-width: 0; min-height: 156px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); text-align: left; transition: background-color 180ms ease, border-color 180ms ease; }
+.workspace-kpi__label { color: var(--text-muted); font-size: 12px; font-weight: 400; line-height: 1.5; align-self: center; }
+.workspace-kpi__badge { justify-self: end; align-self: start; padding: 3px 7px; border: 1px solid var(--line); border-radius: 20px; color: var(--text-muted); font-size: 9px; white-space: nowrap; }
+.workspace-kpi__value { grid-column: 1 / -1; color: var(--text); font-size: 38px; line-height: 1.1; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .workspace-kpi__value.is-zero { color: var(--text-muted); }
-.workspace-kpi__detail, .workspace-kpi__action { font-size: 10px; line-height: 1.5; }
-.workspace-kpi__detail { color: var(--text-muted); }
-.workspace-kpi__action { align-self: end; color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
-.workspace-kpi:hover { background: var(--surface-alt); }
-.workspace-kpi:focus-visible { z-index: 1; outline: 2px solid var(--accent-text); outline-offset: -4px; }
-@media (max-width: 1200px) { .workspace-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workspace-kpi:nth-child(3) { border-left: 0; } .workspace-kpi:nth-child(n+3) { border-top: 1px solid var(--line); } }
-@media (max-width: 600px) { .workspace-kpi { padding: 16px; min-height: 140px; grid-template-columns: minmax(0, 1fr); gap: 5px; } .workspace-kpi::before { left: 16px; width: 20px; } .workspace-kpi__label { font-size: 11px; } .workspace-kpi__value { font-size: 30px; } .workspace-kpi__action { margin-top: 3px; } }
-@media (prefers-reduced-motion: reduce) { .workspace-kpi { transition: none; } }
+.workspace-kpi__detail { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-muted); font-size: 11px; line-height: 1.5; margin-top: 8px; }
+.workspace-kpi__detail svg { opacity: .5; transition: opacity 180ms ease; }
+.workspace-kpi--attention { border-color: var(--accent-text); background: var(--accent-soft); }
+.workspace-kpi--attention .workspace-kpi__value, .workspace-kpi--attention .workspace-kpi__badge { color: var(--accent-text); }
+.workspace-kpi:hover { background: var(--surface-alt); border-color: var(--text-muted); }
+.workspace-kpi:hover .workspace-kpi__detail svg { opacity: 1; }
+.workspace-kpi:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+@media (max-width: 1100px) { .workspace-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .workspace-kpis { gap: 10px; margin: 16px 0 20px; } .workspace-kpi { padding: 14px; min-height: 148px; gap: 10px 6px; } .workspace-kpi__label { font-size: 11px; } .workspace-kpi__badge { font-size: 8px; padding: 2px 5px; } .workspace-kpi__value { font-size: 32px; } .workspace-kpi__detail { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .workspace-kpi, .workspace-kpi__detail svg { transition: none; } }

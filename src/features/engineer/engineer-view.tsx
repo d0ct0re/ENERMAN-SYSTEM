@@ -1,17 +1,17 @@
 import type { ProjectPhase } from "@/components/cards/project-phase-steps";
-import { EngineerWelcome } from "./components/engineer-welcome";
+import { EngineerProjectChart } from "./components/engineer-project-chart";
+import { Button } from "@/components/ui/button";
 import { EngineerMetrics } from "./components/engineer-metrics";
 import { EngineerInsights } from "./components/engineer-insights";
 import { ArrowUpRight, Pencil, Plus, FolderOpen } from "lucide-react";
 import "./engineer-view.css";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { ActiveProjectCard } from "@/components/cards/active-project-card";
-import { ProjectCard } from "@/components/cards/project-card";
+import { EngineerProjectList } from "./components/engineer-project-list";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { CorrectionRequestDialog } from "@/components/dialogs/correction-request-dialog";
-import { ProjectItem, RequestItem, NotificationItem } from "@/types";
+import { ProjectItem, RequestItem, NotificationItem, UserItem } from "@/types";
 import { getRequestSequence, getRequestSequenceNumber, parseLocalDate } from "@/lib/utils";
 
 export type EngineerTab = "home" | "all" | "active" | "completed" | "requests" | "correction" | "calendar";
@@ -26,6 +26,7 @@ const REQUEST_STATUS_LABELS: Record<string, string> = {
 };
 
 interface EngineerViewProps {
+  engineers?: Pick<UserItem, "id" | "name">[];
   sidebarOpen: boolean;
   notifications: NotificationItem[];
   onOpenNotification: (notification: NotificationItem) => void;
@@ -48,7 +49,7 @@ interface EngineerViewProps {
 }
 
 export function EngineerView({
-  sidebarOpen, notifications, onOpenNotification, onOpenProjectPhase, canEditProject, getAssignedEngineerName,
+  engineers = [], sidebarOpen, notifications, onOpenNotification, onOpenProjectPhase, canEditProject, getAssignedEngineerName,
   tab,
   onTabChange,
   activeUserName,
@@ -132,8 +133,9 @@ export function EngineerView({
     <section className={`engineer-workspace ${sidebarOpen ? "" : "is-sidebar-collapsed"} ${tab === "home" ? "is-home" : "is-section"}`}>
 
       <div className="engineer-content">
-        {tab === "home" && <EngineerWelcome activeUserName={activeUserName} onOpenNewRequest={onOpenNewRequest} />}
+        {tab === "home" && <><div className="engineer-home-heading"><div><h1>Mi espacio de trabajo</h1><p>{activeUserName} &middot; Proyectos y pendientes</p></div><Button variant="accent" onClick={onOpenNewRequest}><Plus size={16} />Nueva solicitud</Button></div></>}
         {tab === "home" && <EngineerMetrics activeCount={activeProjects.length} pendingCount={pendingRequests.length} correctionCount={corrections.length} completedCount={distribution[1].count} onTabChange={onTabChange} />}
+        {tab === "home" && <div className="engineer-home-overview"><EngineerProjectChart engineers={engineers} projects={projects} globalProjects={globalProjects} onOpen={onOpenProject} onOpenPhase={onOpenProjectPhase} getAssignedEngineerName={getAssignedEngineerName} /><EngineerInsights upcoming={upcoming} onOpenProject={onOpenProject} onTabChange={onTabChange} projectCount={projects.length} distribution={distribution} /></div>}
         <div className="engineer-overview-layout">
         <div className="engineer-panel">
           <div className="engineer-panel-heading"><h2><FolderOpen size={18} />{tab === "home" ? "Proyectos activos" : tabOptions.find((option) => option.key === tab)?.label}</h2><span>{tab === "home" ? activeProjects.length : tabOptions.find((option) => option.key === tab)?.count} registros</span></div>
@@ -141,14 +143,7 @@ export function EngineerView({
 
       {/* ── Proyectos ── */}
       {tab !== "requests" && tab !== "correction" && tab !== "calendar" ? (
-        <div className={tab === "home" || tab === "active" ? "active-project-grid" : "space-y-3"}>
-          {displayed.map((project) => (
-            tab === "home" || tab === "active" ? <ActiveProjectCard key={project.id} project={project} onOpen={onOpenProject} onOpenPhase={onOpenProjectPhase} canEdit={canEditProject?.(project)} assignedEngineerName={getAssignedEngineerName?.(project)} /> : <ProjectCard key={project.id} project={project} onOpen={onOpenProject} showFinancialPhases={false} />
-          ))}
-          {displayed.length === 0 && (
-            <div className="engineer-empty"><FolderOpen size={36} /><h3>Sin proyectos</h3><p>Los proyectos de esta sección aparecerán aquí.</p></div>
-          )}
-        </div>
+        <EngineerProjectList projects={displayed} onOpen={onOpenProject} onOpenPhase={onOpenProjectPhase} getAssignedEngineerName={getAssignedEngineerName} />
       ) : null}
 
       {/* ── Calendario ── */}
@@ -313,7 +308,6 @@ export function EngineerView({
       ) : null}
 
         </div>
-        {tab === "home" && <EngineerInsights notifications={notifications} onOpenNotification={onOpenNotification} upcoming={upcoming} onOpenProject={onOpenProject} onTabChange={onTabChange} projectCount={projects.length} distribution={distribution} />}
         </div>
       </div>
       {/* FAB */}

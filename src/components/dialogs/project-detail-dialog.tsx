@@ -1,3 +1,6 @@
+import { PhaseNavigation } from "@/components/ui/phase-navigation";
+import { ProjectExecutionFlow } from "./project-execution-flow";
+import "./project-detail-dialog.css";
 import { ProjectOpeningFlow } from "./project-opening-flow";
 import {
   Camera, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -1075,13 +1078,12 @@ export function ProjectDetailDialog({
   return (
     <Dialog
       open={open}
+      lockScroll
       onOpenChange={onOpenChange}
       title={project.baseName}
       description={project.structuredName}
-      className={currentUser.role === "engineer" && mainTab === "info" && infoTab === "f1" ? "max-w-6xl" : "max-w-3xl"}
-    >
-      {/* Badges + progress */}
-      <div className="mb-4 space-y-3">
+      headerContent={<div className="project-detail-dialog__toolbar">      {/* Badges + progress */}
+      <div className="project-detail-dialog__status">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge kind="project" value={project.status} />
           <StatusBadge kind="payment" value={project.paymentStatus} />
@@ -1130,43 +1132,16 @@ export function ProjectDetailDialog({
       />
 
       {/* ══════════════════ INFO TAB ══════════════════ */}
+{mainTab === "info" && <div className="project-detail-dialog__phase-tabs"><PhaseNavigation value={infoTab} onChange={setInfoTab} options={infoTabs.map(tab => ({ key: tab.key, label: tab.sublabel, description: tab.key === "f1" ? "Identificación, ubicación y contactos" : tab.key === "f2" ? "Seguimiento, fechas y evidencias" : tab.key === "f3" ? "Información financiera" : "Pagos y comprobantes" }))} /></div>}</div>}
+      bodyClassName={currentUser.role === "engineer" && mainTab === "info" && (infoTab === "f1" || infoTab === "f2") ? "project-detail-dialog__body project-detail-dialog__body--flow" : "project-detail-dialog__body"}
+      footer={mainTab === "info" && canEditProject && ((infoTab === "f1" || infoTab === "f2") && currentUser.role !== "engineer") ? <div className="project-detail-dialog__save-footer"><SaveBtn onClick={infoTab === "f2" ? handleSaveF2 : handleSaveF1} label={infoTab === "f2" ? "Guardar ejecución" : "Guardar apertura"} saving={infoTab === "f2" ? savingF2 : savingF1} /></div> : undefined}
+      className={`project-detail-dialog ${currentUser.role === "engineer" && mainTab === "info" && (infoTab === "f1" || infoTab === "f2") ? "max-w-5xl" : "max-w-3xl"}`}
+    >
       {mainTab === "info" ? (
-        <div className="mt-4 space-y-4">
-          {/* F-sub-tabs */}
-          <div
-            className="grid gap-1 rounded-2xl bg-[var(--input-bg)] p-1"
-            style={{ gridTemplateColumns: `repeat(${infoTabs.length}, 1fr)` }}
-          >
-            {infoTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setInfoTab(tab.key)}
-                className={`flex flex-col items-center rounded-xl px-1 py-2.5 text-center transition-all duration-200 ${
-                  infoTab === tab.key ? "bg-[var(--surface)] shadow-sm" : "hover:bg-[var(--surface)]"
-                }`}
-              >
-                <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${infoTab === tab.key ? "text-[color:var(--text-muted)]" : "text-[color:var(--text-muted)]"}`}>
-                  {tab.label}
-                </span>
-                <span className={`text-sm font-bold ${infoTab === tab.key ? "text-foreground" : "text-[color:var(--text-muted)]"}`}>
-                  {tab.sublabel}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Barra de código */}
-          <div className="rounded-xl border border-[#1E3A5F]/40 bg-[#1A2235] px-4 py-2.5">
-            <p className="font-mono text-sm font-bold tracking-wide text-[#60A5FA]">
-              {project.structuredName}
-            </p>
-          </div>
-
-          {/* ────────── F1 APERTURA ────────── */}
+        <div className="project-detail-dialog__info">
           {infoTab === "f1" ? (
             <div
-              className="space-y-3"
+              className="project-detail-dialog__phase"
               onKeyDown={(e) => {
                 if (e.key !== "Enter" || !canEditProject || currentUser.role === "engineer") return;
                 const tag = (e.target as HTMLElement).tagName;
@@ -1178,13 +1153,13 @@ export function ProjectDetailDialog({
             >
               <ProjectOpeningFlow key={project.id} enabled={currentUser.role === "engineer"}
                 fieldProgress={(() => {
-                  const info = [f1Client, f1Department, f1Type, f1Lugar, f1BaseName];
+                  const info = [f1Client, f1Department, f1Type, f1Lugar, f1BaseName, f1Urgencia, engineerUsers.find(user => user.id === f1EngineerId)?.name, ...(f1SubcontratadoActivo ? [f1NombreSubcontratado] : [])];
                   const location = [...ubicacionFields.map(field => f1Ubicacion[field.key]), f1Negociador, f1ContactUser];
                   const count = (values: unknown[]) => ({filled: values.filter(isFilled).length, total: values.length});
                   return [count(info), count(location), count([...info, ...location])];
                 })()}
                 canContinue={!canEditProject || (isFilled(f1Client) && isFilled(f1Department) && isFilled(f1Type) && isFilled(f1Lugar) && isFilled(f1BaseName))}
-                preview={{address: ubicacionFields.map(field => f1Ubicacion[field.key]).filter(Boolean).join(", "), negotiator: f1Negociador, contact: f1ContactUser, name: f1BaseName, client: f1Client, department: f1Department, place: f1Lugar, engineer: assignedEngineer?.name ?? "Sin asignar", folio: consecutivo, reference: buildStructuredName({sequence: getProjectSequence(project), client: f1Client, department: f1Department, lugar: f1Lugar || undefined, type: f1Type, baseName: f1BaseName})}}
+                preview={{address: ubicacionFields.map(field => f1Ubicacion[field.key]).filter(Boolean).join(", "), negotiator: f1Negociador, contact: f1ContactUser, name: f1BaseName, client: f1Client, department: f1Department, place: f1Lugar, engineer: engineerUsers.find(user => user.id === f1EngineerId)?.name ?? "Sin asignar", folio: consecutivo, reference: buildStructuredName({sequence: getProjectSequence(project), client: f1Client, department: f1Department, lugar: f1Lugar || undefined, type: f1Type, baseName: f1BaseName})}}
                 information={<>              {/* Subcontratado — visible para todos los perfiles. Lo pueden activar/desactivar
                   ingeniero, supervisor y gestor del sistema; Administración solo lo ve (bloqueado). */}
               {(() => {
@@ -1344,7 +1319,7 @@ export function ProjectDetailDialog({
                       ))}
                     </select>
                   ) : (
-                    <input className={INP_RO} value={assignedEngineer?.name ?? "Sin asignar"} readOnly />
+                    <input className={INP_RO} value={engineerUsers.find(user => user.id === f1EngineerId)?.name ?? "Sin asignar"} readOnly />
                   )}
                 </div>
               </div>
@@ -1357,7 +1332,7 @@ export function ProjectDetailDialog({
                   {ubicacionFields.map(({ key, label, placeholder }) => {
                     const missing = f1MissingKeys.has(`ubicacion.${key}`);
                     return (
-                      <div key={key} className={fieldClass({ filled: isFilled(f1Ubicacion[key]), missing })}>
+                      <div key={key} className={`${fieldClass({ filled: isFilled(f1Ubicacion[key]), missing })} ${key === "calle" || key === "descripcion" ? "sm:col-span-2" : ""}`}>
                         <ReqLabel text={label} missing={missing} />
                         <input
                           className={INP}
@@ -1492,7 +1467,7 @@ export function ProjectDetailDialog({
               </div>
 
 </>}
-                save={canEditProject ? <SaveBtn onClick={handleSaveF1} label="Guardar apertura" saving={savingF1} /> : null}
+                save={canEditProject && currentUser.role === "engineer" ? <SaveBtn onClick={handleSaveF1} label="Guardar apertura" saving={savingF1} /> : null}
               />
             </div>
           ) : null}
@@ -1500,9 +1475,9 @@ export function ProjectDetailDialog({
           {/* ────────── F2 EJECUCIÓN ────────── */}
           {infoTab === "f2" ? (
             <div
-              className="space-y-3"
+              className="project-detail-dialog__phase"
               onKeyDown={(e) => {
-                if (e.key !== "Enter" || !canEditProject) return;
+                if (e.key !== "Enter" || !canEditProject || currentUser.role === "engineer") return;
                 const tag = (e.target as HTMLElement).tagName;
                 if (tag === "INPUT" || tag === "SELECT") {
                   e.preventDefault();
@@ -1510,7 +1485,29 @@ export function ProjectDetailDialog({
                 }
               }}
             >
-              <div className="grid gap-3 sm:grid-cols-2">
+              <ProjectExecutionFlow enabled={currentUser.role === "engineer"}
+                progress={(() => {
+                  const tracking = [f2Status, f2Estimacion, f2Cotizacion, f2PaymentStatus];
+                  const dates = [f2StartDate, f2EndDate, f2CommitmentDate];
+                  const count = (values: unknown[]) => ({ filled: values.filter(isFilled).length, total: values.length });
+                  return [count(tracking), count(dates), count([...tracking, ...dates])];
+                })()}
+                summary={[
+                  { label: "Estado del proyecto", value: STATUS_OPTIONS.find(option => option.value === f2Status)?.label },
+                  { label: "Estado estimación", value: f2Estimacion },
+                  { label: "Estado cotización", value: f2Cotizacion },
+                  { label: "Estado pago", value: ({ unpaid: "No pagado", partial: "Pago parcial", paid: "Pagado" })[f2PaymentStatus] },
+                  { label: "Fecha de solicitud", value: f2FechaSolicitud ? fmtHint(f2FechaSolicitud) : undefined },
+                  { label: "Fecha de inicio", value: f2StartDate ? fmtHint(f2StartDate) : undefined },
+                  { label: "Fecha de fin", value: f2EndDate ? fmtHint(f2EndDate) : undefined },
+                  { label: "Fecha compromiso", value: f2CommitmentDate ? fmtHint(f2CommitmentDate) : undefined },
+                  { label: "Fotos de evidencia", value: ({ no: "No", si: "Sí", "en-revision": "En revisión", rechazado: "Rechazado" })[f2FotosStatus] },
+                  { label: "Reporte generado", value: ({ no: "No", si: "Sí", "en-revision": "En revisión", rechazado: "Rechazado" })[f2ReporteFileStatus] },
+                  ...(project.subcontratadoActivo ? [{ label: "Subcontratado", value: project.nombreSubcontratado }] : []),
+                  { label: "Comentarios del campo", value: f2Comentarios, wide: true },
+                ]}
+                save={canEditProject && currentUser.role === "engineer" ? <SaveBtn onClick={handleSaveF2} label="Guardar ejecución" saving={savingF2} /> : null}
+                tracking={<>              <div className="grid gap-3 sm:grid-cols-2">
                 <div className={fieldClass({ filled: isFilled(f2Status), missing: !isFilled(f2Status) })}>
                   <label className={LBL}>Estado del proyecto</label>
                   <select className={INP} value={f2Status} onChange={(e) => setF2Status(e.target.value as ProjectStatus)} disabled={!canEditProject}>
@@ -1537,6 +1534,9 @@ export function ProjectDetailDialog({
                     <option value="paid">Pagado</option>
                   </select>
                 </div>
+              </div>
+</>}
+                schedule={<>              <div className="grid gap-3 sm:grid-cols-2">
                 <div className={fieldClass({ filled: isFilled(f2FechaSolicitud), missing: false })}>
                   <label className={LBL}>Fecha de Solicitud</label>
                   <div className={`${INP_RO} flex items-center`}>
@@ -1654,7 +1654,8 @@ export function ProjectDetailDialog({
                 />
               </div>
 
-              {canEditProject ? <SaveBtn onClick={handleSaveF2} label="Guardar ejecución" saving={savingF2} /> : null}
+</>}
+              />
             </div>
           ) : null}
 

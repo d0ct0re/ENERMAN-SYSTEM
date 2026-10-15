@@ -40,14 +40,14 @@ export function TopBar({ notifications, projects, unreadCount, onMarkAllRead, on
   const closeSearch = (): void => { setSearchOpen(false); trigger.current?.focus(); };
   return <>
     {activityTarget && createPortal(<ActivityFeed notifications={notifications} projects={projects} unreadCount={unreadCount} onMarkAllRead={onMarkAllRead} onMarkRead={onMarkRead} onDeleteNotification={onDeleteNotification} onNavigateTo={onNavigateTo} />, activityTarget)}
-    <AppHeader>
+    <AppHeader chromeless={collapsibleSidebar}>
       <div className="app-header__brand">
         <button type="button" className={`shell-icon-button${collapsibleSidebar ? " engineer-menu-trigger" : ""}`} aria-label={sidebarOpen ? "Ocultar navegación" : "Mostrar navegación"} aria-expanded={sidebarOpen} aria-controls="app-navigation" onClick={onToggleSidebar}><Menu size={22} /></button>
         <AmperLogo onClick={() => { onHome?.(); window.scrollTo({top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); }} />
         <span className="app-header__page" aria-live="polite">{currentPage}</span>
       </div>
       <form className="app-header__search" role="search" onSubmit={event => event.preventDefault()}><Search size={19} /><input aria-label="Buscar folio, cliente o descripción" value={searchQuery} onChange={event => onSearchChange(event.target.value)} placeholder="Buscar folio, cliente o descripción..." /></form>
-      <div className="app-header__actions"><button ref={trigger} className="shell-icon-button app-header__search-trigger" type="button" aria-label="Abrir buscador" aria-expanded={searchOpen} aria-controls="mobile-search" onClick={() => setSearchOpen(!searchOpen)}><Search size={21} /></button><ThemeToggle /></div>
+      <div className="app-header__actions"><button ref={trigger} className="shell-icon-button app-header__search-trigger" type="button" aria-label="Abrir buscador" aria-expanded={searchOpen} aria-controls="mobile-search" onClick={() => setSearchOpen(!searchOpen)}><Search size={21} /></button>{!collapsibleSidebar && <ThemeToggle />}</div>
       {searchOpen && <form id="mobile-search" role="search" className="app-header__mobile-search" onSubmit={event => {event.preventDefault(); closeSearch();}} onKeyDown={event => {if(event.key === 'Escape') closeSearch();}}><Search size={18} /><input ref={input} aria-label="Buscar en ENERMAN" value={searchQuery} onChange={event => onSearchChange(event.target.value)} placeholder="Buscar en ENERMAN" /><button type="button" className="shell-icon-button" aria-label="Cerrar buscador" onClick={closeSearch}><X size={20} /></button></form>}
     </AppHeader>
     <AppNavigation notificationsPanel={collapsibleSidebar ? <ActivityFeed notifications={notifications} projects={projects} unreadCount={unreadCount} onMarkAllRead={onMarkAllRead} onMarkRead={onMarkRead} onDeleteNotification={onDeleteNotification} onNavigateTo={onNavigateTo} /> : undefined} collapsible={collapsibleSidebar} open={sidebarOpen} onClose={() => onToggleSidebar?.()} items={navigationItems} user={activeUser} accounts={accounts} onAccountChange={onAccountChange} onAddAccount={onAddAccount} onLogout={onLogout} />

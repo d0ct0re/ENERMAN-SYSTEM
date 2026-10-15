@@ -59,15 +59,21 @@
 .app-navigation--engineer .app-navigation__notifications > div:last-child { max-height: 190px; }
 .app-navigation--engineer .app-navigation__notifications .text-sm { font-size: 12px; }
 .app-navigation--engineer .app-navigation__notifications .text-xs { font-size: 11px; }
+.engineer-toolbar { position: sticky; top: 0; z-index: 70; background: var(--header); border-bottom: 1px solid var(--line); box-shadow: none; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
+.engineer-toolbar .app-header__page { display: none; }
+.engineer-toolbar .app-header__search { justify-self: end; width: min(100%, 460px); }
+.app-navigation__settings { flex-shrink: 0; padding-bottom: 10px; }
+.theme-toggle--sidebar { justify-content: flex-start; gap: 12px; width: 100%; padding: 0 18px; border: 0; font-weight: 400; }
+.theme-toggle--sidebar > svg { flex-shrink: 0; }
+.app-navigation--collapsed .theme-toggle--sidebar > span { opacity: 0; pointer-events: none; }
 @media (min-width: 901px) {
  .engineer-menu-trigger { display: none; }
- .app-header:has(.engineer-menu-trigger) { padding-left: 100px; }
- .app-header__brand:has(.engineer-menu-trigger) > button[aria-label^='ENERMAN'] { display: none; }
- .app-navigation--engineer { top: 0; z-index: 60; padding-top: 8px; }
+ .app-header.engineer-toolbar { padding-left: 24px; }
+ .app-navigation--engineer > .app-navigation__brand { display: none; }
+ .app-navigation--engineer { top: 80px; z-index: 60; padding-top: 8px; }
  .app-navigation--engineer > .app-navigation__heading { min-height: 28px; font-size: 8px; padding-left: 14px; }
- .app-navigation--collapsed .app-navigation__brand img { width: 40px; }
  .app-navigation--collapsed .app-navigation__group { opacity: 0; }
- .app-navigation--auto { padding-inline: 8px; overflow: hidden; transition: width 220ms ease; box-shadow: 4px 0 16px var(--shadow); }
+ .app-navigation--auto { padding-inline: 8px; overflow: hidden; transition: width 220ms ease, background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease; box-shadow: 4px 0 16px var(--shadow); }
  .app-navigation--auto > .app-navigation__heading { white-space: nowrap; }
  .app-navigation--auto nav { overflow-x: hidden; }
  .app-navigation--auto nav > button { padding: 10px 18px; gap: 12px; min-height: 38px; }
@@ -85,7 +91,12 @@
  .app-navigation--auto nav > button > span,
  .app-navigation--auto .app-navigation__profile > span,
  .app-navigation--auto .app-navigation__profile > svg { transition: opacity 140ms ease; }
- .app-navigation--collapsed { width: 76px; }
+ .app-navigation--collapsed { width: 76px; background: transparent; border-color: transparent; box-shadow: none; }
+ .app-navigation--collapsed nav > button,
+ .app-navigation--collapsed .theme-toggle--sidebar,
+ .app-navigation--collapsed .app-navigation__profile { background: transparent; }
+ .app-navigation--collapsed .app-navigation__account { border-color: transparent; }
+ .app-navigation--collapsed nav > button[aria-current='page']::before { opacity: 0; }
  .app-navigation--collapsed > .app-navigation__heading,
  .app-navigation--collapsed .app-navigation__profile-label,
  .app-navigation--collapsed nav > button > span,
@@ -93,6 +104,8 @@
  .app-navigation--collapsed .app-navigation__profile > svg { opacity: 0; pointer-events: none; }
  .app-navigation--collapsed nav > button > b { position: absolute; top: 2px; right: 2px; font-size: 9px; border-radius: 8px; padding: 0 4px; background: var(--surface-alt); }
  .dashboard-shell:has(> .app-navigation--auto) > section { margin-left: 76px; }
+ .dashboard-shell:has(> .app-navigation--auto) > .engineer-workspace { transition: margin-left 220ms ease; }
+ .dashboard-shell:has(> .app-navigation--auto:not(.app-navigation--collapsed)) > .engineer-workspace { margin-left: 244px; }
 }
 @media (max-width: 1200px) { .app-header__page { display: none; } }
 @media (max-width: 900px) {

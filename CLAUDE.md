@@ -85,3 +85,8 @@ FTPS → `main`.
   skills compartidas, re-ejecución manual de workflows, validación PHP en GitHub Actions.
   Lista para merge a `dev`.
 - La rama `seguridad-auditoria` (solo local en Windows) quedó obsoleta: su código ya está en `dev`.
+
+### Interfaz de ingeniero (Windows, 2026-10-15)
+- Rama compartida: interfaz_ingeniero. Cambios de interfaz, dashboard y modales reutilizables de fases 1 y 2; sin merge a main/dev ni despliegue.
+- Build y pruebas locales de pasos, datos y mobile aprobadas. Instrucciones: docs/PRUEBAS-INTERFAZ-INGENIERO.md.
+- Demo de grafica solo DEV; retirar TODO: REMOVE_DEMO_CHART_DATA antes de entrega final.
