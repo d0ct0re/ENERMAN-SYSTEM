@@ -64,7 +64,7 @@ export function AdminReviewCard({
             {request.client} · {request.department}
           </p>
           <h3 className="text-[16px] font-bold leading-snug text-foreground">{request.baseName}</h3>
-          <p className="text-xs text-[#888888]">
+          <p className="text-xs text-[color:var(--text-muted)]">
             {request.structuredName || "Sin folio aún"}
           </p>
         </div>
@@ -73,13 +73,13 @@ export function AdminReviewCard({
 
       {/* Description preview */}
       {request.description ? (
-        <p className="line-clamp-2 text-xs leading-relaxed text-[#A1A1AA]">{request.description}</p>
+        <p className="line-clamp-2 text-xs leading-relaxed text-[color:var(--text-muted)]">{request.description}</p>
       ) : null}
 
       {/* Requester */}
       {requesterName ? (
-        <p className="text-xs text-[#888888]">
-          <span className="font-semibold text-[#A1A1AA]">Solicitado por:</span> {requesterName}
+        <p className="text-xs text-[color:var(--text-muted)]">
+          <span className="font-semibold text-[color:var(--text-muted)]">Solicitado por:</span> {requesterName}
         </p>
       ) : null}
 
@@ -95,7 +95,7 @@ export function AdminReviewCard({
       {mode === "approving" ? (
         <div className="space-y-2.5 rounded-2xl border border-[#4ADE80]/20 bg-[#0D2417] p-3" onClick={(e) => e.stopPropagation()}>
           <p className="text-xs font-bold text-[#4ADE80]">Confirmar aprobación</p>
-          <p className="text-xs text-[#888888]">Al aprobar, se creará el proyecto{suggestedSequence ? (
+          <p className="text-xs text-[color:var(--text-muted)]">Al aprobar, se creará el proyecto{suggestedSequence ? (
             <>
             {" "}con el folio{" "}
             <span className="font-mono font-semibold text-foreground">~#{suggestedSequence}</span>
@@ -113,7 +113,7 @@ export function AdminReviewCard({
             <button
               type="button"
               onClick={() => setMode("idle")}
-              className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-bold text-[#888888] transition hover:text-white"
+              className="rounded-xl border border-[color:var(--line)] px-4 py-2 text-sm font-bold text-[color:var(--text-muted)] transition hover:text-white"
             >
               Cancelar
             </button>
@@ -128,7 +128,7 @@ export function AdminReviewCard({
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Motivo del rechazo..."
-            className="w-full resize-none rounded-xl border border-[#3F3F46] bg-[#1F1F22] px-3 py-2 text-sm text-foreground outline-none focus:border-danger/50"
+            className="w-full resize-none rounded-xl border border-[color:var(--line)] bg-[var(--input-bg)] px-3 py-2 text-sm text-foreground outline-none focus:border-danger/50"
             rows={2}
             autoFocus
           />
@@ -144,7 +144,7 @@ export function AdminReviewCard({
             <button
               type="button"
               onClick={() => { setMode("idle"); setRejectReason(""); }}
-              className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-bold text-[#888888] transition hover:text-white"
+              className="rounded-xl border border-[color:var(--line)] px-4 py-2 text-sm font-bold text-[color:var(--text-muted)] transition hover:text-white"
             >
               Cancelar
             </button>
@@ -175,7 +175,7 @@ export function AdminReviewCard({
             <button
               type="button"
               onClick={() => { setMode("idle"); setCorrectionReason(""); }}
-              className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-bold text-[#888888] transition hover:text-white"
+              className="rounded-xl border border-[color:var(--line)] px-4 py-2 text-sm font-bold text-[color:var(--text-muted)] transition hover:text-white"
             >
               Cancelar
             </button>
@@ -184,8 +184,8 @@ export function AdminReviewCard({
       ) : null}
 
       {/* Footer */}
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-[#3F3F46] pt-3">
-        <p className="text-xs text-[#888888]">Ingresado: {formatDate(request.createdAt)}</p>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--line)] pt-3">
+        <p className="text-xs text-[color:var(--text-muted)]">Ingresado: {formatDate(request.createdAt)}</p>
         {mode === "idle" ? (
           <div className="flex flex-wrap gap-2">
             {isPending && onApprove ? (

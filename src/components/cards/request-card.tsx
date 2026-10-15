@@ -17,12 +17,12 @@ export function RequestCard({ request, onOpen }: RequestCardProps): JSX.Element 
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">{request.client}</p>
           <h3 className="mt-2 text-lg font-semibold text-foreground">{request.baseName}</h3>
-          <p className="text-sm text-[#888888]">{request.structuredName}</p>
+          <p className="text-sm text-[color:var(--text-muted)]">{request.structuredName}</p>
         </div>
         <StatusBadge kind="request" value={request.status} />
       </div>
 
-      <p className="text-sm leading-6 text-[#888888]">{request.description}</p>
+      <p className="text-sm leading-6 text-[color:var(--text-muted)]">{request.description}</p>
 
       {request.duplicateOfProjectId ? (
         <div className="flex items-start gap-3 rounded-2xl bg-[#F5A524]/15 p-4 text-sm text-[#F5A524] ring-1 ring-[#F5A524]/20">
@@ -53,7 +53,7 @@ export function RequestCard({ request, onOpen }: RequestCardProps): JSX.Element 
       ) : null}
 
       <div className="mt-auto flex items-center justify-between">
-        <p className="text-sm text-[#888888]">Alta: {formatDate(request.createdAt)}</p>
+        <p className="text-sm text-[color:var(--text-muted)]">Alta: {formatDate(request.createdAt)}</p>
         <Button variant="outline" onClick={() => onOpen(request.id)}>
           Ver detalle
           <ArrowUpRight className="h-4 w-4" />

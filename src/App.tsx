@@ -1,3 +1,6 @@
+import "@/styles/login.css";
+import type { NavigationItem } from "@/components/layout/app-navigation";
+import type { ProjectPhase } from "@/components/cards/project-phase-steps";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/components/layout/top-bar";
@@ -54,8 +57,14 @@ function loadStateCache(): { ts: number; payload: import("@/lib/api").AppStatePa
 import { realtime } from "@/lib/realtime";
 import { buildStructuredName, formatLocalDateKey } from "@/lib/utils";
 import { ActivityLogItem, NotificationItem, NotificationRecipientState, ProjectItem, RequestItem, RoleKey, UserItem } from "@/types";
-const splashLogoUrl = "/logo-entrada.jpg";
 const wordmarkLogoUrl = "/logo-wordmark-transparent.png";
+const loginPhotos = [
+  { src: "/login/equipo-sin-logo.png", position: "center" },
+  { src: "/login/lineas.jpeg", position: "center" },
+  { src: "/login/estructura.jpg", position: "center 45%" },
+  { src: "/login/instalaciones.jpg", position: "center 60%" },
+  { src: "/login/mantenimiento.jpg", position: "center 60%" },
+];
 
 type AdminTab = "review" | "allprojects" | "active" | "completed" | "cancelled" | "unpaid" | "rejected" | "correction" | "calendar" | "users" | "projects" | "requests" | "activity" | "cobros";
 
@@ -79,12 +88,14 @@ export default function App(): JSX.Element {
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [apiReady, setApiReady] = useState(false);
-  const [engineerTab, setEngineerTab] = useState<EngineerTab>("all");
+  const [engineerSidebarOpen, setEngineerSidebarOpen] = useState(() => window.innerWidth > 900);
+  const [engineerTab, setEngineerTab] = useState<EngineerTab>("home");
   const [adminTab, setAdminTab] = useState<AdminTab>("allprojects");
   const [supervisorTab, setSupervisorTab] = useState<SupervisorTab>("open");
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [selectedProjectPhase, setSelectedProjectPhase] = useState<ProjectPhase | undefined>();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Avisa al usuario cuando un guardado atómico fire-and-forget falla en el servidor —
@@ -282,6 +293,16 @@ export default function App(): JSX.Element {
 
   const selectedRequest = requests.find((request) => request.id === selectedRequestId);
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
+
+  const navigationItems: NavigationItem[] = activeRole === "engineer" ? [
+    { key: "home", label: "Inicio", icon: "home" }, { key: "all", label: "Mis proyectos", icon: "projects" }, { key: "active", label: "Proyectos activos", icon: "projects" }, { key: "completed", label: "Terminados", icon: "completed" }, { key: "requests", label: "Solicitudes", icon: "requests" }, { key: "correction", label: "En corrección", icon: "correction" }, { key: "calendar", label: "Calendario", icon: "calendar" }, { key: "notifications", label: "Notificaciones", icon: "notifications", count: visibleNotifications.filter(notification => !notification.isRead).length || undefined },
+  ].map(item => ({ ...item, icon: item.icon as NavigationItem["icon"], active: item.key !== "notifications" && engineerTab === item.key, onSelect: () => { if (item.key !== "notifications") setEngineerTab(item.key as EngineerTab); } })) : activeRole === "supervisor" ? [
+    { key: "all", label: "Todos los proyectos", icon: "projects" }, { key: "open", label: "Proyectos activos", icon: "projects" }, { key: "closed", label: "Concluidos", icon: "completed" }, { key: "requests", label: "Solicitudes", icon: "requests" }, { key: "calendar", label: "Calendario", icon: "calendar" },
+  ].map(item => ({ ...item, icon: item.icon as NavigationItem["icon"], active: supervisorTab === item.key, onSelect: () => setSupervisorTab(item.key as SupervisorTab) })) : (activeRole === "system_admin" ? [
+    { key: "projects", label: "Proyectos", icon: "projects" }, { key: "requests", label: "Solicitudes", icon: "requests" }, { key: "users", label: "Usuarios", icon: "users" }, { key: "activity", label: "Actividad", icon: "activity" },
+  ] : [
+    { key: "allprojects", label: "Todos los proyectos", icon: "projects" }, { key: "active", label: "Proyectos activos", icon: "projects" }, { key: "completed", label: "Concluidos", icon: "completed" }, ...(appSettings.cobrosEnabled ? [{key: "cobros", label: "Cobros", icon: "money"}] : []), { key: "review", label: "Solicitudes", icon: "requests" }, { key: "correction", label: "En corrección", icon: "correction" }, { key: "calendar", label: "Calendario", icon: "calendar" },
+  ]).map(item => ({ ...item, icon: item.icon as NavigationItem["icon"], active: adminTab === item.key || (activeRole === "system_admin" && adminTab === "allprojects" && item.key === "projects"), onSelect: () => setAdminTab(item.key as AdminTab) }));
 
   const unreadCount = visibleNotifications.filter((notification) => !notification.isRead).length;
 
@@ -608,6 +629,7 @@ export default function App(): JSX.Element {
   }, [apiReady, hasHydrated, notifications, projects, requests]);
 
   const openProjectById = (projectId: string): void => {
+    setSelectedProjectPhase(undefined);
     // Defensa contra notificaciones "fantasma" — si el proyecto ya fue eliminado
     // (permanentemente o por otra sesión), avisar en vez de abrir un diálogo vacío
     // que no hace nada visible.
@@ -2301,27 +2323,27 @@ export default function App(): JSX.Element {
     }
   };
 
-  if (showSplash) {
-    return <SplashScreen onDone={() => setShowSplash(false)} />;
-  }
-
   if (isLoggedOut) {
     return (
       <LoginView
         onLogin={handleLogin}
         initialEmail={loginEmail}
+        intro={showSplash}
+        onIntroDone={() => setShowSplash(false)}
       />
     );
   }
+
+  if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
 
   return (
     <div className="dashboard-shell gap-6">
       {/* ── Bloqueo: esta pestaña quedó con la sesión de otra cuenta ── */}
       {sessionMismatch ? (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="max-w-md rounded-[24px] border border-[#F5A524]/30 bg-[#1E1E20] p-6 text-center shadow-panel">
+          <div className="max-w-md rounded-[24px] border border-[#F5A524]/30 bg-[var(--input-bg)] p-6 text-center shadow-panel">
             <p className="text-lg font-bold text-[#F5A524]">Esta pestaña cambió de cuenta</p>
-            <p className="mt-2 text-sm text-[#A1A1AA]">
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
               En otra pestaña de este navegador se inició sesión con otra cuenta y, al compartir
               el inicio de sesión, esta pestaña ya no corresponde a {activeUser.name}. Recarga
               para continuar con la cuenta correcta y evitar hacer cambios con permisos equivocados.
@@ -2343,18 +2365,24 @@ export default function App(): JSX.Element {
           <div className="flex items-center gap-2.5">
             <span className="inline-block h-2 w-2 rounded-full bg-[#F5A524] animate-pulse" />
             <span className="font-semibold text-[#F5A524]">Sistema sin conexión</span>
-            <span className="text-[#A1A1AA]">
+            <span className="text-[color:var(--text-muted)]">
               — mostrando datos guardados
               {cacheTimestamp ? ` del ${new Date(cacheTimestamp).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
               .{" "}Los cambios no se guardarán hasta que el servidor responda.
             </span>
           </div>
-          <span className="shrink-0 text-xs text-[#52525B]">
+          <span className="shrink-0 text-xs text-[color:var(--text-muted)]">
             {offlineSince ? `Sin conexión desde ${offlineSince.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}` : ""}
           </span>
         </div>
       )}
       <TopBar
+        navigationItems={navigationItems}
+        currentPage={navigationItems.find(item => item.active)?.label ?? "Inicio"}
+        onHome={() => { setSearchQuery(""); setEngineerTab("home"); setSupervisorTab("open"); setAdminTab(activeRole === "system_admin" ? "projects" : "allprojects"); }}
+        onToggleSidebar={() => setEngineerSidebarOpen((open) => !open)}
+        sidebarOpen={engineerSidebarOpen}
+        collapsibleSidebar={activeRole === "engineer"}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         unreadCount={unreadCount}
@@ -2485,10 +2513,21 @@ export default function App(): JSX.Element {
 
       {activeRole === "engineer" ? (
         <EngineerView
+          getAssignedEngineerName={(project) => users.filter((user) => user.role === "engineer" && (user.id === project.createdBy || project.participants.includes(user.id))).map((user) => user.name).join(", ") || undefined}
+          canEditProject={(project) => project.createdBy === activeUser.id || project.participants.includes(activeUser.id)}
+          onOpenProjectPhase={(projectId, phase) => { openProjectById(projectId); setSelectedProjectPhase(phase); }}
+          sidebarOpen={engineerSidebarOpen}
+          notifications={visibleNotifications}
+          onOpenNotification={(notification) => {
+            handleMarkRead(notification.id);
+            if (notification.relatedProjectId) openProjectById(notification.relatedProjectId);
+            if (notification.relatedRequestId) setSelectedRequestId(notification.relatedRequestId);
+          }}
           tab={engineerTab}
           onTabChange={setEngineerTab}
           activeUserName={activeUser.name}
           projects={engineerCalendarProjects}
+          globalProjects={filteredProjects}
           requests={engineerRequests}
           onOpenProject={openProjectById}
           onOpenNewRequest={() => setNewRequestOpen(true)}
@@ -2588,10 +2627,12 @@ export default function App(): JSX.Element {
       />
 
       <ProjectDetailDialog
+        initialPhase={selectedProjectPhase}
         open={selectedProjectId !== null}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedProjectId(null);
+            setSelectedProjectPhase(undefined);
           }
         }}
         project={selectedProject}
@@ -2659,41 +2700,52 @@ function getProjectSequence(project: ProjectItem): string {
   return sequence ? sequence.padStart(4, "0") : "—";
 }
 
-function SplashScreen({ onDone }: { onDone: () => void }): JSX.Element {
-  const [phase, setPhase] = useState<"entering" | "visible" | "fading">("entering");
+function SplashScreen({ onDone, onReveal, target }: {
+  onDone: () => void;
+  onReveal?: () => void;
+  target?: React.RefObject<HTMLImageElement>;
+}): JSX.Element {
+  const [phase, setPhase] = useState<"entering" | "visible" | "moving">("entering");
+  const [destination, setDestination] = useState<DOMRect | null>(null);
+  const callbacks = useRef({ onDone, onReveal });
+  callbacks.current = { onDone, onReveal };
+  const [origin] = useState(() => {
+    const width = Math.min(window.innerWidth * .72, 720);
+    return { width, left: (window.innerWidth - width) / 2, top: (window.innerHeight - width * 213 / 640) / 2 };
+  });
+  const reducedMotion = useRef(matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("visible"), 80);
-    const t2 = setTimeout(() => setPhase("fading"), 1700);
-    const t3 = setTimeout(onDone, 2250);
+    const reduced = reducedMotion.current;
+    const t1 = setTimeout(() => setPhase("visible"), reduced ? 0 : 80);
+    const t2 = setTimeout(() => {
+      setDestination(target?.current?.getBoundingClientRect() ?? null);
+      setPhase("moving");
+      callbacks.current.onReveal?.();
+    }, reduced ? 100 : 1300);
+    const t3 = setTimeout(() => callbacks.current.onDone(), reduced ? 300 : 2900);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [onDone]);
+  }, [target]);
 
+  const moving = phase === "moving";
   return (
-    <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
-      style={{
-        opacity: phase === "fading" ? 0 : 1,
-        transition: phase === "fading" ? "opacity 500ms ease" : undefined,
-      }}
-    >
-      <div
-        className="flex w-full select-none justify-center px-8"
+    <div className="intro-overlay" aria-hidden="true">
+      <div className="intro-backdrop" style={{ opacity: moving ? 0 : 1 }} />
+      <img
+        src={wordmarkLogoUrl}
+        alt=""
+        width={640}
+        height={213}
+        className="intro-logo"
         style={{
-          opacity: phase === "entering" ? 0 : 1,
-          transform: phase === "entering" ? "scale(0.94)" : "scale(1)",
-          transition: "opacity 600ms ease, transform 600ms ease",
+          left: moving && destination ? destination.left : origin.left,
+          top: moving && destination ? destination.top : origin.top,
+          width: moving && destination ? destination.width : origin.width,
+          opacity: phase === "entering" || (moving && !destination) ? 0 : 1,
+          transform: phase === "entering" ? "scale(.94)" : "scale(1)",
         }}
-      >
-        <img
-          src={splashLogoUrl}
-          alt="AMPER"
-          width={1440}
-          height={960}
-          className="h-auto w-[min(72vw,720px)] max-w-full object-contain"
-          draggable={false}
-        />
-      </div>
+        draggable={false}
+      />
     </div>
   );
 }
@@ -2701,10 +2753,33 @@ function SplashScreen({ onDone }: { onDone: () => void }): JSX.Element {
 function LoginView({
   onLogin,
   initialEmail = "",
+  intro = false,
+  onIntroDone,
 }: {
   onLogin: (email: string, password: string) => Promise<string | null>;
   initialEmail?: string;
+  intro?: boolean;
+  onIntroDone?: () => void;
 }): JSX.Element {
+  const logoRef = useRef<HTMLImageElement>(null);
+  const [introRevealed, setIntroRevealed] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(() => {
+    try {
+      const previous = sessionStorage.getItem("enerman-login-photo");
+      return previous === null ? 1 : (Number(previous) + 1) % loginPhotos.length;
+    } catch { return 1; }
+  });
+  const [photosPaused, setPhotosPaused] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
+  useEffect(() => {
+    try { sessionStorage.setItem("enerman-login-photo", String(photoIndex)); } catch { /* Storage is optional. */ }
+  }, [photoIndex]);
+  useEffect(() => {
+    if (intro || photosPaused) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setPhotoIndex(index => (index + 1) % loginPhotos.length);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [intro, photosPaused]);
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -2734,79 +2809,67 @@ function LoginView({
   };
 
   return (
-    <div className="relative grid min-h-screen w-full overflow-hidden lg:grid-cols-[1.1fr_0.9fr]">
-      {/* VARIANTE B: una sola foto corrida en toda la pantalla (no cortada en dos), texto de
-          ENERMAN a la izquierda sobre degradado, tarjeta del formulario a la derecha flotando
-          encima — negro real (bg-black/70 + borde blanco sutil), no el gris de .glass-card. */}
-      {/* Foto en 4 tamaños (16:9): el navegador baja la que corresponde a la pantalla y su
-          densidad de píxeles, hasta 3840 px (4K). object-cover llena todo el alto en pantallas
-          verticales, por eso en ellas el ancho renderizado es ~178vh y no 100vw. */}
-      <img
-        src="/login-bg-1920.jpg"
-        srcSet="/login-bg-1280.jpg 1280w, /login-bg-1920.jpg 1920w, /login-bg-2560.jpg 2560w, /login-bg-3840.jpg 3840w"
-        sizes="(min-aspect-ratio: 16/9) 100vw, 178vh"
-        alt=""
-        decoding="async"
-        className="absolute inset-0 h-full w-full object-cover"
-        draggable={false}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/40" />
-
-      <div className="relative z-10 flex min-h-[280px] flex-col justify-between p-10 sm:p-14 lg:p-16">
-        <div>
-          <img src={wordmarkLogoUrl} alt="ENERMAN" width={220} height={73} className="h-auto w-[200px]" draggable={false} />
-          <div className="mt-10 h-px w-12 bg-accent" />
-          <h1 className="mt-6 max-w-md text-5xl font-bold leading-[1.08] tracking-tight text-white lg:text-6xl">
-            Energía que construye <span className="text-accent">futuro</span>
-          </h1>
-          <p className="mt-6 max-w-sm text-sm leading-6 text-[#A1A1AA] lg:text-base">
-            Gestión, control y seguimiento de proyectos de instalaciones eléctricas, todo en un solo lugar.
-          </p>
-        </div>
-        <p className="text-xs tracking-wide text-[#71717A]">ENERMAN SYSTEM &nbsp;/&nbsp; PORTAL INTERNO</p>
+    <>
+    <div className={`auth-screen${intro ? " auth-screen--intro" : ""}${introRevealed ? " auth-screen--revealed" : ""}`} ref={element => { element?.toggleAttribute("inert", intro); }}>
+      <div className="auth-backgrounds" aria-hidden="true">
+        {loginPhotos.map((photo, index) => (
+          <div key={photo.src} className={`auth-background${index === photoIndex ? " is-active" : ""}`}>
+            <img src={photo.src} alt="" className="auth-background__image" style={{ objectPosition: photo.position }} draggable={false} />
+          </div>
+        ))}
       </div>
-
-      <div className="relative z-10 flex items-center justify-center p-6 sm:p-10">
-      <div className="w-full max-w-sm overflow-hidden rounded-[24px] border border-white/10 bg-[#0B0B0C] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.8)] before:block before:h-[3px] before:w-full before:bg-accent before:content-['']">
-      <div className="p-8 sm:p-10">
-        <div className="text-center lg:text-left">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Acceso al sistema</p>
-          <h2 className="mt-2 text-2xl font-semibold text-foreground">Iniciar sesión</h2>
+      <button type="button" className="auth-carousel-toggle" onClick={() => setPhotosPaused(paused => !paused)} aria-pressed={photosPaused}>{photosPaused ? "Reanudar fotos" : "Pausar fotos"}</button>
+      <section className="auth-visual" aria-label="ENERMAN, soluciones eléctricas integrales">
+        <div className="auth-brand">
+          <img ref={logoRef} src={wordmarkLogoUrl} alt="ENERMAN" width={640} height={213} draggable={false} />
+          <div className="auth-brand__rule" />
+          <h1>Energía que<br />construye <span>futuro</span></h1>
+          <p className="auth-brand__description">Gestión, control y seguimiento de proyectos de instalaciones eléctricas, todo en un solo lugar.</p>
+        </div>
+        <p className="auth-visual__footer">ENERMAN SYSTEM &nbsp;/&nbsp; PORTAL INTERNO</p>
+      </section>
+      <section className="auth-access" aria-label="Acceso al sistema">
+      <div className="auth-card">
+      <div className="auth-card__content">
+        <div className="auth-card__heading">
+          <p className="auth-card__eyebrow">Acceso al sistema de ENERMAN</p>
+          <h2>Iniciar sesión</h2>
+          <p className="auth-card__intro">Ingresa con tu correo electrónico y contraseña</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+        <form onSubmit={handleSubmit} className="auth-form space-y-5">
               <label className="block space-y-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Correo</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">Correo electrónico</span>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                   <Input
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     type="email"
                     placeholder="correo@enerman.com.mx"
-                    autoComplete="off"
+                    autoComplete="username" required
                     className="pl-10"
                   />
                 </div>
               </label>
 
               <label className="block space-y-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#888888]">Contraseña</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">Contraseña</span>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
                   <Input
                     ref={passwordRef}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     type={showPassword ? "text" : "password"}
                     placeholder="Tu contraseña"
-                    autoComplete="new-password"
+                    autoComplete="current-password" required
                     className="pl-10 pr-12"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[#A1A1AA] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[color:var(--text-muted)] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                     aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -2816,7 +2879,7 @@ function LoginView({
 
               {error ? <p className="rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">{error}</p> : null}
 
-              <Button type="submit" variant="accent" className="w-full" disabled={!email.trim() || !password || loading}>
+              <Button type="submit" variant="accent" className="auth-submit w-full" disabled={!email.trim() || !password || loading}>
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -2832,20 +2895,22 @@ function LoginView({
                 )}
               </Button>
 
-              <p className="flex items-center justify-center gap-1.5 text-xs text-[#52525B]">
+              <p className="auth-security flex items-center justify-center gap-1.5 text-xs text-[color:var(--text-muted)]">
                 <ShieldCheck className="h-3.5 w-3.5" /> Conexión segura y encriptada
               </p>
 
               {import.meta.env.DEV ? (
-                <div className="rounded-2xl border border-[#3F3F46] bg-[#313136] p-4 text-xs leading-5 text-[#A1A1AA]">
+                <div className="rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] p-4 text-xs leading-5 text-[color:var(--text-muted)]">
                   Cuenta Gestor del sistema inicial: amper.enerman@gmail.com
                 </div>
               ) : null}
         </form>
       </div>
       </div>
-      </div>
+      </section>
     </div>
+    {intro && <SplashScreen target={logoRef} onReveal={() => setIntroRevealed(true)} onDone={() => onIntroDone?.()} />}
+    </>
   );
 }
 

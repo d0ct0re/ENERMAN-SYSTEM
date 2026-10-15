@@ -6,11 +6,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border: "#3F3F46",
-        input: "#3F3F46",
+        border: "var(--line)",
+        input: "var(--line)",
         ring: "#F5A623",
-        background: "#111111",
-        foreground: "#FFFFFF",
+        background: "var(--page)",
+        foreground: "var(--text)",
         primary: {
           DEFAULT: "#111113",
           foreground: "#FFFFFF",
@@ -28,9 +28,9 @@ const config: Config = {
         danger:  "#E24B4A",
         muted: {
           DEFAULT: "#313136",
-          foreground: "#888888",
+          foreground: "var(--text-muted)",
         },
-        card: "#27272A",
+        card: "var(--surface)",
         enerman: {
           gold:    "#F5A623",
           dark:    "#1E1E20",

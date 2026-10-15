@@ -1,15 +1,20 @@
-import { ArrowUpRight, Pencil, Plus, FolderOpen, CalendarDays, FileText, CircleCheck, TriangleAlert, LayoutDashboard } from "lucide-react";
+import type { ProjectPhase } from "@/components/cards/project-phase-steps";
+import { EngineerWelcome } from "./components/engineer-welcome";
+import { EngineerMetrics } from "./components/engineer-metrics";
+import { EngineerInsights } from "./components/engineer-insights";
+import { ArrowUpRight, Pencil, Plus, FolderOpen } from "lucide-react";
 import "./engineer-view.css";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { ActiveProjectCard } from "@/components/cards/active-project-card";
 import { ProjectCard } from "@/components/cards/project-card";
 import { ProjectCalendar } from "@/components/common/project-calendar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { CorrectionRequestDialog } from "@/components/dialogs/correction-request-dialog";
-import { ProjectItem, RequestItem } from "@/types";
+import { ProjectItem, RequestItem, NotificationItem } from "@/types";
 import { getRequestSequence, getRequestSequenceNumber, parseLocalDate } from "@/lib/utils";
 
-export type EngineerTab = "all" | "active" | "completed" | "requests" | "correction" | "calendar";
+export type EngineerTab = "home" | "all" | "active" | "completed" | "requests" | "correction" | "calendar";
 
 const CLOSED_STATUSES = ["completed", "cancelled", "no-autorizado", "cierre-por-sistema"];
 
@@ -21,12 +26,19 @@ const REQUEST_STATUS_LABELS: Record<string, string> = {
 };
 
 interface EngineerViewProps {
+  sidebarOpen: boolean;
+  notifications: NotificationItem[];
+  onOpenNotification: (notification: NotificationItem) => void;
   tab: EngineerTab;
   onTabChange: (tab: EngineerTab) => void;
   activeUserName: string;
   projects: ProjectItem[];
+  globalProjects?: ProjectItem[];
   requests: RequestItem[];
   onOpenProject: (projectId: string) => void;
+  onOpenProjectPhase?: (projectId: string, phase: ProjectPhase) => void;
+  canEditProject?: (project: ProjectItem) => boolean;
+  getAssignedEngineerName?: (project: ProjectItem) => string | undefined;
   onOpenNewRequest: () => void;
   onDeleteImportantDate?: (projectId: string, dateId: string) => void;
   onResubmitRequest: (
@@ -36,10 +48,12 @@ interface EngineerViewProps {
 }
 
 export function EngineerView({
+  sidebarOpen, notifications, onOpenNotification, onOpenProjectPhase, canEditProject, getAssignedEngineerName,
   tab,
   onTabChange,
   activeUserName,
   projects,
+  globalProjects = projects,
   requests,
   onOpenProject,
   onOpenNewRequest,
@@ -53,7 +67,8 @@ export function EngineerView({
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
   const sortedProjects = [...projects].sort(byNewest);
-  const activeProjects = sortedProjects.filter((p) => !CLOSED_STATUSES.includes(p.status));
+  const personalActiveProjects = sortedProjects.filter((p) => !CLOSED_STATUSES.includes(p.status));
+  const activeProjects = [...globalProjects].filter((p) => !p.deletedAt && !CLOSED_STATUSES.includes(p.status)).sort(byNewest);
   const completedProjects = sortedProjects.filter((p) => CLOSED_STATUSES.includes(p.status));
 
   const bySequenceThenNewest = (a: RequestItem, b: RequestItem) => {
@@ -89,8 +104,9 @@ export function EngineerView({
   );
 
   const tabOptions = [
+    { key: "home" as const, label: "Inicio", count: undefined },
     { key: "all" as const, label: "Mis proyectos", count: sortedProjects.length },
-    { key: "active" as const, label: "Proyecto activo", count: activeProjects.length },
+    { key: "active" as const, label: "Proyectos activos", count: activeProjects.length },
     { key: "completed" as const, label: "Proyecto terminado", count: completedProjects.length },
     { key: "requests" as const, label: "Solicitudes", count: sortedRequests.length },
     { key: "correction" as const, label: "En corrección", count: correctionRequests.length },
@@ -98,54 +114,36 @@ export function EngineerView({
   ];
 
   const displayed =
-    tab === "all" ? sortedProjects : tab === "active" ? activeProjects : completedProjects;
+    tab === "home" ? activeProjects.slice(0, 4) : tab === "all" ? sortedProjects : tab === "active" ? activeProjects : completedProjects;
+
+  const pendingRequests = requests.filter((request) => request.status === "under-review");
+  const corrections = requests.filter((request) => request.status === "needs-correction");
+  const upcoming = personalActiveProjects
+    .filter((project) => project.commitmentDate && parseLocalDate(project.commitmentDate).getTime() >= new Date().setHours(0, 0, 0, 0))
+    .sort((a, b) => parseLocalDate(a.commitmentDate!).getTime() - parseLocalDate(b.commitmentDate!).getTime())
+    .slice(0, 4);
+  const distribution = [
+    { label: "Activos", count: personalActiveProjects.length, color: "#f5a524" },
+    { label: "Terminados", count: sortedProjects.filter((project) => project.status === "completed").length, color: "#20b8a6" },
+    { label: "Otros cierres", count: completedProjects.filter((project) => project.status !== "completed").length, color: "#71717a" },
+  ];
 
   return (
-    <section className="engineer-workspace">
-      <aside className="engineer-sidebar">
-        <p className="engineer-nav-label">ESPACIO DE TRABAJO</p>
-        <nav aria-label="Navegación del ingeniero">
-          {tabOptions.map((option, index) => {
-            const Icon = [LayoutDashboard, FolderOpen, CircleCheck, FileText, TriangleAlert, CalendarDays][index];
-            return (
-              <button key={option.key} type="button" aria-current={tab === option.key ? "page" : undefined}
-                onClick={() => onTabChange(option.key)} className={tab === option.key ? "is-active" : ""}>
-                <Icon size={18} /><span>{option.label}</span><b>{option.count}</b>
-              </button>
-            );
-          })}
-        </nav>
-        <div className="engineer-sidebar-footer"><span className="engineer-brand-mark">E /</span><p>ENERMAN SYSTEM<br /><span>Portal de ingeniería</span></p></div>
-      </aside>
+    <section className={`engineer-workspace ${sidebarOpen ? "" : "is-sidebar-collapsed"} ${tab === "home" ? "is-home" : "is-section"}`}>
+
       <div className="engineer-content">
-        <header className="engineer-welcome">
-          <div>
-            <p className="engineer-nav-label">CENTRO DE OPERACIÓN DEL INGENIERO</p>
-            <h1>Hola, <span>{activeUserName}</span></h1>
-            <p>Tu espacio de trabajo. Proyectos, solicitudes y fechas en un solo lugar.</p>
-          </div>
-          <button type="button" className="engineer-primary-action" onClick={onOpenNewRequest}><Plus size={18} />Nueva solicitud</button>
-        </header>
-        <div className="engineer-metrics">
-          {[
-            { label: "Proyectos activos", count: activeProjects.length, icon: FolderOpen, key: "active" as const },
-            { label: "Solicitudes", count: sortedRequests.length, icon: FileText, key: "requests" as const },
-            { label: "En corrección", count: correctionRequests.length, icon: TriangleAlert, key: "correction" as const },
-            { label: "Fechas de proyectos", count: calendarEventCount, icon: CalendarDays, key: "calendar" as const },
-          ].map(({ label, count, icon: Icon, key }) => (
-            <button type="button" key={key} onClick={() => onTabChange(key)} className="engineer-metric">
-              <span className="engineer-metric-icon"><Icon size={22} /></span><span><span className="engineer-metric-label">{label}</span><strong>{count}</strong></span><ArrowUpRight size={15} className="engineer-metric-arrow" />
-            </button>
-          ))}
-        </div>
+        {tab === "home" && <EngineerWelcome activeUserName={activeUserName} onOpenNewRequest={onOpenNewRequest} />}
+        {tab === "home" && <EngineerMetrics activeCount={activeProjects.length} pendingCount={pendingRequests.length} correctionCount={corrections.length} completedCount={distribution[1].count} onTabChange={onTabChange} />}
+        <div className="engineer-overview-layout">
         <div className="engineer-panel">
-          <div className="engineer-panel-heading"><h2><FolderOpen size={18} />{tabOptions.find((option) => option.key === tab)?.label}</h2><span>{tabOptions.find((option) => option.key === tab)?.count} registros</span></div>
+          <div className="engineer-panel-heading"><h2><FolderOpen size={18} />{tab === "home" ? "Proyectos activos" : tabOptions.find((option) => option.key === tab)?.label}</h2><span>{tab === "home" ? activeProjects.length : tabOptions.find((option) => option.key === tab)?.count} registros</span></div>
+
 
       {/* ── Proyectos ── */}
       {tab !== "requests" && tab !== "correction" && tab !== "calendar" ? (
-        <div className="space-y-3">
+        <div className={tab === "home" || tab === "active" ? "active-project-grid" : "space-y-3"}>
           {displayed.map((project) => (
-            <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
+            tab === "home" || tab === "active" ? <ActiveProjectCard key={project.id} project={project} onOpen={onOpenProject} onOpenPhase={onOpenProjectPhase} canEdit={canEditProject?.(project)} assignedEngineerName={getAssignedEngineerName?.(project)} /> : <ProjectCard key={project.id} project={project} onOpen={onOpenProject} showFinancialPhases={false} />
           ))}
           {displayed.length === 0 && (
             <div className="engineer-empty"><FolderOpen size={36} /><h3>Sin proyectos</h3><p>Los proyectos de esta sección aparecerán aquí.</p></div>
@@ -174,8 +172,8 @@ export function EngineerView({
             />
           ) : null}
           {sortedRequests.length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">
+            <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+              <p className="text-sm font-semibold text-[color:var(--text-muted)]">
                 {requests.length === 0 ? "No has enviado solicitudes" : "Sin resultados para la búsqueda"}
               </p>
               {requests.length === 0 ? (
@@ -192,7 +190,7 @@ export function EngineerView({
             sortedRequests.map((req) => (
               <div
                 key={req.id}
-                className="rounded-[20px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-2"
+                className="engineer-record-card rounded-[20px] border border-[color:var(--line)] bg-[var(--surface)] p-4 space-y-2"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[10px] font-black text-accent">
@@ -202,16 +200,16 @@ export function EngineerView({
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
                     {req.client} · {req.department}
                   </span>
-                  <span className="ml-auto text-xs text-[#888888]">
+                  <span className="ml-auto text-xs text-[color:var(--text-muted)]">
                     {parseLocalDate(req.createdAt).toLocaleDateString("es-MX", {
                       day: "2-digit", month: "short", year: "numeric",
                     })}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName}</p>
+                <p className="text-xs text-[color:var(--text-muted)]">{req.structuredName}</p>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-[#A1A1AA]">
+                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">
                     {REQUEST_STATUS_LABELS[req.status] ?? req.status}
                   </p>
                   {req.status === "approved" && req.linkedProjectId ? (
@@ -226,7 +224,7 @@ export function EngineerView({
                   ) : null}
                 </div>
                 {req.rejectionReason ? (
-                  <div className="rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                  <div className="rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[color:var(--text-muted)]">
                     <span className="font-bold text-danger">Motivo: </span>
                     {req.rejectionReason}
                   </div>
@@ -249,8 +247,8 @@ export function EngineerView({
             />
           ) : null}
           {correctionRequests.length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">
+            <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+              <p className="text-sm font-semibold text-[color:var(--text-muted)]">
                 {requests.some((r) => r.status === "needs-correction") ? "Sin resultados para la búsqueda" : "Sin solicitudes en corrección"}
               </p>
             </div>
@@ -258,7 +256,7 @@ export function EngineerView({
             correctionRequests.map((req) => (
               <div
                 key={req.id}
-                className="cursor-pointer rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2 transition hover:border-[#0EA5E9]/50 hover:bg-[#0d2535]"
+                className="engineer-record-card cursor-pointer rounded-[20px] border border-[#0EA5E9]/25 bg-[#0c1f2e] p-4 space-y-2 transition hover:border-[#0EA5E9]/50 hover:bg-[#0d2535]"
                 onClick={() => setCorrectionDialogReq(req)}
               >
                 {/* Header */}
@@ -270,18 +268,18 @@ export function EngineerView({
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
                     {req.client} · {req.department}
                   </span>
-                  <span className="ml-auto text-xs text-[#888888]">
+                  <span className="ml-auto text-xs text-[color:var(--text-muted)]">
                     {parseLocalDate(req.createdAt).toLocaleDateString("es-MX", {
                       day: "2-digit", month: "short", year: "numeric",
                     })}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                <p className="text-xs text-[color:var(--text-muted)]">{req.structuredName || "Sin folio"}</p>
 
                 {/* Motivo de corrección */}
                 {req.correctionReason ? (
-                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[color:var(--text-muted)]">
                     <span className="font-bold text-[#0EA5E9]">Corrección requerida: </span>
                     {req.correctionReason}
                   </div>
@@ -314,6 +312,8 @@ export function EngineerView({
         />
       ) : null}
 
+        </div>
+        {tab === "home" && <EngineerInsights notifications={notifications} onOpenNotification={onOpenNotification} upcoming={upcoming} onOpenProject={onOpenProject} onTabChange={onTabChange} projectCount={projects.length} distribution={distribution} />}
         </div>
       </div>
       {/* FAB */}

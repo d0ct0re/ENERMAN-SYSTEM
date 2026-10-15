@@ -1,25 +1,19 @@
-import { Bell, ChevronDown, LogIn, LogOut, Menu, Search, Trash2, UsersRound, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Avatar } from "@/components/ui/avatar";
+import { ActivityFeed } from "./activity-feed";
+import { useEffect, useRef, useState } from "react";
+import { Menu, Search, X } from "lucide-react";
+import { AppHeader } from "./app-header";
+import { AppNavigation, type NavigationItem } from "./app-navigation";
+import { ThemeToggle } from "./theme-toggle";
 import { AmperLogo } from "@/components/ui/amper-logo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn, getProjectSequence } from "@/lib/utils";
-import { NotificationItem, ProjectItem, UserItem } from "@/types";
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "Justo ahora";
-  if (m < 60) return `Hace ${m} min`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `Hace ${h}h`;
-  const d = Math.floor(h / 24);
-  return `Hace ${d}d`;
-}
-
+import type { NotificationItem, ProjectItem, UserItem } from "@/types";
 interface TopBarProps {
+  navigationItems?: NavigationItem[];
+  currentPage?: string;
+  onHome?: () => void;
+  onToggleSidebar?: () => void;
+  sidebarOpen?: boolean;
+  collapsibleSidebar?: boolean;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   unreadCount: number;
@@ -36,365 +30,26 @@ interface TopBarProps {
   onLogout: () => void;
 }
 
-export function TopBar({
-  searchQuery,
-  onSearchChange,
-  unreadCount,
-  notifications,
-  projects,
-  onMarkAllRead,
-  onMarkRead,
-  onDeleteNotification,
-  onNavigateTo,
-  activeUser,
-  accounts,
-  onAccountChange,
-  onAddAccount,
-  onLogout,
-}: TopBarProps): JSX.Element {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [isHiddenOnMobile, setIsHiddenOnMobile] = useState(false);
-  const lastScrollYRef = useRef(0);
-  const notifRef = useRef<HTMLDivElement>(null);
-  const mobileNotifPanelRef = useRef<HTMLDivElement>(null);
-  const mobileNotifButtonRef = useRef<HTMLButtonElement>(null);
-  const accountRef = useRef<HTMLDivElement>(null);
-
-  const handleAccountChange = (userId: string): void => {
-    onAccountChange(userId);
-    setAccountMenuOpen(false);
-    setMobileMenuOpen(false);
-  };
-
-  // Cerrar dropdowns al hacer clic fuera
-  useEffect(() => {
-    const handleClick = (e: MouseEvent): void => {
-      const target = e.target as Node;
-      const insideMobilePanel = !!mobileNotifPanelRef.current && mobileNotifPanelRef.current.contains(target);
-      const onMobileButton = !!mobileNotifButtonRef.current && mobileNotifButtonRef.current.contains(target);
-      if (notifRef.current && !notifRef.current.contains(target) && !insideMobilePanel && !onMobileButton) setNotifOpen(false);
-      if (accountRef.current && !accountRef.current.contains(target)) setAccountMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = (): void => {
-      if (window.innerWidth >= 1024 || mobileMenuOpen || accountMenuOpen) {
-        setIsHiddenOnMobile(false);
-        lastScrollYRef.current = window.scrollY;
-        return;
-      }
-      const currentScrollY = window.scrollY;
-      const scrollDelta = currentScrollY - lastScrollYRef.current;
-      if (currentScrollY < 80) setIsHiddenOnMobile(false);
-      else if (scrollDelta > 8) setIsHiddenOnMobile(true);
-      else if (scrollDelta < -6) setIsHiddenOnMobile(false);
-      lastScrollYRef.current = currentScrollY;
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleScroll);
-    handleScroll();
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleScroll);
-    };
-  }, [accountMenuOpen, mobileMenuOpen]);
-
-  const NotifListContent = (): JSX.Element => (
-    <>
-      <div className="flex items-center justify-between border-b border-[#3F3F46] px-4 py-3">
-        <p className="text-sm font-bold text-foreground">Notificaciones</p>
-        {unreadCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => { onMarkAllRead(); setNotifOpen(false); }}
-            className="text-xs font-semibold text-accent hover:underline"
-          >
-            Marcar todas como leídas
-          </button>
-        ) : null}
+export function TopBar({ notifications, projects, unreadCount, onMarkAllRead, onMarkRead, onDeleteNotification, onNavigateTo, onHome, onToggleSidebar, sidebarOpen = false, collapsibleSidebar = false, navigationItems = [], currentPage = "Inicio", searchQuery, onSearchChange, activeUser, accounts, onAccountChange, onAddAccount, onLogout }: TopBarProps): JSX.Element {
+  const [activityTarget, setActivityTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => { setActivityTarget(document.getElementById("app-activity-feed")); }, [currentPage]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if(searchOpen) input.current?.focus(); }, [searchOpen]);
+  const closeSearch = (): void => { setSearchOpen(false); trigger.current?.focus(); };
+  return <>
+    {activityTarget && createPortal(<ActivityFeed notifications={notifications} projects={projects} unreadCount={unreadCount} onMarkAllRead={onMarkAllRead} onMarkRead={onMarkRead} onDeleteNotification={onDeleteNotification} onNavigateTo={onNavigateTo} />, activityTarget)}
+    <AppHeader>
+      <div className="app-header__brand">
+        <button type="button" className={`shell-icon-button${collapsibleSidebar ? " engineer-menu-trigger" : ""}`} aria-label={sidebarOpen ? "Ocultar navegación" : "Mostrar navegación"} aria-expanded={sidebarOpen} aria-controls="app-navigation" onClick={onToggleSidebar}><Menu size={22} /></button>
+        <AmperLogo onClick={() => { onHome?.(); window.scrollTo({top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'}); }} />
+        <span className="app-header__page" aria-live="polite">{currentPage}</span>
       </div>
-
-      <div className="max-h-[420px] overflow-y-auto">
-        {notifications.length === 0 ? (
-          <p className="py-10 text-center text-sm text-[#555555]">Sin notificaciones</p>
-        ) : (
-          notifications.slice(0, 30).map((n) => {
-            const relatedProject = n.relatedProjectId ? projects.find((p) => p.id === n.relatedProjectId) : undefined;
-            const folioValue = relatedProject ? getProjectSequence(relatedProject) : null;
-            const folio = folioValue && folioValue !== "—" ? folioValue : null;
-            return (
-            <div
-              key={n.id}
-              className={cn(
-                "group flex w-full gap-3 px-4 py-3 transition hover:bg-[#27272A]",
-                !n.isRead && "bg-accent/[0.04]",
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  onNavigateTo(n.relatedProjectId, n.relatedRequestId);
-                  onMarkRead?.(n.id);
-                  setNotifOpen(false);
-                }}
-                className="flex min-w-0 flex-1 gap-3 text-left"
-              >
-                <span className={cn(
-                  "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                  n.isRead ? "bg-[#3F3F46]" : "bg-accent",
-                )} />
-                <span className="min-w-0 flex-1">
-                  <span className={cn("block text-sm leading-snug", !n.isRead ? "font-semibold text-foreground" : "font-medium text-[#A1A1AA]")}>
-                    {folio ? (
-                      <span className="mr-1.5 inline-flex items-center rounded-md bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] font-black text-accent align-middle">
-                        #{folio}
-                      </span>
-                    ) : null}
-                    {n.title}
-                    {(n.occurrenceCount ?? 1) > 1 ? (
-                      <span className="ml-1.5 inline-flex items-center rounded-full bg-[#3F3F46] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#A1A1AA] align-middle">
-                        ×{n.occurrenceCount}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-[#71717A]">{n.description}</span>
-                  <span className="mt-1 block text-[11px] text-[#52525B]">{timeAgo(n.createdAt)}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onDeleteNotification(n.id)}
-                className="ml-1 shrink-0 self-start rounded-full p-1 text-[#52525B] opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
-                aria-label="Eliminar notificación"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            );
-          })
-        )}
-      </div>
-    </>
-  );
-
-  const NotifDropdown = (): JSX.Element => (
-    <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-96 rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel">
-      <NotifListContent />
-    </div>
-  );
-
-  // En mobile, el botón de campana vive dentro del menú hamburguesa, que a su vez
-  // está dentro del <header> con transform (isHiddenOnMobile) — eso rompe `position: fixed`
-  // normal, por eso se usa un portal a document.body para que el panel sí cubra la pantalla.
-  const MobileNotifOverlay = (): JSX.Element | null => {
-    if (typeof document === "undefined") return null;
-    return createPortal(
-      <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/70 p-4 pt-24 lg:hidden">
-        <div className="absolute inset-0" onClick={() => setNotifOpen(false)} aria-hidden="true" />
-        <div
-          ref={mobileNotifPanelRef}
-          className="relative z-10 max-h-[75vh] w-full max-w-md overflow-hidden rounded-[24px] border border-[#3F3F46] bg-[#1E1E20] shadow-panel"
-        >
-          <NotifListContent />
-        </div>
-      </div>,
-      document.body,
-    );
-  };
-
-  return (
-    <header
-      className={cn(
-        "glass-panel sticky top-4 z-40 rounded-[30px] px-4 py-3.5 shadow-panel transition-transform duration-300 ease-out sm:px-6",
-        isHiddenOnMobile ? "-translate-y-[calc(100%+1.5rem)] lg:translate-y-0" : "translate-y-0",
-      )}
-    >
-      <div className="flex items-center justify-between gap-4">
-        {/* Brand */}
-        <div className="flex items-center gap-4">
-          <AmperLogo onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
-          <div className="hidden lg:block">
-            <p className="text-xs font-medium leading-relaxed text-[#888888]">
-              Gestión de Proyectos
-            </p>
-          </div>
-        </div>
-
-        {/* Desktop nav */}
-        <div className="hidden items-center gap-3 lg:flex">
-          <div className="relative w-[300px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888888]" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Buscar folio, cliente o descripción…"
-              className="topbar-search pl-11"
-            />
-          </div>
-
-          {/* Campana con dropdown */}
-          <div className="relative" ref={notifRef}>
-            <button
-              type="button"
-              onClick={() => { setNotifOpen((p) => !p); setAccountMenuOpen(false); }}
-              className="topbar-notifications relative cursor-pointer rounded-full border border-[#3F3F46] bg-[#27272A] p-3 text-[#888888] shadow-soft transition hover:border-accent/30 hover:bg-accent/5 hover:text-accent"
-              aria-label="Notificaciones"
-            >
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              ) : null}
-            </button>
-            {notifOpen ? <NotifDropdown /> : null}
-          </div>
-
-          {/* Menú de cuenta */}
-          <div className="relative" ref={accountRef}>
-            <button
-              type="button"
-              onClick={() => { setAccountMenuOpen((p) => !p); setNotifOpen(false); }}
-              className="topbar-account flex cursor-pointer items-center gap-3 rounded-full border border-[#3F3F46] bg-[#27272A] px-3 py-2 shadow-soft transition hover:border-accent/20 hover:bg-[#313136]"
-            >
-              <Avatar initials={activeUser.avatar} className="h-10 w-10 text-xs" />
-              <div className="text-left">
-                <p className="text-sm font-semibold text-foreground">{activeUser.name}</p>
-                <p className="text-xs text-[#888888]">{activeUser.roleLabel}</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-[#888888]" />
-            </button>
-
-            {accountMenuOpen ? (
-              <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-80 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-3 shadow-panel">
-                <div className="mb-2 flex items-center gap-2 px-2 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#888888]">
-                  <UsersRound className="h-4 w-4" />
-                  Cambiar cuenta
-                </div>
-                <div className="space-y-1">
-                  {accounts.map((account) => (
-                    <button
-                      key={account.id}
-                      type="button"
-                      onClick={() => handleAccountChange(account.id)}
-                      className={cn(
-                        "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
-                        account.id === activeUser.id
-                          ? "bg-[#3F3F46] text-foreground"
-                          : "hover:bg-[#313136] text-[#BCBCBC] hover:text-foreground",
-                      )}
-                    >
-                      <Avatar initials={account.avatar} className="h-9 w-9 text-xs" />
-                      <span>
-                        <span className="block text-sm font-semibold">{account.name}</span>
-                        <span className="block text-xs text-[#888888]">{account.roleLabel}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setAccountMenuOpen(false); onAddAccount(); }}
-                  className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Agregar cuenta
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAccountMenuOpen(false); onLogout(); }}
-                  className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-danger transition hover:bg-danger/10"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Cerrar sesión
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileMenuOpen((p) => !p)}>
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      </div>
-
-      {/* Mobile menu */}
-      {mobileMenuOpen ? (
-        <div className="mt-4 space-y-4 border-t border-[#3F3F46] pt-4 lg:hidden">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888888]" />
-            <Input
-              value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Buscar en ENERMAN-SYSTEM"
-              className="pl-11"
-            />
-          </div>
-
-          <div className="rounded-2xl border border-[#3F3F46] bg-[#27272A] p-3">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar initials={activeUser.avatar} />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{activeUser.name}</p>
-                  <p className="text-xs text-[#888888]">{activeUser.roleLabel}</p>
-                </div>
-              </div>
-              <button
-                ref={mobileNotifButtonRef}
-                type="button"
-                onClick={() => { setNotifOpen((p) => !p); setMobileMenuOpen(false); }}
-                className="flex cursor-pointer items-center gap-2 rounded-full bg-[#313136] px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent/10 hover:text-accent"
-              >
-                <Bell className="h-4 w-4" />
-                {unreadCount > 0 ? unreadCount : ""}
-              </button>
-            </div>
-            <div className="space-y-1 border-t border-[#3F3F46] pt-3">
-              {accounts.map((account) => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => handleAccountChange(account.id)}
-                  className={cn(
-                    "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left transition",
-                    account.id === activeUser.id ? "bg-[#3F3F46]" : "hover:bg-[#313136]",
-                  )}
-                >
-                  <Avatar initials={account.avatar} className="h-9 w-9 text-xs" />
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">{account.name}</span>
-                    <span className="block text-xs text-[#888888]">{account.roleLabel}</span>
-                  </span>
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => { setMobileMenuOpen(false); onAddAccount(); }}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
-              >
-                <LogIn className="h-4 w-4" />
-                Agregar cuenta
-              </button>
-              <button
-                type="button"
-                onClick={() => { setMobileMenuOpen(false); onLogout(); }}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-danger transition hover:bg-danger/10"
-              >
-                <LogOut className="h-4 w-4" />
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {notifOpen ? <MobileNotifOverlay /> : null}
-    </header>
-  );
+      <form className="app-header__search" role="search" onSubmit={event => event.preventDefault()}><Search size={19} /><input aria-label="Buscar folio, cliente o descripción" value={searchQuery} onChange={event => onSearchChange(event.target.value)} placeholder="Buscar folio, cliente o descripción..." /></form>
+      <div className="app-header__actions"><button ref={trigger} className="shell-icon-button app-header__search-trigger" type="button" aria-label="Abrir buscador" aria-expanded={searchOpen} aria-controls="mobile-search" onClick={() => setSearchOpen(!searchOpen)}><Search size={21} /></button><ThemeToggle /></div>
+      {searchOpen && <form id="mobile-search" role="search" className="app-header__mobile-search" onSubmit={event => {event.preventDefault(); closeSearch();}} onKeyDown={event => {if(event.key === 'Escape') closeSearch();}}><Search size={18} /><input ref={input} aria-label="Buscar en ENERMAN" value={searchQuery} onChange={event => onSearchChange(event.target.value)} placeholder="Buscar en ENERMAN" /><button type="button" className="shell-icon-button" aria-label="Cerrar buscador" onClick={closeSearch}><X size={20} /></button></form>}
+    </AppHeader>
+    <AppNavigation notificationsPanel={collapsibleSidebar ? <ActivityFeed notifications={notifications} projects={projects} unreadCount={unreadCount} onMarkAllRead={onMarkAllRead} onMarkRead={onMarkRead} onDeleteNotification={onDeleteNotification} onNavigateTo={onNavigateTo} /> : undefined} collapsible={collapsibleSidebar} open={sidebarOpen} onClose={() => onToggleSidebar?.()} items={navigationItems} user={activeUser} accounts={accounts} onAccountChange={onAccountChange} onAddAccount={onAddAccount} onLogout={onLogout} />
+  </>;
 }

@@ -344,7 +344,7 @@ function SystemAdminView({
             type="button"
             onClick={() => { void handleBackup(); }}
             disabled={backingUp}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[#3F3F46] bg-[#27272A] px-4 py-2.5 text-sm font-bold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-2.5 text-sm font-bold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:bg-[var(--surface)] hover:text-foreground disabled:opacity-50"
           >
             <DatabaseBackup className="h-4 w-4" />
             {backingUp ? "Generando…" : "Backup"}
@@ -364,8 +364,8 @@ function SystemAdminView({
       </div>
 
       {/* ── Panel Backup / Restauración ── */}
-      <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-4">
-        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+      <div className="rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] p-4">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
           Seguridad de datos — Backup y Restauración
         </p>
         <div className="flex flex-wrap gap-2">
@@ -374,7 +374,7 @@ function SystemAdminView({
             type="button"
             onClick={() => { void handleBackup(); }}
             disabled={backingUp}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:bg-[var(--surface)] hover:text-foreground disabled:opacity-50"
           >
             <DatabaseBackup className="h-4 w-4" />
             {backingUp ? "Generando…" : "Descargar backup"}
@@ -394,7 +394,7 @@ function SystemAdminView({
             }}
             disabled={backingUpFiles}
             title="Descarga un ZIP con todas las fotos, PDFs y documentos subidos"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:bg-[var(--surface)] hover:text-foreground disabled:opacity-50"
           >
             <FolderOpenDot className="h-4 w-4" />
             {backingUpFiles ? "Generando…" : "Descargar archivos"}
@@ -404,7 +404,7 @@ function SystemAdminView({
             type="button"
             onClick={() => exportProjectsCSV(activeProjects, users)}
             title={`Exportar ${activeProjects.length} proyecto(s) a CSV`}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2 text-sm font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#313136] hover:text-foreground"
+            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:bg-[var(--surface)] hover:text-foreground"
           >
             <Save className="h-4 w-4" />
             Exportar CSV
@@ -433,9 +433,9 @@ function SystemAdminView({
             <p className="mb-1 text-xs font-bold uppercase tracking-wide text-[#F5A524]">Confirmar restauración</p>
             <p className="text-sm font-semibold text-foreground">{restoreFile.name}</p>
             {restoreFile.meta.timestamp ? (
-              <p className="text-xs text-[#888888]">Fecha del backup: {new Date(restoreFile.meta.timestamp).toLocaleString("es-MX")}</p>
+              <p className="text-xs text-[color:var(--text-muted)]">Fecha del backup: {new Date(restoreFile.meta.timestamp).toLocaleString("es-MX")}</p>
             ) : null}
-            <div className="mt-1.5 flex gap-3 text-xs text-[#A1A1AA]">
+            <div className="mt-1.5 flex gap-3 text-xs text-[color:var(--text-muted)]">
               <span>{restoreFile.meta.projects} proyectos</span>
               <span>{restoreFile.meta.users} usuarios</span>
               <span>{restoreFile.meta.requests} solicitudes</span>
@@ -456,7 +456,7 @@ function SystemAdminView({
               <button
                 type="button"
                 onClick={() => { setRestoreFile(null); setRestoreMsg(null); }}
-                className="rounded-xl border border-[#3F3F46] px-4 py-2 text-sm font-semibold text-[#888888] transition hover:text-foreground"
+                className="rounded-xl border border-[color:var(--line)] px-4 py-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:text-foreground"
               >
                 Cancelar
               </button>
@@ -473,8 +473,8 @@ function SystemAdminView({
       </div>
 
       {/* ── Panel Gestión de Consecutivos ── */}
-      <div className="rounded-2xl border border-accent/20 bg-[#1E1E20] p-4">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">
+      <div className="rounded-2xl border border-accent/20 bg-[var(--input-bg)] p-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
           Folio de proyectos — control del consecutivo
         </p>
         <div className="mb-3 flex items-center gap-3">
@@ -484,11 +484,11 @@ function SystemAdminView({
               {sequenceInfo ? sequenceInfo.display : "—"}
             </p>
           </div>
-          <div className="text-xs text-[#555555] leading-relaxed">
+          <div className="text-xs text-[color:var(--text-muted)] leading-relaxed">
             <p> Se asignará automáticamente al próximo proyecto nuevo</p>
           </div>
         </div>
-        <p className="mb-2 text-xs font-semibold text-[#888888]">Ajustar el siguiente folio manualmente:</p>
+        <p className="mb-2 text-xs font-semibold text-[color:var(--text-muted)]">Ajustar el siguiente folio manualmente:</p>
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -496,7 +496,7 @@ function SystemAdminView({
             placeholder={sequenceInfo ? String(sequenceInfo.next) : "4000"}
             value={seqInput}
             onChange={(e) => setSeqInput(e.target.value.replace(/\D/g, ""))}
-            className="w-32 rounded-xl border border-[#3F3F46] bg-[#27272A] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-accent/50 focus:outline-none"
+            className="w-32 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[color:var(--text-muted)] focus:border-accent/50 focus:outline-none"
           />
           <button
             type="button"
@@ -529,11 +529,11 @@ function SystemAdminView({
       </div>
 
       {/* ── Panel Limpieza de datos de prueba (borrado masivo, irreversible) ── */}
-      <div className="rounded-2xl border border-danger/25 bg-[#1E1E20] p-4">
+      <div className="rounded-2xl border border-danger/25 bg-[var(--input-bg)] p-4">
         <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-danger">
           Limpieza de datos de prueba
         </p>
-        <p className="mb-3 text-xs leading-relaxed text-[#71717A]">
+        <p className="mb-3 text-xs leading-relaxed text-[color:var(--text-muted)]">
           Borra permanentemente los proyectos con folio menor al que indiques (o sin folio asignado),
           junto con sus archivos y chat, y las solicitudes que no queden ligadas a un proyecto que
           sobreviva. Esta acción no se puede deshacer.
@@ -545,7 +545,7 @@ function SystemAdminView({
             placeholder="Ej. 4100"
             value={cleanupInput}
             onChange={(e) => { setCleanupInput(e.target.value.replace(/\D/g, "")); setCleanupMsg(null); }}
-            className="w-32 rounded-xl border border-[#3F3F46] bg-[#27272A] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[#555555] focus:border-danger/50 focus:outline-none"
+            className="w-32 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-bold tabular-nums text-foreground placeholder:text-[color:var(--text-muted)] focus:border-danger/50 focus:outline-none"
           />
           <button
             type="button"
@@ -599,20 +599,20 @@ function SystemAdminView({
 
       {/* ── Panel Funciones — switches globales que solo el Gestor puede prender/apagar.
           Por ahora solo "Apartado facturas"; futuros switches van como filas nuevas aca. ── */}
-      <div className="rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-4">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">Funciones</p>
-        <p className="mb-3 text-xs leading-relaxed text-[#71717A]">
+      <div className="rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] p-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">Funciones</p>
+        <p className="mb-3 text-xs leading-relaxed text-[color:var(--text-muted)]">
           Switches globales que afectan lo que ven todos los perfiles. Se guardan en el servidor.
         </p>
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <span className="text-sm font-semibold text-foreground">Apartado facturas</span>
             <button
               type="button"
               onClick={() => onSetAppSetting?.("facturasEnabled", !(appSettings?.facturasEnabled ?? false))}
               title={appSettings?.facturasEnabled ? "Apartado facturas activado" : "Activar apartado facturas"}
               className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                appSettings?.facturasEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                appSettings?.facturasEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
               }`}
             >
               <span
@@ -622,14 +622,14 @@ function SystemAdminView({
               />
             </button>
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <span className="text-sm font-semibold text-foreground">Cobros</span>
             <button
               type="button"
               onClick={() => onSetAppSetting?.("cobrosEnabled", !(appSettings?.cobrosEnabled ?? false))}
               title={appSettings?.cobrosEnabled ? "Cobros activado" : "Activar Cobros"}
               className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                appSettings?.cobrosEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                appSettings?.cobrosEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
               }`}
             >
               <span
@@ -639,14 +639,14 @@ function SystemAdminView({
               />
             </button>
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <span className="text-sm font-semibold text-foreground">Desglose de costos</span>
             <button
               type="button"
               onClick={() => onSetAppSetting?.("desgloseCostosEnabled", !(appSettings?.desgloseCostosEnabled ?? false))}
               title={appSettings?.desgloseCostosEnabled ? "Desglose de costos activado" : "Activar desglose de costos"}
               className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                appSettings?.desgloseCostosEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                appSettings?.desgloseCostosEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
               }`}
             >
               <span
@@ -656,14 +656,14 @@ function SystemAdminView({
               />
             </button>
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <span className="text-sm font-semibold text-foreground">Gastos de campo</span>
             <button
               type="button"
               onClick={() => onSetAppSetting?.("gastosCampoEnabled", !(appSettings?.gastosCampoEnabled ?? false))}
               title={appSettings?.gastosCampoEnabled ? "Gastos de campo activado" : "Activar gastos de campo"}
               className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                appSettings?.gastosCampoEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                appSettings?.gastosCampoEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
               }`}
             >
               <span
@@ -674,7 +674,7 @@ function SystemAdminView({
             </button>
           </div>
 
-          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold text-foreground">Resumen diario por correo</span>
               <button
@@ -682,7 +682,7 @@ function SystemAdminView({
                 onClick={() => onSetAppSetting?.("kpiEmailEnabled", !(appSettings?.kpiEmailEnabled ?? false))}
                 title={appSettings?.kpiEmailEnabled ? "Resumen diario activado" : "Activar resumen diario"}
                 className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                  appSettings?.kpiEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                  appSettings?.kpiEmailEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
                 }`}
               >
                 <span
@@ -692,7 +692,7 @@ function SystemAdminView({
                 />
               </button>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+            <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-muted)]">
               Correos que reciben cada mañana el resumen de proyectos pagados/no pagados, vencidos
               y solicitudes aprobadas. Uno por línea.
             </p>
@@ -723,7 +723,7 @@ function SystemAdminView({
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold text-foreground">Aviso instantáneo de aprobación</span>
               <button
@@ -731,7 +731,7 @@ function SystemAdminView({
                 onClick={() => onSetAppSetting?.("approvalEmailEnabled", !(appSettings?.approvalEmailEnabled ?? false))}
                 title={appSettings?.approvalEmailEnabled ? "Aviso de aprobación activado" : "Activar aviso de aprobación"}
                 className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                  appSettings?.approvalEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                  appSettings?.approvalEmailEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
                 }`}
               >
                 <span
@@ -741,7 +741,7 @@ function SystemAdminView({
                 />
               </button>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+            <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-muted)]">
               Correos que reciben un aviso en el momento exacto en que se aprueba una solicitud:
               proyecto, cliente, folio, quién la pidió y quién la aprobó. Uno por línea.
             </p>
@@ -772,7 +772,7 @@ function SystemAdminView({
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold text-foreground">Aviso de solicitud rechazada</span>
               <button
@@ -780,7 +780,7 @@ function SystemAdminView({
                 onClick={() => onSetAppSetting?.("rejectedEmailEnabled", !(appSettings?.rejectedEmailEnabled ?? false))}
                 title={appSettings?.rejectedEmailEnabled ? "Aviso de rechazo activado" : "Activar aviso de rechazo"}
                 className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                  appSettings?.rejectedEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                  appSettings?.rejectedEmailEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
                 }`}
               >
                 <span
@@ -790,7 +790,7 @@ function SystemAdminView({
                 />
               </button>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+            <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-muted)]">
               Correos que reciben un aviso cuando se rechaza una solicitud: proyecto, cliente,
               folio, quién la pidió y el motivo del rechazo. Uno por línea.
             </p>
@@ -821,7 +821,7 @@ function SystemAdminView({
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-3">
+          <div className="rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold text-foreground">Aviso de solicitud en corrección</span>
               <button
@@ -829,7 +829,7 @@ function SystemAdminView({
                 onClick={() => onSetAppSetting?.("correctionEmailEnabled", !(appSettings?.correctionEmailEnabled ?? false))}
                 title={appSettings?.correctionEmailEnabled ? "Aviso de corrección activado" : "Activar aviso de corrección"}
                 className={`relative flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors duration-200 ${
-                  appSettings?.correctionEmailEnabled ? "bg-[#F5A524]" : "bg-[#3F3F46]"
+                  appSettings?.correctionEmailEnabled ? "bg-[#F5A524]" : "bg-[var(--surface-alt)]"
                 }`}
               >
                 <span
@@ -839,7 +839,7 @@ function SystemAdminView({
                 />
               </button>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-[#71717A]">
+            <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-muted)]">
               Correos que reciben un aviso cuando una solicitud pasa a "necesita corrección":
               proyecto, cliente, folio, quién la pidió y qué hay que corregir. Uno por línea.
             </p>
@@ -937,7 +937,7 @@ function SummaryCard({ title, value, tone }: { title: string; value: number | st
   }[tone];
 
   return (
-    <Card className={`border bg-[#27272A] ${toneClass}`}>
+    <Card className={`border bg-[var(--surface)] ${toneClass}`}>
       <p className="text-xs font-bold uppercase tracking-[0.18em]">{title}</p>
       <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">{value}</p>
     </Card>
@@ -1044,18 +1044,18 @@ function ProjectsManager({
           <Input value={draft.totalContratado} onChange={(event) => setDraft((c) => ({ ...c, totalContratado: event.target.value }))} type="number" placeholder="Monto" />
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             {ACTIVE_PROJECT_TYPES.map((code) => (
               <option key={code} value={code}>{code} — {PROJECT_TYPE_LABELS[code]}</option>
             ))}
           </select>
-          <select value={draft.assignedEngineerId} onChange={(event) => setDraft((c) => ({ ...c, assignedEngineerId: event.target.value }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.assignedEngineerId} onChange={(event) => setDraft((c) => ({ ...c, assignedEngineerId: event.target.value }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             <option value="">Sin ingeniero asignado</option>
             {engineerUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
           </select>
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-4">
-          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as ProjectStatus }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as ProjectStatus }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             <option value="en-programacion">En programación</option>
             <option value="en-concurso">En concurso</option>
             <option value="in-progress">En proceso</option>
@@ -1068,17 +1068,17 @@ function ProjectsManager({
             <option value="completed">Terminado</option>
             <option value="cancelled">Cancelado</option>
           </select>
-          <select value={draft.tipoPago} onChange={(event) => setDraft((c) => ({ ...c, tipoPago: event.target.value as TipoPago }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.tipoPago} onChange={(event) => setDraft((c) => ({ ...c, tipoPago: event.target.value as TipoPago }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             {(Object.entries(TIPO_PAGO_LABELS) as [TipoPago, string][]).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
-          <select value={draft.paymentStatus} onChange={(event) => setDraft((c) => ({ ...c, paymentStatus: event.target.value as ProjectItem["paymentStatus"] }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.paymentStatus} onChange={(event) => setDraft((c) => ({ ...c, paymentStatus: event.target.value as ProjectItem["paymentStatus"] }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             <option value="unpaid">No pagado</option>
             <option value="partial">Pago parcial</option>
             <option value="paid">Pagado</option>
           </select>
-          <select value={draft.priority} onChange={(event) => setDraft((c) => ({ ...c, priority: event.target.value as ProjectItem["priority"] }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.priority} onChange={(event) => setDraft((c) => ({ ...c, priority: event.target.value as ProjectItem["priority"] }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             <option value="low">Baja</option>
             <option value="medium">Media</option>
             <option value="high">Alta</option>
@@ -1096,7 +1096,7 @@ function ProjectsManager({
       </Card>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-[#888888]">{sortedProjects.length} proyectos activos</span>
+        <span className="text-sm text-[color:var(--text-muted)]">{sortedProjects.length} proyectos activos</span>
         <Button variant="outline" onClick={() => setDirection((current) => (current === "asc" ? "desc" : "asc"))}>
           Orden {direction === "asc" ? "ascendente" : "descendente"}
         </Button>
@@ -1108,7 +1108,7 @@ function ProjectsManager({
             (user) => user.role === "engineer" && (user.id === project.createdBy || (project.participants ?? []).includes(user.id)),
           );
           return (
-            <Card key={project.id} className="border-[#3F3F46] bg-[#27272A]">
+            <Card key={project.id} className="border-[color:var(--line)] bg-[var(--surface)]">
               <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1119,8 +1119,8 @@ function ProjectsManager({
                     {!assignedEngineer ? <span className="rounded-full bg-[#F5A524]/15 px-3 py-1 text-xs font-bold text-[#F5A524] ring-1 ring-[#F5A524]/25">Sin ingeniero</span> : null}
                   </div>
                   <p className="mt-2 truncate text-lg font-semibold text-foreground">{project.baseName}</p>
-                  <p className="mt-1 text-sm text-[#888888]">{project.client} · {project.department} · {project.structuredName}</p>
-                  <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2">
+                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">{project.client} · {project.department} · {project.structuredName}</p>
+                  <div className="mt-3 grid gap-2 text-xs text-[color:var(--text-muted)] sm:grid-cols-2">
                     <span>Ingeniero: {assignedEngineer?.name ?? "Pendiente asignar"}</span>
                     <span>Creado: {formatCompactDate(project.createdAt)}</span>
                     <span>Compromiso: {project.commitmentDate ? formatCompactDate(project.commitmentDate) : "Pendiente"}</span>
@@ -1134,7 +1134,7 @@ function ProjectsManager({
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                     {openMenuId === project.id ? (
-                      <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                      <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] p-1.5 shadow-xl">
                         <button
                           type="button"
                           className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
@@ -1159,7 +1159,7 @@ function ProjectsManager({
           <div className="flex items-center gap-2">
             <Trash2 className="h-4 w-4 text-danger" />
             <p className="text-sm font-bold text-danger">Papelera — {trashedProjects.length} proyecto{trashedProjects.length !== 1 ? "s" : ""}</p>
-            <p className="text-xs text-[#555555]">Se eliminan automáticamente después de 4 horas</p>
+            <p className="text-xs text-[color:var(--text-muted)]">Se eliminan automáticamente después de 4 horas</p>
           </div>
           {trashedProjects.map((project) => {
             const deletedMs = project.deletedAt ? Date.now() - new Date(project.deletedAt).getTime() : 0;
@@ -1172,17 +1172,17 @@ function ProjectsManager({
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-[#3F3F46] px-2 py-0.5 text-xs font-black text-accent">#{getProjectSequence(project)}</span>
-                      <p className="truncate text-sm font-semibold text-[#A1A1AA]">{project.baseName}</p>
+                      <span className="rounded bg-[var(--surface-alt)] px-2 py-0.5 text-xs font-black text-accent">#{getProjectSequence(project)}</span>
+                      <p className="truncate text-sm font-semibold text-[color:var(--text-muted)]">{project.baseName}</p>
                     </div>
-                    <p className="mt-0.5 text-xs text-[#555555]">{project.client} · {project.department}</p>
-                    <p className="mt-1 text-xs text-[#555555]">⏱ {timeLabel}</p>
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">{project.client} · {project.department}</p>
+                    <p className="mt-1 text-xs text-[color:var(--text-muted)]">⏱ {timeLabel}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <button
                       type="button"
                       onClick={() => onRestoreProject?.(project.id)}
-                      className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#A1A1AA] transition hover:border-accent/40 hover:text-accent"
+                      className="rounded-xl border border-[color:var(--line)] px-3 py-1.5 text-xs font-bold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:text-accent"
                     >
                       Restaurar
                     </button>
@@ -1274,19 +1274,19 @@ function RequestsManager({
           <Input value={draft.baseName} onChange={(event) => setDraft((c) => ({ ...c, baseName: event.target.value }))} placeholder="Nombre de solicitud" />
           <Input value={draft.client} onChange={(event) => setDraft((c) => ({ ...c, client: event.target.value }))} placeholder="Cliente" />
           <Input value={draft.department} onChange={(event) => setDraft((c) => ({ ...c, department: event.target.value }))} placeholder="Departamento" />
-          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.type} onChange={(event) => setDraft((c) => ({ ...c, type: event.target.value as ProjectType }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             {ACTIVE_PROJECT_TYPES.map((code) => (
               <option key={code} value={code}>{code} — {PROJECT_TYPE_LABELS[code]}</option>
             ))}
           </select>
-          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as RequestStatus }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+          <select value={draft.status} onChange={(event) => setDraft((c) => ({ ...c, status: event.target.value as RequestStatus }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
             <option value="under-review">Por revisar</option>
             <option value="needs-correction">Correccion</option>
             <option value="approved">Aprobada</option>
             <option value="rejected">Rechazada</option>
           </select>
         </div>
-        <select value={draft.createdBy} onChange={(event) => setDraft((c) => ({ ...c, createdBy: event.target.value }))} className="mt-3 h-12 w-full rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+        <select value={draft.createdBy} onChange={(event) => setDraft((c) => ({ ...c, createdBy: event.target.value }))} className="mt-3 h-12 w-full rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
           {users.filter((user) => user.isActive !== false).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
         </select>
         <Textarea value={draft.description} onChange={(event) => setDraft((c) => ({ ...c, description: event.target.value }))} placeholder="Descripcion o seguimiento solicitado" className="mt-3" />
@@ -1309,22 +1309,22 @@ function RequestsManager({
 
       <div className="space-y-3">
         {sortedRequests.length === 0 && requests.length > 0 ? (
-          <p className="py-6 text-center text-sm text-[#888888]">Sin resultados para la búsqueda</p>
+          <p className="py-6 text-center text-sm text-[color:var(--text-muted)]">Sin resultados para la búsqueda</p>
         ) : null}
         {sortedRequests.map((request) => (
-          <Card key={request.id} className="border-[#3F3F46] bg-[#27272A]">
+          <Card key={request.id} className="border-[color:var(--line)] bg-[var(--surface)]">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs font-black text-accent">#{getRequestSequence(request, projects)}</span>
                   <StatusBadge kind="request" value={request.status} />
-                  <span className="text-xs font-semibold text-[#888888]">{parseLocalDate(request.createdAt).toLocaleDateString("es-MX")}</span>
+                  <span className="text-xs font-semibold text-[color:var(--text-muted)]">{parseLocalDate(request.createdAt).toLocaleDateString("es-MX")}</span>
                 </div>
                 <p className="mt-2 text-base font-semibold text-foreground">{request.baseName}</p>
-                <p className="mt-1 text-sm text-[#888888]">
+                <p className="mt-1 text-sm text-[color:var(--text-muted)]">
                   {request.client} · {request.department} · {request.structuredName}
                 </p>
-                <div className="mt-3 grid gap-2 text-xs text-[#A1A1AA] sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-3 grid gap-2 text-xs text-[color:var(--text-muted)] sm:grid-cols-2 lg:grid-cols-4">
                   <span>Solicitó: {users.find((user) => user.id === request.createdBy)?.name ?? request.createdBy}</span>
                   <span>Tipo: {request.type}</span>
                   <span>Vínculo: {request.linkedProjectId ? "Proyecto aprobado" : request.duplicateOfProjectId ? "Posible duplicado" : "Sin vínculo"}</span>
@@ -1359,7 +1359,7 @@ function RequestsManager({
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder="Motivo..."
-                      className="h-9 rounded-xl border border-[#3F3F46] bg-[#1F1F22] px-3 text-sm text-foreground outline-none focus:border-danger/50"
+                      className="h-9 rounded-xl border border-[color:var(--line)] bg-[var(--input-bg)] px-3 text-sm text-foreground outline-none focus:border-danger/50"
                       autoFocus
                     />
                     <button
@@ -1371,7 +1371,7 @@ function RequestsManager({
                     <button
                       type="button"
                       onClick={() => setRejectingId(null)}
-                      className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:text-white"
+                      className="rounded-xl border border-[color:var(--line)] px-3 py-1.5 text-sm font-bold text-[color:var(--text-muted)] transition hover:text-white"
                     >Cancelar</button>
                   </div>
                 ) : null}
@@ -1381,7 +1381,7 @@ function RequestsManager({
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                   {openMenuReqId === request.id ? (
-                    <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+                    <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[160px] rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] p-1.5 shadow-xl">
                       <button
                         type="button"
                         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-danger transition-colors duration-150 hover:bg-danger/10"
@@ -1456,24 +1456,24 @@ function LegacyAdminView({
   const summaryCards = [
     {
       title: "Por revisar", value: reviewRequests.length, icon: ShieldAlert,
-      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning",
+      bg: "bg-gradient-to-br from-[var(--surface)] to-[var(--input-bg)]", border: "border-[#F5A524]/20", iconBg: "bg-[#F5A524]/15 text-[#F5A524]", labelColor: "text-[#F5A524]", accent: "bg-warning",
       onClick: () => onTabChange("review"),
     },
     {
       title: "Proyectos activos", value: onlyActiveProjects.length, icon: FolderOpenDot,
-      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary",
+      bg: "bg-gradient-to-br from-[var(--surface)] to-[var(--input-bg)]", border: "border-secondary/20", iconBg: "bg-secondary/15 text-secondary", labelColor: "text-secondary", accent: "bg-secondary",
       onClick: () => onTabChange("active"),
     },
     {
       // Mismos color/icono que "Pagados" del Supervisor — los 4 indicadores deben
       // verse identicos entre ambos roles.
       title: "Pagados", value: paidProjects.length, icon: BadgeCheck,
-      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-[#2DBE7A]/20", iconBg: "bg-[#2DBE7A]/15 text-[#2DBE7A]", labelColor: "text-[#2DBE7A]", accent: "bg-[#2DBE7A]",
+      bg: "bg-gradient-to-br from-[var(--surface)] to-[var(--input-bg)]", border: "border-[#2DBE7A]/20", iconBg: "bg-[#2DBE7A]/15 text-[#2DBE7A]", labelColor: "text-[#2DBE7A]", accent: "bg-[#2DBE7A]",
       onClick: () => goToAllProjectsWithPayFilter("Pagado"),
     },
     {
       title: "No pagados", value: unpaidProjects.length, icon: BadgeDollarSign,
-      bg: "bg-gradient-to-br from-[#2C2C30] to-[#212124]", border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger",
+      bg: "bg-gradient-to-br from-[var(--surface)] to-[var(--input-bg)]", border: "border-danger/20", iconBg: "bg-danger/15 text-danger", labelColor: "text-danger", accent: "bg-danger",
       onClick: () => goToAllProjectsWithPayFilter("No pagado"),
     },
   ];
@@ -1551,8 +1551,8 @@ function LegacyAdminView({
       {adminProjectTab === "correction" ? (
         <div className="space-y-3">
           {(correctionRequests ?? []).length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">Sin solicitudes en corrección</p>
+            <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+              <p className="text-sm font-semibold text-[color:var(--text-muted)]">Sin solicitudes en corrección</p>
             </div>
           ) : (
             (correctionRequests ?? []).map((req) => (
@@ -1562,20 +1562,20 @@ function LegacyAdminView({
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0EA5E9]">
                     {req.client} · {req.department}
                   </span>
-                  <span className="ml-auto text-xs text-[#888888]">
+                  <span className="ml-auto text-xs text-[color:var(--text-muted)]">
                     {formatDate(req.createdAt)}
                   </span>
                 </div>
                 <h3 className="text-sm font-bold text-foreground">{req.baseName}</h3>
-                <p className="text-xs text-[#888888]">{req.structuredName || "Sin folio"}</p>
+                <p className="text-xs text-[color:var(--text-muted)]">{req.structuredName || "Sin folio"}</p>
                 {req.correctionReason ? (
-                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                  <div className="rounded-xl border border-[#0EA5E9]/15 bg-[#0EA5E9]/5 px-3 py-2 text-xs text-[color:var(--text-muted)]">
                     <span className="font-bold text-[#0EA5E9]">Corrección solicitada: </span>
                     {req.correctionReason}
                   </div>
                 ) : null}
-                <p className="text-xs text-[#888888]">
-                  <span className="font-semibold text-[#A1A1AA]">Solicitado por:</span>{" "}
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  <span className="font-semibold text-[color:var(--text-muted)]">Solicitado por:</span>{" "}
                   {users.find((u) => u.id === req.createdBy)?.name ?? "—"}
                 </p>
               </div>
@@ -1612,8 +1612,8 @@ function ReviewTab({
 
   if (reviewRequests.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">No hay solicitudes por revisar</p>
+      <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+        <p className="text-sm font-semibold text-[color:var(--text-muted)]">No hay solicitudes por revisar</p>
       </div>
     );
   }
@@ -1898,7 +1898,7 @@ function ProjectsFilterTab({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 space-y-3">
+      <div className="rounded-[24px] border border-[color:var(--line)] bg-[var(--surface)] p-4 space-y-3">
         {/* Búsqueda + CSV */}
         <div className="flex gap-2">
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busca un proyecto" className="h-10 flex-1" />
@@ -1906,7 +1906,7 @@ function ProjectsFilterTab({
             type="button"
             onClick={() => exportProjectsCSV(filtered, users)}
             title={`Exportar ${filtered.length} proyecto(s) a CSV`}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-2 text-xs font-semibold text-[#A1A1AA] transition hover:border-accent/40 hover:bg-[#3F3F46] hover:text-foreground shrink-0"
+            className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:bg-[var(--surface-alt)] hover:text-foreground shrink-0"
           >
             <Save className="h-4 w-4" />
             CSV
@@ -1923,7 +1923,7 @@ function ProjectsFilterTab({
                 "rounded-full px-3 py-1 text-xs font-bold transition",
                 yearF === y
                   ? "bg-accent text-[#111111]"
-                  : "bg-[#3F3F46] text-[#A1A1AA] hover:bg-[#52525B] hover:text-foreground",
+                  : "bg-[var(--surface-alt)] text-[color:var(--text-muted)] hover:bg-[var(--surface-alt)] hover:text-foreground",
               )}
             >{y}</button>
           ))}
@@ -1954,7 +1954,7 @@ function ProjectsFilterTab({
         </FilterGroupAccordion>
         {/* Pie: contador + Ordenar + Limpiar filtros */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <p className="text-xs text-[#888888]">
+          <p className="text-xs text-[color:var(--text-muted)]">
             Mostrando {filtered.length} de {projects.length} proyecto{projects.length !== 1 ? "s" : ""}
           </p>
           <div className="flex flex-wrap items-center gap-2">
@@ -1963,7 +1963,7 @@ function ProjectsFilterTab({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-1.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-danger/40 hover:text-danger"
+                className="flex items-center gap-1.5 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-danger/40 hover:text-danger"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Limpiar filtros
@@ -1982,8 +1982,8 @@ function ProjectsFilterTab({
           ))}
         </div>
       ) : (
-        <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-14 text-center">
-          <p className="text-sm font-semibold text-[#888888]">Ningún proyecto coincide con los filtros</p>
+        <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-14 text-center">
+          <p className="text-sm font-semibold text-[color:var(--text-muted)]">Ningún proyecto coincide con los filtros</p>
         </div>
       )}
     </div>
@@ -2015,13 +2015,13 @@ function filterBorderBg(variant: FilterGroupVariant, isActive: boolean): string 
   }
   return isActive
     ? "border-accent/40 bg-gradient-to-b from-accent/20 to-accent/5 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
-    : "border-[#3F3F46] bg-gradient-to-b from-[#38383D] to-[#2C2C30] hover:border-white/20 hover:from-[#3D3D42]";
+    : "border-[color:var(--line)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:border-white/20 hover:from-[var(--surface-alt)]";
 }
 function filterLabelText(variant: FilterGroupVariant, isActive: boolean): string {
   if (variant === "finance") return isActive ? "text-[#93C5FD]" : "text-[#60A5FA]";
   if (variant === "administrativo") return isActive ? "text-[#C4B5FD]" : "text-[#A78BFA]";
   if (variant === "operativo") return isActive ? "text-[#FDE68A]" : "text-[#E3A94F]";
-  return isActive ? "text-accent" : "text-[#888888]";
+  return isActive ? "text-accent" : "text-[color:var(--text-muted)]";
 }
 function filterValueText(variant: FilterGroupVariant, isActive: boolean): string {
   if (variant === "finance") return isActive ? "text-[#BFDBFE]" : "text-[#93C5FD]";
@@ -2034,13 +2034,13 @@ function filterHeaderIconBg(variant: FilterGroupVariant): string {
   if (variant === "finance") return "bg-[#3B82F6]";
   if (variant === "administrativo") return "bg-[#8B5CF6]";
   if (variant === "operativo") return "bg-[#F5A524]";
-  return "bg-[#3F3F46]";
+  return "bg-[var(--surface-alt)]";
 }
 function filterHeaderChevronBg(variant: FilterGroupVariant): string {
   if (variant === "finance") return "bg-[#3B82F6]/20 text-[#60A5FA]";
   if (variant === "administrativo") return "bg-[#8B5CF6]/20 text-[#A78BFA]";
   if (variant === "operativo") return "bg-[#F5A524]/20 text-[#E3A94F]";
-  return "bg-[#3F3F46] text-[#888888]";
+  return "bg-[var(--surface-alt)] text-[color:var(--text-muted)]";
 }
 
 // Acordeón de filtros — cabecera con ícono representativo del grupo, cerrado por
@@ -2117,7 +2117,7 @@ function CompactSelect({ label, options, value, onChange, variant = "default", l
       )}
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] p-1.5 shadow-xl">
           {options.map((opt) => (
             <button
               key={opt}
@@ -2126,7 +2126,7 @@ function CompactSelect({ label, options, value, onChange, variant = "default", l
               className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
                 opt === value
                   ? "bg-accent/15 text-accent"
-                  : "text-[#A1A1AA] hover:bg-[#313136] hover:text-foreground"
+                  : "text-[color:var(--text-muted)] hover:bg-[var(--surface)] hover:text-foreground"
               }`}
             >
               {opt}
@@ -2159,8 +2159,8 @@ function UnpaidTab({
 
   if (sorted.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">Sin proyectos no pagados</p>
+      <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+        <p className="text-sm font-semibold text-[color:var(--text-muted)]">Sin proyectos no pagados</p>
       </div>
     );
   }
@@ -2175,22 +2175,22 @@ function UnpaidTab({
         return (
           <Card
             key={project.id}
-            className="cursor-pointer border-[#3F3F46] bg-[#27272A] transition-all hover:border-white/15 hover:shadow-card-hover"
+            className="cursor-pointer border-[color:var(--line)] bg-[var(--surface)] transition-all hover:border-white/15 hover:shadow-card-hover"
             onClick={() => onOpenProject(project.id)}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{project.client} · {project.department}</p>
                 <h3 className="mt-1 truncate text-base font-bold text-foreground">{project.baseName}</h3>
-                <p className="text-xs text-[#888888]">{project.structuredName}</p>
+                <p className="text-xs text-[color:var(--text-muted)]">{project.structuredName}</p>
               </div>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">Contratado</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">Contratado</p>
                   <p className="text-sm font-bold text-foreground tabular-nums">{mxn(base)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#888888]">Abonado</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">Abonado</p>
                   <p className="text-sm font-bold text-foreground tabular-nums">{mxn(abonoTotal)}</p>
                 </div>
                 <div className="text-right">
@@ -2201,7 +2201,7 @@ function UnpaidTab({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onOpenProject(project.id); }}
-                  className="shrink-0 rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#888888] transition hover:border-accent/40 hover:text-accent"
+                  className="shrink-0 rounded-xl border border-[color:var(--line)] px-3 py-1.5 text-xs font-bold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:text-accent"
                 >
                   Ver F4 →
                 </button>
@@ -2227,8 +2227,8 @@ function RejectedTab({
 
   if (requests.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">Sin solicitudes rechazadas</p>
+      <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+        <p className="text-sm font-semibold text-[color:var(--text-muted)]">Sin solicitudes rechazadas</p>
       </div>
     );
   }
@@ -2236,16 +2236,16 @@ function RejectedTab({
   return (
     <div className="space-y-3">
       {requests.map((req) => (
-        <Card key={req.id} className="border-[#3F3F46] bg-[#27272A]">
+        <Card key={req.id} className="border-[color:var(--line)] bg-[var(--surface)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
               <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
-              <p className="text-xs text-[#888888]">
+              <p className="text-xs text-[color:var(--text-muted)]">
                 Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}
               </p>
               {req.rejectionReason ? (
-                <div className="mt-2 rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[#A1A1AA]">
+                <div className="mt-2 rounded-xl border border-danger/15 bg-danger/5 px-3 py-2 text-xs text-[color:var(--text-muted)]">
                   <span className="font-bold text-danger">Motivo: </span>{req.rejectionReason}
                 </div>
               ) : null}
@@ -2263,7 +2263,7 @@ function RejectedTab({
               <button
                 type="button"
                 onClick={() => onOpenRequest(req.id)}
-                className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:border-white/20 hover:text-white"
+                className="rounded-xl border border-[color:var(--line)] px-3 py-1.5 text-sm font-bold text-[color:var(--text-muted)] transition hover:border-white/20 hover:text-white"
               >
                 Ver detalle
               </button>
@@ -2293,7 +2293,7 @@ function CancelledTab({
       {/* Proyectos cancelados */}
       {projects.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#888888]">Proyectos cancelados · {projects.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">Proyectos cancelados · {projects.length}</p>
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
           ))}
@@ -2303,23 +2303,23 @@ function CancelledTab({
       {/* Solicitudes rechazadas */}
       {rejectedRequests.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#888888]">Solicitudes no autorizadas · {rejectedRequests.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">Solicitudes no autorizadas · {rejectedRequests.length}</p>
           {rejectedRequests.map((req) => (
-            <Card key={req.id} className="border-[#3F3F46] bg-[#27272A]">
+            <Card key={req.id} className="border-[color:var(--line)] bg-[var(--surface)]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3F3F46] px-3 py-1 text-[10px] font-bold text-[#71717A]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-alt)] px-3 py-1 text-[10px] font-bold text-[color:var(--text-muted)]">
                       Cancelado
                     </span>
-                    <span className="text-xs text-[#888888]">{parseLocalDate(req.createdAt).toLocaleDateString("es-MX")}</span>
+                    <span className="text-xs text-[color:var(--text-muted)]">{parseLocalDate(req.createdAt).toLocaleDateString("es-MX")}</span>
                   </div>
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">{req.client} · {req.department}</p>
                   <h3 className="text-base font-bold text-foreground">{req.baseName}</h3>
-                  <p className="text-xs text-[#888888]">Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}</p>
+                  <p className="text-xs text-[color:var(--text-muted)]">Solicitado por: {usersById[req.createdBy]?.name ?? req.createdBy}</p>
                   {req.rejectionReason ? (
-                    <div className="mt-2 rounded-xl border border-[#3F3F46] bg-[#1E1E20] px-3 py-2 text-xs text-[#A1A1AA]">
-                      <span className="font-bold text-[#888888]">Motivo: </span>{req.rejectionReason}
+                    <div className="mt-2 rounded-xl border border-[color:var(--line)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[color:var(--text-muted)]">
+                      <span className="font-bold text-[color:var(--text-muted)]">Motivo: </span>{req.rejectionReason}
                     </div>
                   ) : null}
                 </div>
@@ -2336,7 +2336,7 @@ function CancelledTab({
                   <button
                     type="button"
                     onClick={() => onOpenRequest(req.id)}
-                    className="rounded-xl border border-[#3F3F46] px-3 py-1.5 text-sm font-bold text-[#888888] transition hover:border-white/20 hover:text-white"
+                    className="rounded-xl border border-[color:var(--line)] px-3 py-1.5 text-sm font-bold text-[color:var(--text-muted)] transition hover:border-white/20 hover:text-white"
                   >
                     Ver detalle
                   </button>
@@ -2348,8 +2348,8 @@ function CancelledTab({
       ) : null}
 
       {projects.length === 0 && rejectedRequests.length === 0 ? (
-        <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-          <p className="text-sm font-semibold text-[#888888]">Sin proyectos o solicitudes canceladas</p>
+        <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+          <p className="text-sm font-semibold text-[color:var(--text-muted)]">Sin proyectos o solicitudes canceladas</p>
         </div>
       ) : null}
     </div>
@@ -2412,7 +2412,7 @@ function UsersAdminPanel({
             <Input value={draft.email} onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))} placeholder="Correo" />
             <Input value={draft.password} onChange={(event) => setDraft((current) => ({ ...current, password: event.target.value }))} type="password" placeholder="Contrasena" />
             <Input value={draft.department} onChange={(event) => setDraft((current) => ({ ...current, department: event.target.value }))} placeholder="Departamento" />
-            <select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as RoleKey }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none">
+            <select value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as RoleKey }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none">
               {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
             </select>
             <Button onClick={handleCreate} disabled={!draft.firstName.trim() || !draft.lastName.trim() || !draft.email.trim() || !draft.password.trim()}><UserPlus className="h-4 w-4" />Crear</Button>
@@ -2423,17 +2423,17 @@ function UsersAdminPanel({
         {users.map((user) => {
           const value = editableFor(user);
           return (
-            <Card key={user.id} className="border-[#3F3F46] bg-[#27272A]">
+            <Card key={user.id} className="border-[color:var(--line)] bg-[var(--surface)]">
               <div className="grid gap-3 lg:grid-cols-[0.95fr_0.85fr_1.1fr_0.85fr_0.85fr_0.8fr_auto_auto] lg:items-center">
                 <div className="flex items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-black text-[#111111]">{user.avatar}</div><Input value={value.firstName ?? ""} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, firstName: event.target.value } }))} /></div>
                 <Input value={value.lastName ?? ""} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, lastName: event.target.value } }))} />
                 <Input value={value.email} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, email: event.target.value } }))} />
                 <Input value={value.password ?? ""} disabled={!canManageUsers} type="password" placeholder="Contrasena" onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, password: event.target.value } }))} />
                 <Input value={value.department} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, department: event.target.value } }))} />
-                <select value={value.role} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, role: event.target.value as RoleKey } }))} className="h-12 rounded-2xl border border-[#3F3F46] bg-[#313136] px-4 text-sm font-semibold text-foreground outline-none disabled:opacity-70">
+                <select value={value.role} disabled={!canManageUsers} onChange={(event) => setEditing((current) => ({ ...current, [user.id]: { ...value, role: event.target.value as RoleKey } }))} className="h-12 rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] px-4 text-sm font-semibold text-foreground outline-none disabled:opacity-70">
                   {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                 </select>
-                <button type="button" disabled={!canManageUsers} onClick={() => setEditing((current) => ({ ...current, [user.id]: { ...value, isActive: !value.isActive } }))} className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition disabled:opacity-70 ${value.isActive ? "border-success/30 bg-success/10 text-success" : "border-[#3F3F46] bg-[#313136] text-[#888888]"}`}><UsersRound className="h-4 w-4" />{value.isActive ? "Activo" : "Inactivo"}</button>
+                <button type="button" disabled={!canManageUsers} onClick={() => setEditing((current) => ({ ...current, [user.id]: { ...value, isActive: !value.isActive } }))} className={`inline-flex h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition disabled:opacity-70 ${value.isActive ? "border-success/30 bg-success/10 text-success" : "border-[color:var(--line)] bg-[var(--surface)] text-[color:var(--text-muted)]"}`}><UsersRound className="h-4 w-4" />{value.isActive ? "Activo" : "Inactivo"}</button>
                 <div className="flex gap-2">
                   <Button size="icon" variant="outline" disabled={!canManageUsers || savingId === user.id} onClick={() => handleSaveRow(user.id, value)}>
                     {savingId === user.id ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -2464,7 +2464,7 @@ function ActivityPanel({ activityLogs }: { activityLogs: ActivityLogItem[] }): J
 
   if (activityLogs.length === 0) {
     return (
-      <Card className="border-[#3F3F46] bg-[#27272A] text-sm text-[#A1A1AA]">
+      <Card className="border-[color:var(--line)] bg-[var(--surface)] text-sm text-[color:var(--text-muted)]">
         Todavia no hay actividad registrada. Los nuevos movimientos empezaran a aparecer aqui cuando la API actualizada este subida.
       </Card>
     );
@@ -2473,23 +2473,23 @@ function ActivityPanel({ activityLogs }: { activityLogs: ActivityLogItem[] }): J
   return (
     <div className="space-y-3">
       {activityLogs.map((item) => (
-        <Card key={item.id} className="border-[#3F3F46] bg-[#27272A]">
+        <Card key={item.id} className="border-[color:var(--line)] bg-[var(--surface)]">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_0.7fr_0.7fr] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded bg-secondary/15 px-3 py-1 text-xs font-bold text-secondary">
                   {actionLabels[item.action] ?? item.action}
                 </span>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#888888]">{item.entity_type}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">{item.entity_type}</span>
               </div>
               <p className="mt-2 truncate text-base font-semibold text-foreground">{item.entity_name ?? item.entity_id ?? "Sistema"}</p>
-              <p className="mt-1 text-sm text-[#888888]">{item.user_name ?? "Sistema"} · {item.user_role ?? "sin rol"}</p>
+              <p className="mt-1 text-sm text-[color:var(--text-muted)]">{item.user_name ?? "Sistema"} · {item.user_role ?? "sin rol"}</p>
             </div>
-            <div className="text-sm text-[#A1A1AA]">
+            <div className="text-sm text-[color:var(--text-muted)]">
               <p>{formatCompactDate(item.created_at)}</p>
-              <p className="mt-1 truncate text-xs text-[#888888]">{item.ip_address ?? "Sin IP"}</p>
+              <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">{item.ip_address ?? "Sin IP"}</p>
             </div>
-            <div className="rounded border border-[#3F3F46] bg-[#1F1F22] p-3 text-xs leading-5 text-[#A1A1AA]">
+            <div className="rounded border border-[color:var(--line)] bg-[var(--input-bg)] p-3 text-xs leading-5 text-[color:var(--text-muted)]">
               {formatActivityDetails(item.details)}
             </div>
           </div>
@@ -2580,7 +2580,7 @@ const INVOICE_STATUS_COLOR_MAP: Record<InvoiceStatus, string> = {
   "en-portal": "bg-[#F5A524]/20 text-[#F5A524]",
   "enviada": "bg-accent/15 text-accent",
   "pagada": "bg-[#4ADE80]/15 text-[#4ADE80]",
-  "cancelada": "bg-[#3F3F46] text-[#71717A]",
+  "cancelada": "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",
 };
 
 function getInvoiceDaysSince(invoice: InvoiceItem): number {
@@ -2633,9 +2633,9 @@ function CobrosTab({
 
   if (withInvoices.length === 0) {
     return (
-      <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-        <p className="text-sm font-semibold text-[#888888]">Sin facturas registradas</p>
-        <p className="mt-2 text-xs text-[#555555]">Las facturas se agregan desde la pestaña F4 de cada proyecto</p>
+      <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+        <p className="text-sm font-semibold text-[color:var(--text-muted)]">Sin facturas registradas</p>
+        <p className="mt-2 text-xs text-[color:var(--text-muted)]">Las facturas se agregan desde la pestaña F4 de cada proyecto</p>
       </div>
     );
   }
@@ -2661,12 +2661,12 @@ function CobrosTab({
             maxStuckDays > 14 ? "border-danger/35" :
             maxStuckDays > 7 ? "border-[#F5A524]/35" :
             activeInvs.length === 0 ? "border-[#4ADE80]/15" :
-            "border-[#3F3F46]";
+            "border-[color:var(--line)]";
 
           const cardBg =
             maxStuckDays > 14 ? "bg-danger/[0.04]" :
             maxStuckDays > 7 ? "bg-[#F5A524]/[0.04]" :
-            "bg-[#27272A]";
+            "bg-[var(--surface)]";
 
           return (
             <Card key={project.id} className={`${cardBorder} ${cardBg}`}>
@@ -2694,12 +2694,12 @@ function CobrosTab({
                       ) : null}
                     </div>
                     <p className="mt-1 truncate text-sm font-semibold text-foreground">{project.baseName}</p>
-                    <p className="text-xs text-[#888888]">{project.client} · {project.department}</p>
+                    <p className="text-xs text-[color:var(--text-muted)]">{project.client} · {project.department}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => onOpenProject(project.id)}
-                    className="shrink-0 rounded-xl border border-[#3F3F46] px-3 py-1.5 text-xs font-bold text-[#888888] transition hover:border-accent/40 hover:text-accent"
+                    className="shrink-0 rounded-xl border border-[color:var(--line)] px-3 py-1.5 text-xs font-bold text-[color:var(--text-muted)] transition hover:border-accent/40 hover:text-accent"
                   >
                     Ver →
                   </button>
@@ -2713,21 +2713,21 @@ function CobrosTab({
                     return (
                       <div
                         key={inv.id}
-                        className="flex flex-wrap items-center gap-2 rounded-xl bg-[#1E1E20] px-3 py-2 text-xs"
+                        className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--input-bg)] px-3 py-2 text-xs"
                       >
-                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${INVOICE_STATUS_COLOR_MAP[inv.status] ?? "bg-[#3F3F46] text-[#888888]"}`}>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${INVOICE_STATUS_COLOR_MAP[inv.status] ?? "bg-[var(--surface-alt)] text-[color:var(--text-muted)]"}`}>
                           {INVOICE_STATUS_LABELS_MAP[inv.status] ?? inv.status}
                         </span>
                         {inv.oc ? <span className="font-semibold text-foreground">OC {inv.oc}</span> : null}
                         <span className="font-bold text-foreground tabular-nums">{mxn(inv.subtotal)}</span>
-                        {inv.facturarA ? <span className="text-[#888888]">→ {inv.facturarA}</span> : null}
+                        {inv.facturarA ? <span className="text-[color:var(--text-muted)]">→ {inv.facturarA}</span> : null}
                         {inv.mdp ? (
-                          <span className="rounded bg-[#3F3F46] px-1.5 py-0.5 font-mono text-[9px] text-[#888888]">
+                          <span className="rounded bg-[var(--surface-alt)] px-1.5 py-0.5 font-mono text-[9px] text-[color:var(--text-muted)]">
                             {inv.mdp}
                           </span>
                         ) : null}
                         {inv.fechaSolicitud ? (
-                          <span className="text-[10px] text-[#52525B]">
+                          <span className="text-[10px] text-[color:var(--text-muted)]">
                             {parseLocalDate(inv.fechaSolicitud).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
                           </span>
                         ) : null}
@@ -2736,7 +2736,7 @@ function CobrosTab({
                             Pago: {parseLocalDate(inv.fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
                           </span>
                         ) : isActive && days > 0 ? (
-                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-[#F5A524]" : "text-[#555555]"}`}>
+                          <span className={`ml-auto text-[10px] font-bold tabular-nums ${days > 14 ? "text-danger" : days > 7 ? "text-[#F5A524]" : "text-[color:var(--text-muted)]"}`}>
                             {days}d
                           </span>
                         ) : null}

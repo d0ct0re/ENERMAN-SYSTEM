@@ -9,14 +9,14 @@ const labels: Record<PriorityLevel, string> = {
 };
 
 const tones: Record<PriorityLevel, string> = {
-  low:      "bg-[#3F3F46] text-[#888888]",
+  low:      "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",
   medium:   "bg-secondary/15 text-secondary ring-1 ring-secondary/30",
   high:     "bg-[#F5A524]/15 text-[#F5A524] ring-1 ring-[#F5A524]/30",
   critical: "bg-[#E24B4A]/15 text-[#E24B4A] ring-1 ring-[#E24B4A]/30 shadow-glow-danger",
 };
 
 const dots: Record<PriorityLevel, string> = {
-  low:      "bg-[#71717A]",
+  low:      "bg-[var(--surface-alt)]",
   medium:   "bg-secondary",
   high:     "bg-[#F5A524]",
   critical: "bg-[#E24B4A] animate-pulse",

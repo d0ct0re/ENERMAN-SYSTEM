@@ -13,7 +13,7 @@ const DATE_CFG: Record<EventType, { label: string; dot: string; pill: string; ca
   fin:        { label: "Fecha de Fin",           dot: "bg-danger",    pill: "bg-danger/15 text-danger",           card: "border-danger/20 bg-danger/[0.04]",           text: "text-danger" },
   compromiso: { label: "Fecha de Compromiso",     dot: "bg-secondary", pill: "bg-secondary/15 text-secondary",     card: "border-secondary/20 bg-secondary/[0.04]",     text: "text-secondary" },
   inicio:     { label: "Fecha de Inicio",         dot: "bg-[#4ADE80]", pill: "bg-[#4ADE80]/15 text-[#4ADE80]",    card: "border-[#4ADE80]/20 bg-[#4ADE80]/[0.04]",    text: "text-[#4ADE80]" },
-  solicitud:  { label: "Fecha de Solicitud",      dot: "bg-[#52525B]", pill: "bg-[#3F3F46] text-[#A1A1AA]",       card: "border-[#3F3F46] bg-[#27272A]",               text: "text-[#A1A1AA]" },
+  solicitud:  { label: "Fecha de Solicitud",      dot: "bg-[var(--surface-alt)]", pill: "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",       card: "border-[color:var(--line)] bg-[var(--surface)]",               text: "text-[color:var(--text-muted)]" },
   importante: { label: "Fecha importante",  dot: "bg-[#EC4899]", pill: "bg-[#EC4899]/15 text-[#EC4899]",    card: "border-[#EC4899]/20 bg-[#EC4899]/[0.04]",    text: "text-[#EC4899]" },
 };
 
@@ -183,7 +183,7 @@ export function ProjectCalendar({
     const ungroupedCount = dayEvents.filter((ev) => !assignedIds.has(ev.project.createdBy)).length;
     if (ungroupedCount > 0) {
       rows.push({
-        group: { id: "sin-area", label: "Sin área", color: "#52525B", dot: "bg-[#52525B]", pill: "bg-[#3F3F46] text-[#888888]", card: "border-[#3F3F46] bg-[#27272A]", memberIds: [] },
+        group: { id: "sin-area", label: "Sin área", color: "#52525B", dot: "bg-[var(--surface-alt)]", pill: "bg-[var(--surface-alt)] text-[color:var(--text-muted)]", card: "border-[color:var(--line)] bg-[var(--surface)]", memberIds: [] },
         count: ungroupedCount,
       });
     }
@@ -206,7 +206,7 @@ export function ProjectCalendar({
                 <p className="text-sm font-medium text-accent">{stat.label}</p>
                 <p className="mt-3 text-3xl font-semibold text-foreground">{stat.value}</p>
               </div>
-              <div className="rounded-2xl bg-[#3F3F46] p-3 text-accent">
+              <div className="rounded-2xl bg-[var(--surface-alt)] p-3 text-accent">
                 <CalendarDays className="h-6 w-6" />
               </div>
             </div>
@@ -217,19 +217,19 @@ export function ProjectCalendar({
       {/* ── Buscador rápido (solo admin) ── */}
       {isAdminMode ? (
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#52525B]" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-muted)]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setSelectedDateKey(null); }}
             placeholder="Buscar ingeniero, folio o proyecto..."
-            className="h-11 w-full rounded-2xl border border-[#3F3F46] bg-[#27272A] pl-10 pr-10 text-sm font-semibold text-foreground outline-none transition placeholder:text-[#52525B] focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
+            className="h-11 w-full rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] pl-10 pr-10 text-sm font-semibold text-foreground outline-none transition placeholder:text-[color:var(--text-muted)] focus:border-accent/40 focus:ring-2 focus:ring-accent/10"
           />
           {searchQuery ? (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#52525B] transition hover:text-foreground"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[color:var(--text-muted)] transition hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -240,14 +240,14 @@ export function ProjectCalendar({
       {/* ── Filtro por grupo (solo admin, oculto cuando hay búsqueda activa) ── */}
       {isAdminMode && !normalizedSearch ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-[#888888]">Filtrar:</span>
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">Filtrar:</span>
           <button
             type="button"
             onClick={() => { setSelectedGroupId(null); setSelectedDateKey(null); }}
             className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
               selectedGroupId === null
                 ? "bg-accent text-[#111111]"
-                : "bg-[#27272A] border border-[#3F3F46] text-[#888888] hover:text-white"
+                : "bg-[var(--surface)] border border-[color:var(--line)] text-[color:var(--text-muted)] hover:text-white"
             }`}
           >
             Todos los grupos
@@ -258,7 +258,7 @@ export function ProjectCalendar({
               type="button"
               onClick={() => { setSelectedGroupId(selectedGroupId === g.id ? null : g.id); setSelectedDateKey(null); }}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                selectedGroupId === g.id ? g.pill + " ring-1 ring-current" : "bg-[#27272A] border border-[#3F3F46] text-[#888888] hover:text-white"
+                selectedGroupId === g.id ? g.pill + " ring-1 ring-current" : "bg-[var(--surface)] border border-[color:var(--line)] text-[color:var(--text-muted)] hover:text-white"
               }`}
             >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: g.color }} />
@@ -269,7 +269,7 @@ export function ProjectCalendar({
       ) : null}
 
       {/* ── Calendario ── */}
-      <div className="rounded-[28px] border border-[#3F3F46] bg-[#27272A] p-5 shadow-panel">
+      <div className="rounded-[28px] border border-[color:var(--line)] bg-[var(--surface)] p-5 shadow-panel">
 
         {/* Header */}
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -291,7 +291,7 @@ export function ProjectCalendar({
                   En vivo · {syncLabel()}
                 </span>
               </div>
-              <p className="text-sm text-[#888888]">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 {isAdminMode ? "Haz clic en un día para ver pendientes por grupo" : "Fechas clave · haz clic en un día para ver detalles"}
               </p>
             </div>
@@ -300,12 +300,12 @@ export function ProjectCalendar({
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => canGoPrevious && setVisibleMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
               disabled={!canGoPrevious}
-              className="rounded-full border border-[#3F3F46] bg-[#313136] p-2 text-foreground transition hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full border border-[color:var(--line)] bg-[var(--surface)] p-2 text-foreground transition hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Mes anterior">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button type="button" onClick={() => setVisibleMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-              className="rounded-full border border-[#3F3F46] bg-[#313136] p-2 text-foreground transition hover:bg-accent/10 hover:text-accent"
+              className="rounded-full border border-[color:var(--line)] bg-[var(--surface)] p-2 text-foreground transition hover:bg-accent/10 hover:text-accent"
               aria-label="Mes siguiente">
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -332,7 +332,7 @@ export function ProjectCalendar({
         {/* Grid días */}
         <div className="grid grid-cols-7 gap-1.5">
           {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
-            <div key={d} className="pb-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[#888888]">{d}</div>
+            <div key={d} className="pb-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">{d}</div>
           ))}
 
           {calendarDays.map((day) => {
@@ -359,8 +359,8 @@ export function ProjectCalendar({
                   isSelected
                     ? "border-accent/50 bg-accent/10 ring-1 ring-accent/30"
                     : hasEvents
-                      ? "cursor-pointer border-[#3F3F46] bg-[#313136]/50 hover:border-[#52525B] hover:bg-[#313136]"
-                      : "border-[#3F3F46]/50 bg-[#313136]/20",
+                      ? "cursor-pointer border-[color:var(--line)] bg-[var(--surface)]/50 hover:border-[color:var(--line)] hover:bg-[var(--surface)]"
+                      : "border-[color:var(--line)]/50 bg-[var(--surface)]/20",
                   !isCurrMonth ? "opacity-35" : "",
                 ].join(" ")}
               >
@@ -372,7 +372,7 @@ export function ProjectCalendar({
                     {day.getDate()}
                   </span>
                   {dayEvents.length > 0 ? (
-                    <span className="rounded-full bg-[#3F3F46] px-1.5 py-0.5 text-[9px] font-bold text-[#A1A1AA] sm:text-[10px]">
+                    <span className="rounded-full bg-[var(--surface-alt)] px-1.5 py-0.5 text-[9px] font-bold text-[color:var(--text-muted)] sm:text-[10px]">
                       {dayEvents.length}
                     </span>
                   ) : null}
@@ -424,7 +424,7 @@ export function ProjectCalendar({
                         </div>
                       ))}
                       {dayEvents.length > 2 ? (
-                        <div className="rounded bg-[#3F3F46] px-1.5 py-0.5 text-[10px] font-semibold text-[#888888]">
+                        <div className="rounded bg-[var(--surface-alt)] px-1.5 py-0.5 text-[10px] font-semibold text-[color:var(--text-muted)]">
                           +{dayEvents.length - 2}
                         </div>
                       ) : null}
@@ -439,7 +439,7 @@ export function ProjectCalendar({
 
       {/* ── Panel del día seleccionado ── */}
       {selectedDateKey && selectedDate && selectedEvents.length > 0 ? (
-        <div className="rounded-[28px] border border-accent/20 bg-[#27272A] p-5 shadow-panel">
+        <div className="rounded-[28px] border border-accent/20 bg-[var(--surface)] p-5 shadow-panel">
 
           {/* Header del panel */}
           <div className="mb-4 flex items-start justify-between gap-3">
@@ -455,7 +455,7 @@ export function ProjectCalendar({
               </h3>
             </div>
             <button type="button" onClick={() => setSelectedDateKey(null)}
-              className="shrink-0 rounded-full border border-[#3F3F46] bg-[#313136] p-2 text-[#888888] transition hover:border-danger/30 hover:text-danger">
+              className="shrink-0 rounded-full border border-[color:var(--line)] bg-[var(--surface)] p-2 text-[color:var(--text-muted)] transition hover:border-danger/30 hover:text-danger">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -489,7 +489,7 @@ export function ProjectCalendar({
                         const seq          = (ev.project.structuredName ?? "").split("-")[0];
 
                         return (
-                          <div key={ev.id} className={`flex flex-col gap-3 rounded-[18px] border-l-4 p-4 bg-[#313136] transition hover:bg-[#383840]`}
+                          <div key={ev.id} className={`flex flex-col gap-3 rounded-[18px] border-l-4 p-4 bg-[var(--surface)] transition hover:bg-[var(--surface-alt)]`}
                             style={{ borderLeftColor: ev.type === "importante" ? "#A855F7" : group.color }}>
                             {/* Tipo de fecha + estado */}
                             <div className="flex flex-wrap items-center gap-2">
@@ -512,13 +512,13 @@ export function ProjectCalendar({
                               <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-foreground">
                                 {ev.project.baseName}
                               </p>
-                              <p className="mt-1 text-xs text-[#888888]">
+                              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                                 {ev.project.client} · {ev.project.department}
                               </p>
                               {engineerName ? (
                                 <p className="mt-1 flex items-center gap-1 text-xs">
                                   <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: group.color }} />
-                                  <span className="font-semibold text-[#A1A1AA]">{engineerName}</span>
+                                  <span className="font-semibold text-[color:var(--text-muted)]">{engineerName}</span>
                                 </p>
                               ) : null}
                             </div>
@@ -544,12 +544,12 @@ export function ProjectCalendar({
                 if (ungrouped.length === 0) return null;
                 return (
                   <div key="sin-area">
-                    <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#3F3F46] bg-[#27272A] px-4 py-2.5">
-                      <span className="h-3 w-3 rounded-full bg-[#52525B]" />
-                      <span className="text-xs font-black uppercase tracking-[0.18em] text-[#888888]">
+                    <div className="mb-3 flex items-center gap-2 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-4 py-2.5">
+                      <span className="h-3 w-3 rounded-full bg-[var(--surface-alt)]" />
+                      <span className="text-xs font-black uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
                         Sin área asignada
                       </span>
-                      <span className="ml-auto rounded-full bg-[#3F3F46] px-2 py-0.5 text-[11px] font-bold text-[#888888]">
+                      <span className="ml-auto rounded-full bg-[var(--surface-alt)] px-2 py-0.5 text-[11px] font-bold text-[color:var(--text-muted)]">
                         {ungrouped.length} {ungrouped.length === 1 ? "evento" : "eventos"}
                       </span>
                     </div>
@@ -559,7 +559,7 @@ export function ProjectCalendar({
                         const engineerName = users?.find((u) => u.id === ev.project.createdBy)?.name;
                         const seq          = (ev.project.structuredName ?? "").split("-")[0];
                         return (
-                          <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 border-l-[#52525B] bg-[#313136] p-4 transition hover:bg-[#383840]">
+                          <div key={ev.id} className="flex flex-col gap-3 rounded-[18px] border-l-4 border-l-[#52525B] bg-[var(--surface)] p-4 transition hover:bg-[var(--surface-alt)]">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${dateCfg.pill}`}>{dateCfg.label}</span>
                               <StatusBadge kind="project" value={ev.project.status} />
@@ -570,9 +570,9 @@ export function ProjectCalendar({
                             <div className="flex-1">
                               <p className="font-mono text-[10px] font-bold text-accent">#{seq}</p>
                               <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-foreground">{ev.project.baseName}</p>
-                              <p className="mt-1 text-xs text-[#888888]">{ev.project.client} · {ev.project.department}</p>
+                              <p className="mt-1 text-xs text-[color:var(--text-muted)]">{ev.project.client} · {ev.project.department}</p>
                               {engineerName ? (
-                                <p className="mt-1 text-xs font-semibold text-[#A1A1AA]">{engineerName}</p>
+                                <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">{engineerName}</p>
                               ) : null}
                             </div>
                             <button type="button"
@@ -614,14 +614,14 @@ export function ProjectCalendar({
                     </div>
                     {/* Título de fecha importante */}
                     {isImportant && ev.title ? (
-                      <p className="rounded-xl bg-[#3F3F46] px-3 py-2 text-sm font-bold text-[#A1A1AA] leading-snug">
+                      <p className="rounded-xl bg-[var(--surface-alt)] px-3 py-2 text-sm font-bold text-[color:var(--text-muted)] leading-snug">
                         ★ {ev.title}
                       </p>
                     ) : null}
                     <div className="flex-1">
                       <p className={`font-mono text-[10px] font-bold ${cfg.text}`}>#{seq}</p>
                       <p className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-foreground">{ev.project.baseName}</p>
-                      <p className="mt-1 text-xs text-[#888888]">{ev.project.client} · {ev.project.department}</p>
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">{ev.project.client} · {ev.project.department}</p>
                     </div>
                     <button type="button"
                       onClick={() => { onOpenProject(ev.project.id); setSelectedDateKey(null); }}

@@ -30,13 +30,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (!error) return this.props.children;
 
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#111111] px-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[var(--input-bg)] px-6 text-center">
         <div className="rounded-full bg-danger/10 p-4 ring-1 ring-danger/20">
           <AlertTriangle className="h-8 w-8 text-danger" />
         </div>
         <div className="space-y-2">
           <h1 className="text-lg font-bold text-foreground">Algo salió mal en esta pantalla</h1>
-          <p className="max-w-md text-sm text-[#888888]">
+          <p className="max-w-md text-sm text-[color:var(--text-muted)]">
             El resto del sistema sigue funcionando — recarga la página para continuar.
             Si vuelve a pasar, manda esta captura completa.
           </p>
@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <RefreshCw className="h-4 w-4" />
           Recargar página
         </button>
-        <p className="max-w-lg break-words rounded-xl bg-[#1E1E20] px-4 py-3 font-mono text-xs text-[#71717A]">
+        <p className="max-w-lg break-words rounded-xl bg-[var(--input-bg)] px-4 py-3 font-mono text-xs text-[color:var(--text-muted)]">
           {error.message || String(error)}
         </p>
       </div>

@@ -1,0 +1,60 @@
+:root {
+  --project-panel: #1e1e22;
+  --project-card-top: #303035;
+  --project-card-bottom: #27272b;
+  --project-border: #46464e;
+  --project-rest-shadow: 0 3px 0 #0d0d1026, 0 10px 24px #0002;
+}
+:root[data-theme="light"] {
+  --project-panel: #eee7db;
+  --project-card-top: #fffdf7;
+  --project-card-bottom: #fff8ec;
+  --project-border: #d2c5b1;
+  --project-rest-shadow: 0 3px 0 #b6a58b25, 0 8px 22px #6d51230c;
+}
+
+/* A recessed work surface gives the project cards a distinct, shared base. */
+.engineer-panel:has(> .active-project-grid) {
+  background: var(--project-panel);
+  border: 1px solid var(--project-border);
+  box-shadow: inset 0 1px 0 #ffffff08, inset 0 6px 20px #00000008;
+}
+.engineer-panel:has(> .active-project-grid) > .engineer-panel-heading {
+  border-bottom-color: var(--project-border);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+.active-project-grid { gap: 20px; isolation: isolate; }
+.active-project-grid > .active-project-card {
+  position: relative;
+  background: linear-gradient(155deg, var(--project-card-top), var(--project-card-bottom));
+  border-color: var(--project-border);
+  box-shadow: var(--project-rest-shadow);
+  transform-origin: center;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+
+/* Shared interaction for both themes; retain the theme's original palette. */
+@media (hover: hover) and (pointer: fine) {
+  .active-project-grid > .active-project-card:hover {
+    border-color: #f5a524;
+    box-shadow: 0 0 0 1px #f5a524, 0 8px 12px #00000012, 0 22px 44px #00000030;
+    transform: translateY(-5px) scale(1.012);
+    z-index: 2;
+  }
+  .active-project-card:hover h3 button { color: var(--text); }
+}
+.active-project-grid > .active-project-card:has(:focus-visible) {
+  border-color: #f5a524;
+  box-shadow: 0 0 0 1px #f5a524, 0 16px 36px #0002;
+  z-index: 2;
+}
+body:has(.engineer-workspace) {
+  background: var(--page);
+}
+@media (max-width: 640px) { .active-project-grid { gap: 16px; } }
+@media (prefers-reduced-motion: reduce) {
+  .active-project-grid > .active-project-card { transition: none; }
+  .active-project-grid > .active-project-card:hover { transform: none; }
+}

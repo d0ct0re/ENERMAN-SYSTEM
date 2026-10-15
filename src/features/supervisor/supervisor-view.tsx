@@ -254,7 +254,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
             key={card.title}
             onClick={card.onClick}
             className={cn(
-              "relative overflow-hidden border bg-gradient-to-br from-[#2C2C30] to-[#212124] ring-1 ring-inset ring-white/[0.04] transition-all duration-200",
+              "relative overflow-hidden border bg-gradient-to-br from-[var(--surface)] to-[var(--input-bg)] ring-1 ring-inset ring-white/[0.04] transition-all duration-200",
               card.border,
               "cursor-pointer hover:-translate-y-0.5 hover:border-opacity-70 hover:shadow-card-hover",
             )}
@@ -291,7 +291,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
       {(tab === "all" || tab === "open" || tab === "closed") ? (
         <>
           {/* Toolbar compacta */}
-          <div className="flex flex-col gap-3 rounded-[24px] border border-[#3F3F46] bg-[#27272A] p-4 shadow-soft sm:p-5">
+          <div className="flex flex-col gap-3 rounded-[24px] border border-[color:var(--line)] bg-[var(--surface)] p-4 shadow-soft sm:p-5">
             <div className="flex items-center gap-3">
               <Input
                 value={query}
@@ -300,13 +300,13 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                 className="flex-1 h-10"
               />
               {/* Vista toggle */}
-              <div className="flex rounded-xl border border-[#3F3F46] overflow-hidden">
+              <div className="flex rounded-xl border border-[color:var(--line)] overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setViewMode("cards")}
                   className={cn(
                     "flex items-center px-3 py-2 text-sm transition",
-                    viewMode === "cards" ? "bg-accent text-[#111111]" : "text-[#888888] hover:text-foreground",
+                    viewMode === "cards" ? "bg-accent text-[#111111]" : "text-[color:var(--text-muted)] hover:text-foreground",
                   )}
                   aria-label="Vista tarjetas"
                 >
@@ -316,8 +316,8 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                   type="button"
                   onClick={() => setViewMode("table")}
                   className={cn(
-                    "flex items-center px-3 py-2 text-sm border-l border-[#3F3F46] transition",
-                    viewMode === "table" ? "bg-accent text-[#111111]" : "text-[#888888] hover:text-foreground",
+                    "flex items-center px-3 py-2 text-sm border-l border-[color:var(--line)] transition",
+                    viewMode === "table" ? "bg-accent text-[#111111]" : "text-[color:var(--text-muted)] hover:text-foreground",
                   )}
                   aria-label="Vista tabla"
                 >
@@ -336,7 +336,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                     "rounded-full px-3 py-1 text-xs font-bold transition",
                     yearFilter === y
                       ? "bg-accent text-[#111111]"
-                      : "bg-[#3F3F46] text-[#A1A1AA] hover:bg-[#52525B] hover:text-foreground",
+                      : "bg-[var(--surface-alt)] text-[color:var(--text-muted)] hover:bg-[var(--surface-alt)] hover:text-foreground",
                   )}
                 >{y}</button>
               ))}
@@ -367,7 +367,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
             </FilterGroupAccordion>
             {/* Pie: contador + Ordenar + Limpiar filtros */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <p className="text-xs text-[#888888]">
+              <p className="text-xs text-[color:var(--text-muted)]">
                 Mostrando {filteredProjects.length} de {projects.filter((p) => tab === "all" ? true : tab === "open" ? p.status !== "completed" : p.status === "completed").length} proyecto{projects.length !== 1 ? "s" : ""}
               </p>
               <div className="flex flex-wrap items-center gap-2">
@@ -376,7 +376,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="flex items-center gap-1.5 rounded-xl border border-[#3F3F46] bg-[#313136] px-3 py-1.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-danger/40 hover:text-danger"
+                    className="flex items-center gap-1.5 rounded-xl border border-[color:var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-danger/40 hover:text-danger"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Limpiar filtros
@@ -393,15 +393,15 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                 <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
               ))}
               {filteredProjects.length === 0 && (
-                <p className="py-10 text-center text-sm text-[#888888]">Sin proyectos para los filtros seleccionados</p>
+                <p className="py-10 text-center text-sm text-[color:var(--text-muted)]">Sin proyectos para los filtros seleccionados</p>
               )}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-[24px] border border-[#3F3F46] bg-[#27272A] shadow-soft">
+            <div className="overflow-hidden rounded-[24px] border border-[color:var(--line)] bg-[var(--surface)] shadow-soft">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[#3F3F46] text-xs font-semibold uppercase tracking-[0.14em] text-[#888888]">
+                    <tr className="border-b border-[color:var(--line)] text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
                       <th className="px-5 py-3 text-left">Folio</th>
                       <th className="px-5 py-3 text-left">Nombre</th>
                       <th className="px-5 py-3 text-left">Cliente</th>
@@ -411,22 +411,22 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                       <th className="px-5 py-3 text-left">Compromiso</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#3F3F46]">
+                  <tbody className="divide-y divide-[color:var(--line)]">
                     {filteredProjects.map((project) => {
                       const seq = getProjectSequence(project);
                       return (
                         <tr
                           key={project.id}
-                          className="cursor-pointer transition hover:bg-[#313136]"
+                          className="cursor-pointer transition hover:bg-[var(--surface)]"
                           onClick={() => onOpenProject(project.id)}
                         >
                           <td className="px-5 py-3 font-mono text-xs text-accent">{seq}</td>
                           <td className="px-5 py-3 font-medium text-foreground max-w-[220px] truncate">{project.baseName}</td>
-                          <td className="px-5 py-3 text-[#A1A1AA] max-w-[120px] truncate">{project.client}</td>
-                          <td className="px-5 py-3 text-[#888888]">{project.type}</td>
+                          <td className="px-5 py-3 text-[color:var(--text-muted)] max-w-[120px] truncate">{project.client}</td>
+                          <td className="px-5 py-3 text-[color:var(--text-muted)]">{project.type}</td>
                           <td className="px-5 py-3"><StatusBadge kind="project" value={project.status} /></td>
                           <td className="px-5 py-3"><StatusBadge kind="payment" value={project.paymentStatus} /></td>
-                          <td className="px-5 py-3 text-[#888888]">
+                          <td className="px-5 py-3 text-[color:var(--text-muted)]">
                             {project.commitmentDate
                               ? new Date(project.commitmentDate).toLocaleDateString("es-MX")
                               : "—"}
@@ -436,7 +436,7 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                     })}
                     {filteredProjects.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-10 text-center text-sm text-[#888888]">
+                        <td colSpan={7} className="px-6 py-10 text-center text-sm text-[color:var(--text-muted)]">
                           Sin resultados
                         </td>
                       </tr>
@@ -465,12 +465,12 @@ export function SupervisorView({ tab, onTabChange, activeUserName, projects, req
                 placeholder="Buscar por N° proyecto, nombre o cliente…"
                 className="h-9 w-72"
               />
-              <span className="shrink-0 rounded-full bg-[#3F3F46] px-3 py-1 text-xs font-semibold text-[#A1A1AA]">Solo lectura</span>
+              <span className="shrink-0 rounded-full bg-[var(--surface-alt)] px-3 py-1 text-xs font-semibold text-[color:var(--text-muted)]">Solo lectura</span>
             </div>
           </div>
           {sortedRequests.length === 0 ? (
-            <div className="rounded-[28px] border border-dashed border-[#3F3F46] py-16 text-center">
-              <p className="text-sm font-semibold text-[#888888]">
+            <div className="rounded-[28px] border border-dashed border-[color:var(--line)] py-16 text-center">
+              <p className="text-sm font-semibold text-[color:var(--text-muted)]">
                 {requests.length === 0 ? "No hay solicitudes registradas" : "Sin resultados para la búsqueda"}
               </p>
             </div>
@@ -516,13 +516,13 @@ function filterBorderBg(variant: FilterGroupVariant, isActive: boolean): string 
   }
   return isActive
     ? "border-accent/40 bg-gradient-to-b from-accent/20 to-accent/5 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]"
-    : "border-[#3F3F46] bg-gradient-to-b from-[#38383D] to-[#2C2C30] hover:border-white/20 hover:from-[#3D3D42]";
+    : "border-[color:var(--line)] bg-gradient-to-b from-[var(--surface-alt)] to-[var(--surface)] hover:border-white/20 hover:from-[var(--surface-alt)]";
 }
 function filterLabelText(variant: FilterGroupVariant, isActive: boolean): string {
   if (variant === "finance") return isActive ? "text-[#93C5FD]" : "text-[#60A5FA]";
   if (variant === "administrativo") return isActive ? "text-[#C4B5FD]" : "text-[#A78BFA]";
   if (variant === "operativo") return isActive ? "text-[#FDE68A]" : "text-[#E3A94F]";
-  return isActive ? "text-accent" : "text-[#888888]";
+  return isActive ? "text-accent" : "text-[color:var(--text-muted)]";
 }
 function filterValueText(variant: FilterGroupVariant, isActive: boolean): string {
   if (variant === "finance") return isActive ? "text-[#BFDBFE]" : "text-[#93C5FD]";
@@ -535,13 +535,13 @@ function filterHeaderIconBg(variant: FilterGroupVariant): string {
   if (variant === "finance") return "bg-[#3B82F6]";
   if (variant === "administrativo") return "bg-[#8B5CF6]";
   if (variant === "operativo") return "bg-[#F5A524]";
-  return "bg-[#3F3F46]";
+  return "bg-[var(--surface-alt)]";
 }
 function filterHeaderChevronBg(variant: FilterGroupVariant): string {
   if (variant === "finance") return "bg-[#3B82F6]/20 text-[#60A5FA]";
   if (variant === "administrativo") return "bg-[#8B5CF6]/20 text-[#A78BFA]";
   if (variant === "operativo") return "bg-[#F5A524]/20 text-[#E3A94F]";
-  return "bg-[#3F3F46] text-[#888888]";
+  return "bg-[var(--surface-alt)] text-[color:var(--text-muted)]";
 }
 
 // Acordeón de filtros — cabecera con ícono representativo del grupo, cerrado por
@@ -618,7 +618,7 @@ function CompactSelect({ label, options, value, onChange, variant = "default", l
       )}
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[#3F3F46] bg-[#1E1E20] p-1.5 shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-60 min-w-[160px] overflow-y-auto rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] p-1.5 shadow-xl">
           {options.map((opt) => (
             <button
               key={opt}
@@ -627,7 +627,7 @@ function CompactSelect({ label, options, value, onChange, variant = "default", l
               className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors ${
                 opt === value
                   ? "bg-accent/15 text-accent"
-                  : "text-[#A1A1AA] hover:bg-[#313136] hover:text-foreground"
+                  : "text-[color:var(--text-muted)] hover:bg-[var(--surface)] hover:text-foreground"
               }`}
             >
               {opt}

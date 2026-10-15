@@ -17,10 +17,11 @@ interface ProjectCardProps {
   project: ProjectItem;
   onOpen: (projectId: string) => void;
   showNewBadge?: boolean;
+  showFinancialPhases?: boolean;
   assignedEngineerName?: string;
 }
 
-export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEngineerName }: ProjectCardProps): JSX.Element {
+export function ProjectCard({ project, onOpen, showNewBadge = false, showFinancialPhases = true, assignedEngineerName }: ProjectCardProps): JSX.Element {
   const isInactive = daysSince(project.updatedAt) >= 14;
   const showNew = showNewBadge && isNewItem(project.createdAt);
   const consecutivo = (project.structuredName ?? "").split("-")[0] || "—";
@@ -31,11 +32,11 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
     { label: "F2", done: isProjectF2Complete(project) },
     { label: "F3", done: !!(project.totalSinIva && project.totalSinIva > 0) },
     { label: "F4", done: !!(project.pagosProyecto?.length) },
-  ];
+  ].filter(phase => showFinancialPhases || phase.label === "F1" || phase.label === "F2");
 
   return (
     <Card
-      className={`group flex h-full cursor-pointer flex-col gap-4 border-white/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-[#2B2B2F] hover:shadow-card-hover sm:p-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${priorityAccent[project.priority]}`}
+      className={`group flex h-full cursor-pointer flex-col gap-4 border-white/[0.07] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/15 hover:bg-[var(--surface)] hover:shadow-card-hover sm:p-5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center ${priorityAccent[project.priority]}`}
       onClick={() => onOpen(project.id)}
     >
       <div className="flex items-start justify-between gap-3 lg:min-w-0">
@@ -45,18 +46,18 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">
               {project.client} · {project.department}
             </span>
-            <span className="rounded-md bg-[#3F3F46]/80 px-1.5 py-0.5 text-[10px] font-bold text-[#A1A1AA]">
+            <span className="rounded-md bg-[var(--surface-alt)]/80 px-1.5 py-0.5 text-[10px] font-bold text-[color:var(--text-muted)]">
               {project.type} · {PROJECT_TYPE_LABELS[project.type]}
             </span>
           </div>
           <div>
             <h3 className="line-clamp-2 text-[17px] font-bold leading-snug text-foreground lg:truncate">{project.baseName}</h3>
-            <p className="mt-0.5 text-xs text-[#888888]">{project.structuredName}</p>
+            <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">{project.structuredName}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <PriorityBadge priority={project.priority} />
             {assignedEngineerName ? (
-              <div className="flex items-center gap-1.5 text-xs text-[#888888]">
+              <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
                 <User className="h-3 w-3 shrink-0" />
                 {assignedEngineerName}
               </div>
@@ -70,7 +71,7 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
                 className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                   ph.done
                     ? "bg-accent/15 text-accent"
-                    : "bg-[#3F3F46]/60 text-[#52525B]"
+                    : "bg-[var(--surface-alt)]/60 text-[color:var(--text-muted)]"
                 }`}
               >
                 {ph.label}
@@ -105,12 +106,12 @@ export function ProjectCard({ project, onOpen, showNewBadge = false, assignedEng
 
       <div className="mt-auto flex flex-col gap-4 border-t border-white/[0.07] pt-4 sm:flex-row sm:items-end sm:justify-between lg:mt-0 lg:border-t-0 lg:pt-0">
         <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#888888]">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[color:var(--text-muted)]">
             <CalendarClock className="h-3.5 w-3.5" />
             Compromiso
           </div>
           <p className="text-sm font-bold text-foreground">{formatOptionalDate(project.commitmentDate)}</p>
-          <p className="text-xs text-[#888888]">Agregado: {formatDate(project.createdAt)}</p>
+          <p className="text-xs text-[color:var(--text-muted)]">Agregado: {formatDate(project.createdAt)}</p>
         </div>
         <Button
           variant="outline"

@@ -14,10 +14,10 @@ export function AmperLogo({ onClick, className }: AmperLogoProps): JSX.Element {
       onClick={onClick}
       aria-label="ENERMAN — inicio"
       className={cn(
-        "inline-flex items-center rounded-xl transition-all duration-150",
-        "hover:scale-105 hover:brightness-110",
+        "inline-flex min-h-11 items-center rounded-xl transition-all duration-150",
+        "hover:opacity-90",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50",
-        "active:scale-95",
+        "motion-reduce:transition-none",
         className,
       )}
     >
@@ -27,6 +27,7 @@ export function AmperLogo({ onClick, className }: AmperLogoProps): JSX.Element {
         className="h-9 w-auto sm:h-10 object-contain"
         draggable={false}
       />
+      <span className="enerman-logo-light" aria-hidden="true" />
     </button>
   );
 }

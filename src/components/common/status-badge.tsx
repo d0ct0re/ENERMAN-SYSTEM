@@ -43,17 +43,17 @@ const labelMap: Record<StatusBadgeProps["kind"], Record<string, string>> = {
 
 const toneMap: Record<string, string> = {
   // project
-  "en-programacion":      "bg-[#3F3F46] text-[#888888]",
+  "en-programacion":      "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",
   "en-concurso":          "bg-blue-900/40 text-blue-400 ring-1 ring-blue-500/30",
   "in-progress":          "bg-secondary/15 text-secondary ring-1 ring-secondary/30",
   "pendiente-aprobacion": "bg-[#F5A524]/15 text-[#F5A524] ring-1 ring-[#F5A524]/30",
   "pendiente-autorizar":  "bg-[#F5A524]/15 text-[#F5A524] ring-1 ring-[#F5A524]/30",
   reasignado:             "bg-purple-900/40 text-purple-400 ring-1 ring-purple-500/30",
-  "cierre-por-sistema":   "bg-[#3F3F46] text-[#888888]",
+  "cierre-por-sistema":   "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",
   comparativa:            "bg-blue-900/40 text-blue-400 ring-1 ring-blue-500/30",
   "no-autorizado":        "bg-[#E24B4A]/15 text-[#E24B4A] ring-1 ring-[#E24B4A]/30",
   completed:              "bg-[#2DBE7A]/15 text-[#2DBE7A] ring-1 ring-[#2DBE7A]/30",
-  cancelled:              "bg-[#3F3F46] text-[#71717A]",
+  cancelled:              "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",
   // request
   "under-review":       "bg-[#F5A524]/15 text-[#F5A524] ring-1 ring-[#F5A524]/30",
   "needs-correction":   "bg-[#F5A524]/15 text-[#F5A524] ring-1 ring-[#F5A524]/30",
@@ -69,21 +69,21 @@ const toneMap: Record<string, string> = {
   "en-portal":"bg-purple-900/40 text-purple-400 ring-1 ring-purple-500/30",
   enviada:    "bg-secondary/15 text-secondary ring-1 ring-secondary/30",
   pagada:     "bg-[#2DBE7A]/15 text-[#2DBE7A] ring-1 ring-[#2DBE7A]/30",
-  cancelada:  "bg-[#3F3F46] text-[#71717A]",
+  cancelada:  "bg-[var(--surface-alt)] text-[color:var(--text-muted)]",
 };
 
 const dotMap: Record<string, string> = {
-  "en-programacion":      "bg-[#71717A]",
+  "en-programacion":      "bg-[var(--surface-alt)]",
   "en-concurso":          "bg-blue-400",
   "in-progress":          "bg-secondary",
   "pendiente-aprobacion": "bg-[#F5A524]",
   "pendiente-autorizar":  "bg-[#F5A524]",
   reasignado:             "bg-purple-400",
-  "cierre-por-sistema":   "bg-[#888888]",
+  "cierre-por-sistema":   "bg-[var(--surface-alt)]",
   comparativa:            "bg-blue-400",
   "no-autorizado":        "bg-[#E24B4A]",
   completed:              "bg-[#2DBE7A]",
-  cancelled:              "bg-[#71717A]",
+  cancelled:              "bg-[var(--surface-alt)]",
   "under-review":         "bg-[#F5A524]",
   "needs-correction":     "bg-[#F5A524]",
   rejected:               "bg-[#E24B4A]",
@@ -96,13 +96,13 @@ const dotMap: Record<string, string> = {
   "en-portal":            "bg-purple-400",
   enviada:                "bg-secondary",
   pagada:                 "bg-[#2DBE7A]",
-  cancelada:              "bg-[#71717A]",
+  cancelada:              "bg-[var(--surface-alt)]",
 };
 
 export function StatusBadge({ kind, value }: StatusBadgeProps): JSX.Element {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold", toneMap[value] ?? "bg-[#3F3F46] text-[#888888]")}>
-      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotMap[value] ?? "bg-[#888888]")} />
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold", toneMap[value] ?? "bg-[var(--surface-alt)] text-[color:var(--text-muted)]")}>
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotMap[value] ?? "bg-[var(--surface-alt)]")} />
       {labelMap[kind][value] ?? value}
     </span>
   );

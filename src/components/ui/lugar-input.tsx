@@ -155,42 +155,42 @@ export function LugarInput({ value, onChange, className }: LugarInputProps): JSX
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex w-full items-center justify-between rounded-[14px] border bg-[#27272A] px-4 py-3 text-sm text-left transition focus:outline-none",
-          open ? "border-accent/60" : "border-[#3F3F46] hover:border-accent/30",
+          "flex w-full items-center justify-between rounded-[14px] border bg-[var(--surface)] px-4 py-3 text-sm text-left transition focus:outline-none",
+          open ? "border-accent/60" : "border-[color:var(--line)] hover:border-accent/30",
         )}
       >
         <span className="flex items-center gap-2 min-w-0">
-          <MapPin className="h-4 w-4 shrink-0 text-[#888888]" />
+          <MapPin className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
           {value ? (
             <span className="truncate font-medium text-foreground">{value}</span>
           ) : (
-            <span className="text-[#71717A]">Lugar</span>
+            <span className="text-[color:var(--text-muted)]">Lugar</span>
           )}
         </span>
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 text-[#888888] transition-transform duration-200", open && "rotate-180")}
+          className={cn("h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition-transform duration-200", open && "rotate-180")}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-[#3F3F46] bg-[#1E1E20] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-[color:var(--line)] bg-[var(--input-bg)] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
           {/* Search bar */}
-          <div className="flex items-center gap-2 border-b border-[#3F3F46] px-3 py-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-[#888888]" />
+          <div className="flex items-center gap-2 border-b border-[color:var(--line)] px-3 py-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
             <input
               ref={searchRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar lugar…"
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-[#71717A] focus:outline-none"
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-[color:var(--text-muted)] focus:outline-none"
             />
             {search && (
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setSearch("")}
-                className="text-[#888888] hover:text-foreground"
+                className="text-[color:var(--text-muted)] hover:text-foreground"
               >
                 ×
               </button>
@@ -204,14 +204,14 @@ export function LugarInput({ value, onChange, className }: LugarInputProps): JSX
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(trimmed)}
-                className="flex w-full items-center gap-2 border-b border-[#3F3F46] px-4 py-2.5 text-left text-sm text-accent transition hover:bg-accent/10"
+                className="flex w-full items-center gap-2 border-b border-[color:var(--line)] px-4 py-2.5 text-left text-sm text-accent transition hover:bg-accent/10"
               >
                 <Plus className="h-3.5 w-3.5 shrink-0" />
                 Usar: &ldquo;{trimmed}&rdquo;
               </button>
             )}
             {filtered.length === 0 && !showCustomOption ? (
-              <p className="px-4 py-3 text-sm text-[#888888]">Sin resultados</p>
+              <p className="px-4 py-3 text-sm text-[color:var(--text-muted)]">Sin resultados</p>
             ) : (
               filtered.map((lugar) => (
                 <button
@@ -221,7 +221,7 @@ export function LugarInput({ value, onChange, className }: LugarInputProps): JSX
                   onClick={() => handleSelect(lugar)}
                   className={cn(
                     "flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-accent/10",
-                    value === lugar ? "text-accent font-medium" : "text-[#D4D4D8]",
+                    value === lugar ? "text-accent font-medium" : "text-[color:var(--text)]",
                   )}
                 >
                   {lugar}
@@ -231,8 +231,8 @@ export function LugarInput({ value, onChange, className }: LugarInputProps): JSX
           </div>
 
           {/* Footer hint */}
-          <div className="border-t border-[#3F3F46] px-4 py-2">
-            <span className="text-[10px] text-[#555558]">{filtered.length} lugar{filtered.length !== 1 ? "es" : ""}</span>
+          <div className="border-t border-[color:var(--line)] px-4 py-2">
+            <span className="text-[10px] text-[color:var(--text-muted)]">{filtered.length} lugar{filtered.length !== 1 ? "es" : ""}</span>
           </div>
         </div>
       )}

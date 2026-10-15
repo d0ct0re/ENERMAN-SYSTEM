@@ -54,7 +54,8 @@
   }
 
   .dashboard-shell {
-    @apply mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 pb-10 pt-4 sm:px-6 lg:px-8;
+    @apply flex min-h-screen w-full min-w-0 flex-col px-3 pb-6 pt-3 sm:px-5 lg:px-6;
+    min-height: 100dvh;
   }
 
   .chip-scroll {

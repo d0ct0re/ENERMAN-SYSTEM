@@ -11,3 +11,6 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+import "@/styles/theme.css";
+import "@/components/cards/project-surfaces.css";
