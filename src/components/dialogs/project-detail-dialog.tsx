@@ -876,6 +876,7 @@ export function ProjectDetailDialog({
     const nombreIncompleto = !isFilled(f1Client) || !isFilled(f1Department) || !isFilled(f1Type) || !isFilled(f1Lugar) || !isFilled(f1BaseName);
     if (nombreIncompleto) {
       onToast?.("No se puede guardar el proyecto sin nombre completo");
+      onOpenChange(false);
       return;
     }
     setSavingF1(true);
@@ -909,6 +910,7 @@ export function ProjectDetailDialog({
         assignedEngineerId: f1EngineerId || undefined,
       });
       onToast?.(f1MissingKeys.size > 0 ? "Apertura guardada — rellena los campos marcados en rojo" : "Apertura guardada correctamente");
+      onOpenChange(false);
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF1(false); }
   };
@@ -930,6 +932,7 @@ export function ProjectDetailDialog({
         comentariosCampo: f2Comentarios || undefined,
       });
       onToast?.(f2MissingKeys.size > 0 ? "Ejecución guardada — rellena los campos marcados en rojo" : "Ejecución guardada correctamente");
+      onOpenChange(false);
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF2(false); }
   };
@@ -956,6 +959,7 @@ export function ProjectDetailDialog({
         comentariosDireccion: f3ComentariosDireccion || undefined,
       });
       onToast?.(f3MissingKeys.size > 0 ? "Financiero guardado — rellena los campos marcados en rojo" : "Financiero guardado correctamente");
+      onOpenChange(false);
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF3(false); }
   };
@@ -983,6 +987,7 @@ export function ProjectDetailDialog({
         estatusPagoFinal: f4EstatusFinal,
       });
       onToast?.("Pagos guardados correctamente");
+      onOpenChange(false);
     } catch { /* error ya mostrado via toast en handleUpdateProject */ }
     finally { setSavingF4(false); }
   };
@@ -1067,7 +1072,7 @@ export function ProjectDetailDialog({
         type="button"
         onClick={onClick}
         disabled={saving}
-        className="mt-1 w-full rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] py-3.5 text-sm font-bold text-foreground transition hover:bg-[var(--surface-alt)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="project-detail-dialog__save-button mt-1 w-full rounded-2xl border border-[color:var(--line)] bg-[var(--surface)] py-3.5 text-sm font-bold text-foreground transition disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving ? "Guardando..." : label}
       </button>

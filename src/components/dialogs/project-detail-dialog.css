@@ -10,13 +10,13 @@
 .project-detail-dialog__toolbar > .chip-scroll > button { padding: 5px 12px; font-size: 12px; min-height: 32px; box-shadow: none; }
 .project-detail-dialog__phase-tabs { margin-top: 8px; }
 .project-detail-dialog__phase-tabs { margin-bottom: 4px; }
-.project-detail-dialog:has(.step-form) { height: auto; max-height: min(92dvh, 860px); }
+.project-detail-dialog:has(.step-form) { height: min(92dvh, 740px); max-height: min(92dvh, 740px); }
 .project-detail-dialog:has(.step-form) .project-detail-dialog__body,
 .project-detail-dialog__body--flow > .project-detail-dialog__info,
 .project-detail-dialog__body--flow .project-detail-dialog__phase,
 .project-detail-dialog .step-form,
-.project-detail-dialog .step-form__fields { flex: 0 1 auto; }
-.project-detail-dialog .step-form { height: auto; }
+.project-detail-dialog .step-form__fields { flex: 1; min-height: 0; }
+.project-detail-dialog .step-form { height: 100%; }
 .project-detail-dialog .project-detail-dialog__body { flex: 1; padding: 12px 20px; overscroll-behavior: contain; }
 .project-detail-dialog .project-detail-dialog__body--flow { display: flex; flex-direction: column; overflow: hidden; padding-top: 0; padding-bottom: 12px; }
 .project-detail-dialog__body--flow > .project-detail-dialog__info,
@@ -29,7 +29,29 @@
 .project-detail-dialog .step-form__step > .rounded-2xl,
 .project-detail-dialog .step-form__step > div > .rounded-2xl { padding: 10px; border-radius: 8px; }
 .project-detail-dialog .step-form__step > .grid { gap: 10px 16px; }
+.project-detail-dialog button { transition: transform 180ms ease, background-color 240ms ease, border-color 240ms ease, color 240ms ease, box-shadow 180ms ease, filter 180ms ease; }
+.project-detail-dialog .step-form__footer button,
+.project-detail-dialog .project-detail-dialog__save-button { background: var(--surface); color: var(--text); border: 1px solid var(--line); font-weight: 600; }
+.project-detail-dialog button:focus-visible { outline: 2px solid #f5a524; outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .project-detail-dialog button:hover:not(:disabled):not([aria-disabled="true"]) { transform: translateY(-2px); filter: brightness(1.12); box-shadow: 0 3px 8px var(--shadow); }
+  .project-detail-dialog .step-form__steps button:hover:not(:disabled),
+  .project-detail-dialog .phase-navigation__item:hover:not(:disabled) { background: var(--surface-alt); color: var(--accent-text); }
+  .project-detail-dialog .phase-navigation__item:hover:not(:disabled) strong { color: var(--accent-text); }
+  .project-detail-dialog .step-form__footer button:hover:not(:disabled),
+  .project-detail-dialog .project-detail-dialog__save-button:hover:not(:disabled) { background: #f5a524; border-color: #f5a524; color: #231806; filter: none; }
+}
+.project-detail-dialog .step-form__footer button:focus-visible,
+.project-detail-dialog .project-detail-dialog__save-button:focus-visible,
+.project-detail-dialog .step-form__footer button:active:not(:disabled),
+.project-detail-dialog .project-detail-dialog__save-button:active:not(:disabled) { background: #f5a524; border-color: #f5a524; color: #231806; }
+.project-detail-dialog button:active:not(:disabled):not([aria-disabled="true"]) { transform: translateY(0) scale(.98); box-shadow: none; }
+@media (prefers-reduced-motion: reduce) {
+  .project-detail-dialog button { transition: none; }
+  .project-detail-dialog button:hover:not(:disabled), .project-detail-dialog button:active:not(:disabled) { transform: none; }
+}
 @media (max-width: 640px) {
+  .project-detail-dialog:has(.step-form) { height: calc(100dvh - 24px); max-height: min(92dvh, calc(100dvh - 24px)); }
   .project-detail-dialog { height: calc(100dvh - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
   .project-detail-dialog > div:first-child { padding: 10px 12px 6px; }
   .project-detail-dialog > div:first-child h2 { font-size: 15px; }

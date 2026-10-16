@@ -90,3 +90,8 @@ FTPS → `main`.
 - Rama compartida: interfaz_ingeniero. Cambios de interfaz, dashboard y modales reutilizables de fases 1 y 2; sin merge a main/dev ni despliegue.
 - Build y pruebas locales de pasos, datos y mobile aprobadas. Instrucciones: docs/PRUEBAS-INTERFAZ-INGENIERO.md.
 - Demo de grafica solo DEV; retirar TODO: REMOVE_DEMO_CHART_DATA antes de entrega final.
+
+### Actualizacion de interfaz (Windows, 2026-10-16)
+- Rama interfaz_ingeniero: Recharts, simplificacion de KPIs y navegacion de fases, transiciones de pasos, modal de altura estable, hover de botones y cierre tras guardar correctamente.
+- Se conserva la curva anterior al experimento de redondeado. Datos de grafica memorizados para evitar reinicios por movimiento del cursor.
+- Compartir por rama para localhost; sin merge ni deploy. Instalar dependencias con npm ci tras actualizar.

@@ -50,3 +50,8 @@
   .engineer-home-heading { align-items: flex-start; }
   .engineer-home-heading h1 { font-size: 20px; }
 }
+
+.engineer-project-chart .recharts-tooltip-wrapper .engineer-project-chart__tooltip { position: static; }
+.engineer-project-chart__months button[data-hovered] { color: var(--accent-text); }
+.engineer-project-chart .recharts-wrapper:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .engineer-project-chart__canvas.is-revealing .recharts-area { animation-duration: 1ms; } }
